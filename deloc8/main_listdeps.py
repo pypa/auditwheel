@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 def configure_parser(sub_parsers):
     p = sub_parsers.add_parser(
         'listdeps',
+        help="List shard library dependencies of a wheel",
         description="List shard library dependencies of a wheel")
     p.add_argument('wheel', help='Path to wheel file')
     p.set_defaults(func=execute)

@@ -1,9 +1,13 @@
+import sys
 import glob
 import argparse
 import logging
 
 
 def main():
+    if len(sys.argv) == 1:
+        sys.argv.append('-h')
+
     p = argparse.ArgumentParser()
     p.add_argument("--debug", action="store_true", help="Show debug output.")
     sub_parsers = p.add_subparsers(metavar='command', dest='cmd')
