@@ -7,11 +7,8 @@ from typing import Iterator, Tuple
 from wheel.util import native
 
 from .genericpkgctx import InGenericPkgCtx
-from .readelf import (
-    elf_file_filter,
-    elf_inspect_dynamic,
-    elf_find_external_references,
-    elf_find_versioned_symbols)
+from .readelf import (elf_file_filter, elf_inspect_dynamic,
+                      elf_find_external_references, elf_find_versioned_symbols)
 from .versym import check_versioned_symbols_policy
 
 log = logging.getLogger(__name__)
@@ -36,11 +33,9 @@ def execute(args, p):
             for key, value in elf_find_versioned_symbols(elf):
                 versioned_symbols[key].add(value)
 
-                
     versioned_symbols = {k: sorted(v) for k, v in versioned_symbols.items()}
     print('\n%s references the following external '
-          'shared library dependencies:' %
-          os.path.basename(args.wheel))
+          'shared library dependencies:' % os.path.basename(args.wheel))
     print(json.dumps(external_refs, indent=4))
     print('\n%s references the versioned external symbols with '
           'the following versions:' % os.path.basename(args.wheel))

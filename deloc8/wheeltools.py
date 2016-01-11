@@ -18,6 +18,7 @@ from wheel.install import WheelFile
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip
 
+
 class WheelToolsError(Exception):
     pass
 
@@ -66,8 +67,7 @@ def rewrite_record(bdist_dir):
                 digest = hashlib.sha256(data).digest()
                 hash = 'sha256=' + native(urlsafe_b64encode(digest))
                 size = len(data)
-            record_path = relpath(
-                path, bdist_dir).replace(psep, '/')
+            record_path = relpath(path, bdist_dir).replace(psep, '/')
             writer.writerow((record_path, hash, size))
 
 
@@ -78,6 +78,7 @@ class InWheel(InTemporaryDirectory):
     asked for an output wheel, then on exit we'll rewrite the wheel record and
     pack stuff up for you.
     """
+
     def __init__(self, in_wheel, out_wheel=None, ret_self=False):
         """ Initialize in-wheel context manager
 
@@ -122,6 +123,7 @@ class InWheelCtx(InWheel):
     The current path of the wheel contents is set in the attribute
     ``wheel_path``.
     """
+
     def __init__(self, in_wheel, out_wheel=None):
         """ Init in-wheel context manager returning self from enter
 
@@ -141,8 +143,7 @@ class InWheelCtx(InWheel):
         return self
 
     def iter_files(self):
-        record_names = glob.glob(os.path.join(
-            self.path, '*.dist-info/RECORD'))
+        record_names = glob.glob(os.path.join(self.path, '*.dist-info/RECORD'))
         if len(record_names) != 1:
             raise ValueError("Should be exactly one `*.dist_info` directory")
 
@@ -154,7 +155,6 @@ class InWheelCtx(InWheel):
             yield filename
 
 
-    
 def add_platforms(in_wheel, platforms, out_path=None, clobber=False):
     """ Add platform tags `platforms` to `in_wheel` filename and WHEEL tags
 

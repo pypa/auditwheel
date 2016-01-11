@@ -5,16 +5,8 @@ import logging
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument(
-        "--debug",
-        action = "store_true",
-        help = "Show debug output."
-    )
-
-    sub_parsers = p.add_subparsers(
-                metavar = 'command',
-                dest = 'cmd',
-    )
+    p.add_argument("--debug", action="store_true", help="Show debug output.")
+    sub_parsers = p.add_subparsers(metavar='command', dest='cmd')
 
     from . import main_listdeps
     main_listdeps.configure_parser(sub_parsers)

@@ -2,7 +2,10 @@ from .wheeltools import InWheelCtx
 from .condatools import InCondaPkgCtx
 
 
-def InGenericPkgCtx(in_path, out_path=None):    
+def InGenericPkgCtx(in_path, out_path=None):
+    """Factory that returns a InWheelCtx or InCondaPkgCtx
+    context manager depending on the file extension
+    """
     if in_path.endswith('.whl'):
         return InWheelCtx(in_path, out_path)
     if in_path.endswith('.tar.bz2'):

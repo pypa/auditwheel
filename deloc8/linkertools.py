@@ -33,7 +33,7 @@ SONAME_WHITELIST = [
 ]
 
 
-def locate_with_ldpaths(lib: str, ldpaths: List[str] = []) -> Optional[str]:
+def locate_with_ldpaths(lib: str, ldpaths: List[str]=[]) -> Optional[str]:
     log.debug('locate_with_ldpaths: %s %s', lib, ldpaths)
     for ldpath in ldpaths:
         path = os.path.join(ldpath, lib)

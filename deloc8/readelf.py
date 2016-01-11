@@ -9,13 +9,9 @@ from elftools.common.exceptions import ELFError
 from elftools.elf.dynamic import DynamicSection
 from elftools.elf.elffile import ELFFile
 
-from .linkertools import (
-    SONAME_WHITELIST,
-    is_whitelisted,
-    ld_library_paths,
-    parse_ld_path,
-    locate_with_ldpaths,
-    locate_with_ld_so)
+from .linkertools import (SONAME_WHITELIST, is_whitelisted, ld_library_paths,
+                          parse_ld_path, locate_with_ldpaths,
+                          locate_with_ld_so)
 
 log = logging.getLogger(__name__)
 
@@ -48,13 +44,11 @@ def elf_inspect_dynamic(fn, elf) -> Tuple[List[str], List[str]]:
             if tag.entry.d_tag == 'DT_NEEDED':
                 dt_needed.append(tag.needed.decode('utf-8'))
             elif tag.entry.d_tag == 'DT_RPATH':
-                dt_rpath.extend(parse_ld_path(
-                    tag.rpath.decode('utf-8')))
+                dt_rpath.extend(parse_ld_path(tag.rpath.decode('utf-8')))
             elif tag.entry.d_tag == 'DT_RUNPATH':
-                dt_runpath.extend(parse_ld_path(
-                    tag.runpath.decode('utf-8')))
+                dt_runpath.extend(parse_ld_path(tag.runpath.decode('utf-8')))
 
-    def replace(p : str) -> str:
+    def replace(p: str) -> str:
         return p.replace('$ORIGIN', os.path.dirname(fn))
 
     if dt_runpath:
@@ -97,5 +91,3 @@ def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
             for vernaux in verneed_iter:
                 yield (verneed.name.decode('utf-8'),
                        vernaux.name.decode('utf-8'))
-
-    

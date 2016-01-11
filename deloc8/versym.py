@@ -17,7 +17,8 @@ SYMBOL_VERSION_POLCIES = OrderedDict(((
         'CXXABI': Version('3.4.8'),  # libstdc++.so.6
         'GLIBCXX': Version('1.3.1'),  # libstdc++.so.6
         'GCC': Version('4.2.0')  # libgcc_s.so.1
-    }), ))
+    }),
+))
 
 
 def check_versioned_symbols_policy(data: Dict[str, Sequence[str]]) -> str:
@@ -34,18 +35,21 @@ def check_versioned_symbols_policy(data: Dict[str, Sequence[str]]) -> str:
 
     log.debug('Required symbol versions: %s', max_required_ver)
 
-    # if nothing matches, the fallback is 'linux'
-    matching_policy = 'linux'
-
-    for tag, policy in SYMBOL_VERSION_POLCIES.items():
+    def policy_is_satisfied(tag: str, policy: Dict[str, Version]):
         for name in (set(max_required_ver.keys()) & set(policy.keys())):
-            if max_required_ver[name] <= policy[name]:
-                matching_policy = tag
-                break
-            else:
+            if max_required_ver[name] > policy[name]:
                 log.debug('Package requires %s_%s, incompatible with policy '
                           '%s which requires <= %s_%s', name,
                           max_required_ver[name], tag, name, policy[name])
+                return False
+        return True
+
+    # if nothing matches, the fallback is 'linux'
+    matching_policy = 'linux'
+    for tag, policy in SYMBOL_VERSION_POLCIES.items():
+        if policy_is_satisfied(tag, policy):
+            matching_policy = tag
+            break
 
     return matching_policy
 

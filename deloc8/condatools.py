@@ -1,3 +1,6 @@
+"""Context managers like those in wheeltools.py for unpacking
+conda packages.
+"""
 import os
 
 from wheel.util import native
@@ -14,7 +17,7 @@ class InCondaPkg(InTemporaryDirectory):
     def __enter__(self):
         tarbz2todir(self.in_conda_pkg, self.name)
         return super(InCondaPkg, self).__enter__()
-    
+
 
 class InCondaPkgCtx(InCondaPkg):
     def __init__(self, in_conda_pkg):
