@@ -1,8 +1,10 @@
 import re
 import os
 import functools
+import logging
 from subprocess import check_output
 from typing import List, Optional, TypeVar, Dict
+log = logging.getLogger(__name__)
 
 SONAME_WHITELIST = [
     'libpanelw.so.5',
@@ -32,7 +34,7 @@ SONAME_WHITELIST = [
 
 
 def locate_with_ldpaths(lib: str, ldpaths: List[str] = []) -> Optional[str]:
-    # log.debug('locate_with_ldpaths: %s %s', lib, ldpaths)
+    log.debug('locate_with_ldpaths: %s %s', lib, ldpaths)
     for ldpath in ldpaths:
         path = os.path.join(ldpath, lib)
         if os.path.exists(path):
@@ -44,7 +46,7 @@ def parse_ld_path(ldpath: str) -> List[str]:
     """Parse colon-deliminted ldpath like LD_LIBRARY_PATH"""
     parsed = []
     for path in ldpath.split(':'):
-        parsed.append(os.path.normpath(path).replace('//', '/'))
+        parsed.append(path.replace('//', '/'))
     return parsed
 
 
@@ -57,7 +59,6 @@ def ld_library_paths() -> List[str]:
 @functools.lru_cache()
 def load_ld_so_conf() -> Dict[str, str]:
     sonames = {}
-    #Dict[str, str]: 
     for line in check_output(['/sbin/ldconfig', '-p']).decode(
             'utf-8').splitlines():
         m = re.match(r'\t(.*) (\(.*\)) => (.*)', line)

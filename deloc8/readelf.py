@@ -35,7 +35,7 @@ def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
 
 
 def elf_inspect_dynamic(fn, elf) -> Tuple[List[str], List[str]]:
-    """Read DT_NEEDED and DT_RPATH/DT_RUNPATH from dynamic section of an ELF file        
+    """Read DT_NEEDED and DT_RPATH/DT_RUNPATH from dynamic section of an ELF file
     """
     section = elf.get_section_by_name(b'.dynamic')
 
@@ -52,11 +52,11 @@ def elf_inspect_dynamic(fn, elf) -> Tuple[List[str], List[str]]:
                     tag.rpath.decode('utf-8')))
             elif tag.entry.d_tag == 'DT_RUNPATH':
                 dt_runpath.extend(parse_ld_path(
-                    tag.rpath.decode('utf-8')))
+                    tag.runpath.decode('utf-8')))
 
     def replace(p : str) -> str:
         return p.replace('$ORIGIN', os.path.dirname(fn))
-                
+
     if dt_runpath:
         # ignore rpath if runpath is given
         return dt_needed, [replace(p) for p in dt_runpath]
@@ -86,7 +86,7 @@ def elf_find_external_references(fn: str, elf: ELFFile):
             external[soname] = {'path': resolved, 'method': 'LD_CONF'}
             continue
 
-        raise NotImplementedError(soname)
+        external[soname] = {'path': '<notfound>', 'method': 'NOT FOUND'}
     return external
 
 
@@ -97,5 +97,5 @@ def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
             for vernaux in verneed_iter:
                 yield (verneed.name.decode('utf-8'),
                        vernaux.name.decode('utf-8'))
-                
 
+    

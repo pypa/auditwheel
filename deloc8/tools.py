@@ -57,7 +57,13 @@ def dir2zip(in_dir, zip_fname):
     for root, dirs, files in os.walk(in_dir):
         for file in files:
             fname = os.path.join(root, file)
-            out_fname = relpath(fname, in_dir)
+            out_fname = os.path.relpath(fname, in_dir)
             z.write(os.path.join(root, file), out_fname)
     z.close()
+    
+
+def tarbz2todir(tarbz2_fname, out_dir):
+    """Extract `tarbz2_fname` into output directory `out_dir`
+    """
+    subprocess.check_output(['tar', 'xjf', tarbz2_fname, '-C', out_dir])
     

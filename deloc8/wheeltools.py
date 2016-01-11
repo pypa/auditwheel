@@ -134,13 +134,27 @@ class InWheelCtx(InWheel):
             discard
         """
         super(InWheelCtx, self).__init__(in_wheel, out_wheel)
-        self.wheel_path = None
+        self.path = None
 
     def __enter__(self):
-        self.wheel_path = super(InWheelCtx, self).__enter__()
+        self.path = super(InWheelCtx, self).__enter__()
         return self
 
+    def iter_files(self):
+        record_names = glob.glob(os.path.join(
+            self.path, '*.dist-info/RECORD'))
+        if len(record_names) != 1:
+            raise ValueError("Should be exactly one `*.dist_info` directory")
 
+        with open(record_names[0]) as f:
+            record = f.read()
+        reader = csv.reader((native(r) for r in record.splitlines()))
+        for row in reader:
+            filename = row[0]
+            yield filename
+
+
+    
 def add_platforms(in_wheel, platforms, out_path=None, clobber=False):
     """ Add platform tags `platforms` to `in_wheel` filename and WHEEL tags
 
@@ -202,15 +216,3 @@ def add_platforms(in_wheel, platforms, out_path=None, clobber=False):
             # Tell context manager to write wheel on exit by setting filename
             ctx.out_wheel = out_wheel
     return ctx.out_wheel
-
-
-def iter_wheel_files(wheel_path='.'):
-    record_names = glob.glob(os.path.join(wheel_path, '*.dist-info/RECORD'))
-    if len(record_names) != 1:
-        raise ValueError("Should be exactly one `*.dist_info` directory")
-    with open(record_names[0]) as f:
-        record = f.read()
-    reader = csv.reader((native(r) for r in record.splitlines()))
-    for row in reader:
-        filename = row[0]
-        yield filename
