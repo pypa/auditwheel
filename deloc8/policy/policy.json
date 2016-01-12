@@ -2,7 +2,7 @@
     {"name": "linux",
      "priority": 0,
      "symbol_versions": {},
-     "lib_whitelist": {}
+     "lib_whitelist": []
     },
     {"name": "linux_pybe1_core",
      "priority": 100,
@@ -19,7 +19,6 @@
          "libc.so.6", "libnsl.so.1", "libutil.so.1", "libpthread.so.0",
          "libX11.so.6", "libXext.so.6", "libXrender.so.1", "libICE.so.6",
          "libSM.so.6", "libGL.so.1", "libgobject-2.0.so.0",
-         "libgthread-2.0.so.0", "libglib-2.0.so.0",
-         "ld-linux-x86-64.so.2"
+         "libgthread-2.0.so.0", "libglib-2.0.so.0"
      ]}
 ]

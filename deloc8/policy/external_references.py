@@ -1,66 +1,73 @@
 import re
-from typing import Tuple, Dict, List
+import os
+import json
+from functools import reduce
+from typing import Tuple, Dict, List, Set
 
 from elftools.elf.elffile import ELFFile
 
-from ..linkertools import (ld_library_paths, locate_with_ldpaths,
-                           locate_with_ld_so)
-from ..readelf import elf_inspect_dynamic
+from . import POLICY_PRIORITY_HIGHEST, load_policies
+from ..lddtree import parse_elf
 
 
-def lib_whitelist_policy(lib: str) -> Tuple[bool, float]:
-    from . import POLICY_PRIORITY_HIGHEST, _POLICY
-    if re.match('^libpython\d\.\dm?.so(.\d)*$', lib):
-        # libpython is always allowed
-        return True, POLICY_PRIORITY_HIGHEST
+def elf_exteral_referenences(fn: str, wheel_path: str):
+    policies = load_policies()
+    tree = parse_elf(fn)
 
-    priority = max(
-        [p['priority'] for p in _POLICY if lib in p['lib_whitelist']],
-        default=None)
-    if priority is None:
-        return False, 0
-    return True, priority
+    def filter_libs(libs, whitelist):
+        for lib in libs:
+            if 'ld-linux' in lib:
+                # always exclude ld-linux.so
+                continue
+            if re.match('^libpython\d\.\dm?.so(.\d)*$', lib):
+                # always exclude libpythonXY
+                continue
+            if lib in whitelist:
+                # exclude any libs in the whitelist
+                continue
+            yield lib
+
+    def get_req_external(libs: Set[str], whitelist: Set[str]):
+        # recurisvely get all the required external libraries
+        return reduce(set.union, (get_req_external(
+            set(filter_libs(tree['libs'][lib]['needed'], whitelist)),
+            whitelist) for lib in libs), libs)
+
+    ret = {}  # type: Dict[int, Dict[str ,str]]
+    for p in policies:
+        if p['name'] == 'linux' and p['priority'] == 0:
+            # special-case the generic linux platform here, because it
+            # doesn't have a whitelist. or, you could say its
+            # whitelist is the complete set of all libraries. so nothing
+            # is considered "external" that needs to be copied in.
+            needed_external_libs = []
+        else:
+            whitelist = set(p['lib_whitelist'])
+            needed_external_libs = get_req_external(
+                set(filter_libs(tree['needed'], whitelist)), whitelist)
+
+        pol_ext_deps = {}
+        for lib in needed_external_libs:
+            if is_subdir(tree['libs'][lib]['realpath'], wheel_path):
+                # we didn't filter libs that resolved via RPATH out
+                # earlier because we wanted to make sure to pick up
+                # our elf's indirect dependencies. But now we want to
+                # filter these ones out, since they're not "external".
+                log.debug('RPATH FTW: %s', lib)
+                continue
+            pol_ext_deps[lib] = tree['libs'][lib]['path']
+        ret[p['name']] = {'external libs': pol_ext_deps,
+                          'priority': p['priority']}
+    return ret
 
 
-def lib_exteral_referenence_policy(soname: str, rpaths: List[str]) -> Dict:
-    from . import POLICY_PRIORITY_HIGHEST, POLICY_PRIORITY_LOWEST
+def is_subdir(path, directory):
+    if path is None:
+        return False
 
-    is_whitelisted, priority = lib_whitelist_policy(soname)
-    if is_whitelisted:
-        return {'policy_priority': priority, 'note': 'whitelist'}
-
-    resolved = locate_with_ldpaths(soname, rpaths)
-    if resolved is not None:
-        return {
-            'policy_priority': POLICY_PRIORITY_HIGHEST,
-            'note': 'RPATH',
-            'path': resolved
-        }
-
-    resolved = locate_with_ldpaths(soname, ld_library_paths())
-    if resolved is not None:
-        return {
-            'policy_priority': POLICY_PRIORITY_LOWEST,
-            'path': resolved,
-            'note': 'LD_LIBRARY_PATH'
-        }
-
-    resolved = locate_with_ld_so(soname)
-    if resolved is not None:
-        return {
-            'policy_priority': POLICY_PRIORITY_LOWEST,
-            'path': resolved,
-            'note': 'LD_CONF'
-        }
-
-    return {
-        'policy_priority': POLICY_PRIORITY_LOWEST,
-        'path': None,
-        'note': 'NOT FOUND'
-    }
-
-
-def elf_exteral_referenence_policy(fn: str, elf: ELFFile):
-    sonames, rpaths = elf_inspect_dynamic(fn, elf)
-    return {lib: lib_exteral_referenence_policy(lib, rpaths)
-            for lib in sonames}
+    path = os.path.realpath(path)
+    directory = os.path.realpath(directory)
+    relative = os.path.relpath(path, directory)
+    if relative.startswith(os.pardir):
+        return False
+    return True

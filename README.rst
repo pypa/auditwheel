@@ -12,4 +12,3 @@ TODO
 * Command to change ABI tag
 * Command to copy libraries into wheel and chrpath
    * What's the proper UI?
-

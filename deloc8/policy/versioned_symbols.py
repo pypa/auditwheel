@@ -1,9 +1,9 @@
 import logging
 from functools import reduce
-from distutils.version import StrictVersion as Version
+from pip._vendor.distlib.version import NormalizedVersion as Version
 from typing import Dict, Sequence
 
-from . import load_policy
+from . import load_policies
 
 log = logging.getLogger(__name__)
 
@@ -34,9 +34,11 @@ def versioned_symbols_policy(data: Dict[str, Sequence[str]]) -> int:
         return True
 
     matching_policies = []  # type: List[int]
-    for data in load_policy():
-        if policy_is_satisfied(data['name'], data['symbol_versions']):
-            matching_policies.append(data['priority'])
+    for p in load_policies():
+        policy_sym_vers = {k: Version(v)
+                           for k, v in p['symbol_versions'].items()}
+        if policy_is_satisfied(p['name'], policy_sym_vers):
+            matching_policies.append(p['priority'])
 
     if len(matching_policies) == 0:
         # the base policy (generic linux) should always match
