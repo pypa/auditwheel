@@ -1,13 +1,16 @@
 import re
 import os
 import json
+import logging
 from functools import reduce
-from typing import Tuple, Dict, List, Set
+from typing import Tuple, Dict, List, Set, Any
 
 from elftools.elf.elffile import ELFFile
 
 from . import POLICY_PRIORITY_HIGHEST, load_policies
 from ..lddtree import parse_elf
+
+log = logging.getLogger(__name__)
 
 
 def elf_exteral_referenences(fn: str, wheel_path: str):
@@ -33,18 +36,18 @@ def elf_exteral_referenences(fn: str, wheel_path: str):
             set(filter_libs(tree['libs'][lib]['needed'], whitelist)),
             whitelist) for lib in libs), libs)
 
-    ret = {}  # type: Dict[int, Dict[str ,str]]
+    ret = {}  # type: Dict[str, Dict[str, Any]]
     for p in policies:
-        if p['name'] == 'linux' and p['priority'] == 0:
+        needed_external_libs = []  # type: List[str]
+
+        if not (p['name'] == 'linux' and p['priority'] == 0):
             # special-case the generic linux platform here, because it
             # doesn't have a whitelist. or, you could say its
             # whitelist is the complete set of all libraries. so nothing
             # is considered "external" that needs to be copied in.
-            needed_external_libs = []
-        else:
             whitelist = set(p['lib_whitelist'])
             needed_external_libs = get_req_external(
-                set(filter_libs(tree['needed'], whitelist)), whitelist)
+                set(filter_libs(tree['needed'], whitelist)), whitelist)  # type: List[str]
 
         pol_ext_deps = {}
         for lib in needed_external_libs:
