@@ -9,9 +9,8 @@ from elftools.common.exceptions import ELFError
 from elftools.elf.dynamic import DynamicSection
 from elftools.elf.elffile import ELFFile
 
-from .linkertools import (SONAME_WHITELIST, is_whitelisted, ld_library_paths,
-                          parse_ld_path, locate_with_ldpaths,
-                          locate_with_ld_so)
+from .linkertools import parse_ld_path
+
 
 log = logging.getLogger(__name__)
 
@@ -57,37 +56,9 @@ def elf_inspect_dynamic(fn, elf) -> Tuple[List[str], List[str]]:
     return dt_needed, [replace(p) for p in dt_rpath]
 
 
-def elf_find_external_references(fn: str, elf: ELFFile):
-    sonames, rpaths = elf_inspect_dynamic(fn, elf)
-    external = {}
-
-    for soname in sonames:
-        if is_whitelisted(soname):
-            continue
-
-        resolved = locate_with_ldpaths(soname, rpaths)
-        if resolved is not None:
-            external[soname] = {'path': resolved, 'method': 'RPATH'}
-            continue
-
-        resolved = locate_with_ldpaths(soname, ld_library_paths())
-        if resolved is not None:
-            external[soname] = {'path': resolved, 'method': 'LD_LIBRARY_PATH'}
-            continue
-
-        resolved = locate_with_ld_so(soname)
-        if resolved is not None:
-            external[soname] = {'path': resolved, 'method': 'LD_CONF'}
-            continue
-
-        external[soname] = {'path': '<notfound>', 'method': 'NOT FOUND'}
-    return external
-
-
 def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
     section = elf.get_section_by_name(b'.gnu.version_r')
     for verneed, verneed_iter in section.iter_versions():
-        if verneed.name.decode('utf-8') in SONAME_WHITELIST:
-            for vernaux in verneed_iter:
-                yield (verneed.name.decode('utf-8'),
-                       vernaux.name.decode('utf-8'))
+        for vernaux in verneed_iter:
+            yield (verneed.name.decode('utf-8'),
+                   vernaux.name.decode('utf-8'))

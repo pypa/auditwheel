@@ -1,0 +1,20 @@
+{
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "priority": {"type": "integer"},
+            "symbol_versions": {
+                "type": "object",
+                "patternProperties": {
+                    ".*": {"type": "string"}
+                }
+            },
+            "lib_whitelist": {
+                "type": "array",
+                "items": {"type": "string"}
+            }
+        }
+    }
+}

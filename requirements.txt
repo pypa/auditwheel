@@ -1,1 +1,2 @@
-pyelftools>=0.23
+typing >=3.5.0.1; python_version < '3.5'
+pyelftools >=0.23

@@ -8,9 +8,8 @@ from wheel.util import native
 
 from .genericpkgctx import InGenericPkgCtx
 from .readelf import (elf_file_filter, elf_inspect_dynamic,
-                      elf_find_external_references, elf_find_versioned_symbols)
-from .versym import check_versioned_symbols_policy
-
+                      elf_find_versioned_symbols)
+from .policy import elf_exteral_referenence_policy, versioned_symbols_policy
 log = logging.getLogger(__name__)
 
 
@@ -30,17 +29,23 @@ def execute(args, p):
 
         for fn, elf in elf_file_filter(ctx.iter_files()):
             log.info('processing so: %s', fn)
-            external_refs.update(elf_find_external_references(fn, elf))
+            external_refs.update(elf_exteral_referenence_policy(fn, elf))
             for key, value in elf_find_versioned_symbols(elf):
                 versioned_symbols[key].add(value)
 
-    versioned_symbols = {k: sorted(v) for k, v in versioned_symbols.items()}
+    print(json.dumps(external_refs, indent=4))
+
     print('\n%s references the following external '
           'shared library dependencies:' % os.path.basename(args.wheel))
-    print(json.dumps(external_refs, indent=4))
+    print(json.dumps(
+        {k: {'note': v['note'],
+             'path': v['path']}
+         for k, v in external_refs.items() if v['note'] is not 'whitelist'},
+        indent=4))
+
+    versioned_symbols = {k: sorted(v) for k, v in versioned_symbols.items()}
     print('\n%s references the versioned external symbols with '
           'the following versions:' % os.path.basename(args.wheel))
     print(json.dumps(versioned_symbols, indent=4))
-
     print('\nVersioned symbol policy:')
-    print(check_versioned_symbols_policy(versioned_symbols))
+    print(versioned_symbols_policy(versioned_symbols))
