@@ -6,11 +6,9 @@ import logging
 from typing import Iterator, Tuple, List
 
 from elftools.common.exceptions import ELFError
-from elftools.elf.dynamic import DynamicSection
 from elftools.elf.elffile import ELFFile
 
 from .linkertools import parse_ld_path
-
 
 log = logging.getLogger(__name__)
 
@@ -60,5 +58,4 @@ def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
     section = elf.get_section_by_name(b'.gnu.version_r')
     for verneed, verneed_iter in section.iter_versions():
         for vernaux in verneed_iter:
-            yield (verneed.name.decode('utf-8'),
-                   vernaux.name.decode('utf-8'))
+            yield (verneed.name.decode('utf-8'), vernaux.name.decode('utf-8'))

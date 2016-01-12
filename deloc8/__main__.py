@@ -1,5 +1,4 @@
 import sys
-import glob
 import argparse
 import logging
 
@@ -14,6 +13,8 @@ def main():
 
     from . import main_listdeps
     main_listdeps.configure_parser(sub_parsers)
+    from . import main_versym
+    main_versym.configure_parser(sub_parsers)
 
     args = p.parse_args()
 

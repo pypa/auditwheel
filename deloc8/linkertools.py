@@ -3,7 +3,7 @@ import os
 import functools
 import logging
 from subprocess import check_output
-from typing import List, Optional, TypeVar, Dict
+from typing import List, Optional, Dict
 log = logging.getLogger(__name__)
 
 

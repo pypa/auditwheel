@@ -102,7 +102,7 @@ class InWheel(InTemporaryDirectory):
         return super(InWheel, self).__enter__()
 
     def __exit__(self, exc, value, tb):
-        if not self.out_wheel is None:
+        if self.out_wheel is not None:
             rewrite_record(self.name)
             dir2zip(self.name, self.out_wheel)
         return super(InWheel, self).__exit__(exc, value, tb)
@@ -208,7 +208,8 @@ def add_platforms(in_wheel, platforms, out_path=None, clobber=False):
         required_tags = ['-'.join(tup) for tup in product(pyc_apis, platforms)]
         needs_write = False
         for req_tag in required_tags:
-            if req_tag in in_info_tags: continue
+            if req_tag in in_info_tags:
+                continue
             needs_write = True
             info.add_header('Tag', req_tag)
         if needs_write:

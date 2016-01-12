@@ -1,16 +1,7 @@
 import os
-import csv
 import json
-import logging
-from collections import defaultdict
-from typing import Iterator, Tuple
-from wheel.util import native
 
-from .genericpkgctx import InGenericPkgCtx
-from .readelf import (elf_file_filter, elf_inspect_dynamic,
-                      elf_find_versioned_symbols)
-from .policy import elf_exteral_referenence_policy, versioned_symbols_policy
-log = logging.getLogger(__name__)
+from .wheel_abi import analyze_wheel_abi
 
 
 def configure_parser(sub_parsers):
@@ -23,17 +14,10 @@ def configure_parser(sub_parsers):
 
 
 def execute(args, p):
-    with InGenericPkgCtx(args.wheel) as ctx:
-        external_refs = defaultdict(lambda: {})
-        versioned_symbols = defaultdict(lambda: set())
+    if not os.path.isfile(args.wheel):
+        p.error('cannot access %s. No such file' % args.wheel)
 
-        for fn, elf in elf_file_filter(ctx.iter_files()):
-            log.info('processing so: %s', fn)
-            external_refs.update(elf_exteral_referenence_policy(fn, elf))
-            for key, value in elf_find_versioned_symbols(elf):
-                versioned_symbols[key].add(value)
-
-    log.debug(json.dumps(external_refs, indent=4))
+    tag, external_refs, ref_tag, _, _ = analyze_wheel_abi(args.wheel)
 
     print('\n%s references the following external '
           'shared library dependencies:' % os.path.basename(args.wheel))
@@ -43,9 +27,11 @@ def execute(args, p):
          for k, v in external_refs.items() if v['note'] is not 'whitelist'},
         indent=4))
 
-    versioned_symbols = {k: sorted(v) for k, v in versioned_symbols.items()}
-    print('\n%s references the versioned external symbols with '
-          'the following versions:' % os.path.basename(args.wheel))
-    print(json.dumps(versioned_symbols, indent=4))
-    print('\nVersioned symbol policy:')
-    print(versioned_symbols_policy(versioned_symbols))
+    if tag == ref_tag:
+        print('Based on this information, %s is assigned the following '
+              'ABI tag: "%s".' % (os.path.basename(args.wheel), tag))
+    else:
+        print('Based on this information alone, %s would be assigned the '
+              'following ABI tag: "%s". However, other factors such as '
+              'versioned symbols constrain the ABI tag to: "%s".' % (
+                  os.path.basename(args.wheel), ref_tag, tag))
