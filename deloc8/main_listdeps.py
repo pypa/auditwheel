@@ -33,7 +33,7 @@ def execute(args, p):
             for key, value in elf_find_versioned_symbols(elf):
                 versioned_symbols[key].add(value)
 
-    print(json.dumps(external_refs, indent=4))
+    log.debug(json.dumps(external_refs, indent=4))
 
     print('\n%s references the following external '
           'shared library dependencies:' % os.path.basename(args.wheel))
