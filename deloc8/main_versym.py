@@ -5,7 +5,7 @@ from .wheel_abi import analyze_wheel_abi
 
 
 def configure_parser(sub_parsers):
-    help = "List versioned symbols in a wheel"
+    help = "List external versioned symbol dependencies of a wheel."
     p = sub_parsers.add_parser('versym', help=help, description=help)
     p.add_argument('wheel', help='Path to wheel file')
     p.set_defaults(func=execute)

@@ -5,10 +5,8 @@ from .wheel_abi import analyze_wheel_abi
 
 
 def configure_parser(sub_parsers):
-    p = sub_parsers.add_parser(
-        'listdeps',
-        help="List shared library dependencies of a wheel",
-        description="List shared library dependencies of a wheel")
+    help="List external shared library dependencies of a wheel."
+    p = sub_parsers.add_parser('listdeps', help=help, description=help)
     p.add_argument('wheel', help='Path to wheel file')
     p.set_defaults(func=execute)
 
