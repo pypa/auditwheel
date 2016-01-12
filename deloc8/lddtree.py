@@ -108,7 +108,7 @@ def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
         else:
             ldpath = root + ldpath
         ldpaths.append(normpath(ldpath))
-    return dedupe(ldpaths)
+    return [p for p in dedupe(ldpaths) if os.path.isdir(p)]
 
 
 @functools.lru_cache()
@@ -160,7 +160,7 @@ def parse_ld_so_conf(ldso_conf: str, root: str='/', _first: bool=True):
     if _first:
         # XXX: Load paths from ldso itself.
         # Remove duplicate entries to speed things up.
-        paths = dedupe(paths)
+        paths = [p for p in dedupe(paths) if os.path.isdir(p)]
 
     return paths
 
@@ -199,8 +199,7 @@ def load_ld_paths(root='/', prefix=''):
     ldpaths['conf'] = parse_ld_so_conf(root + prefix + '/etc/ld.so.conf',
                                        root=root)
     # the trusted directories are not necessarily in ld.so.conf
-    ldpaths['conf'].extend(['/usr/lib', '/lib64', '/lib'])
-
+    ldpaths['conf'].extend(['/lib', '/usr/lib'])
     return ldpaths
 
 
