@@ -13,19 +13,15 @@ Using ``deloc8``, you can:
   the wheel itself.
 
   Embedding the depended-upon shared libraries into the wheel helps ensure
-  that the wheel will work on other users' machines, regardless of their
-  Linux distribution they use, or the packages they've install with their
-  distro package manager.
+  that the wheel will work on other users' machines, regardless of what
+  distro they use, or what libraries they've install with their distro
+  package manager.
 
-  For example, the ``numpy`` or ``scipy`` wheels may prefer to embed
-  their own copy of BLAS or LAPACK, instead of simply crossing their
-  fingers and hoping these shared libraries are provided by the system.
-
-  ``deloc8`` is aware of a whitelist of system-provided libraries that
-  are so ubiquitous (think of ``libc``, for example) that their
-  existance on all Linux platforms can be essentially guarenteed. These
-  whitelist(s) are part of the "platform policy" used by ``deloc8``
-    
+  But ``deloc8`` is aware of a whitelist of system libraries that are so
+  ubiquitous (think of ``libc``, for example) that their existance on
+  all Linux platforms can be essentially guarenteed. So it doesn't need
+  to copy everything into the wheel.
+  
 * Check and enforce proper symbol versions for system-provided libraries.
   
   
