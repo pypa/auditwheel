@@ -14,10 +14,18 @@ def configure_parser(sub_parsers):
                    help='Override symbol version ABI check',
                    action='store_true')
     p.add_argument(
-        '--abi',
-        help='Desired target ABI tags. (default: "%s")' % highest_policy,
+        '--plat',
+        dest='PLAT',
+        help='Desired target platform. (default: "%s")' % highest_policy,
         choices=policy_names,
         default=highest_policy)
+    p.add_argument(
+        '-a',
+        '--add-tag',
+        dest='ADD_TAG',
+        help=("Add new platform tag to wheel. (this doesn't work"
+              "with the current pip, since it doesn't recognize the tag"),
+        action="store_true")
     p.add_argument('-L',
                    '--lib-sdir',
                    dest='LIB_SDIR',
@@ -48,14 +56,14 @@ def execute(args, p):
         p.error('cannot find the \'patchelf\' tool, which is required')
 
     wheel_abi = analyze_wheel_abi(args.wheel)
-    can_add_platform = (get_priority_by_name(args.abi) <=
+    can_add_platform = (get_priority_by_name(args.PLAT) <=
                         get_priority_by_name(wheel_abi.sym_tag))
 
     if not can_add_platform:
         msg = ('cannot really fixup "%s" to "%s" ABI because of the presence '
                'of too-recent versioned symbols. You\'ll need to compile '
                'the wheel on an older toolchain. Try: ...' %
-               (args.wheel, args.abi))
+               (args.wheel, args.PLAT))
         if not args.force:
             p.error(msg)
         else:
@@ -66,12 +74,12 @@ def execute(args, p):
         os.makedirs(args.WHEEL_DIR)
 
     out_wheel = fixup_wheel(args.wheel,
-                            abi=args.abi,
+                            abi=args.PLAT,
                             lib_sdir=args.LIB_SDIR,
                             out_dir=args.WHEEL_DIR,
-                            add_platform_tag=can_add_platform)
+                            add_platform_tag=can_add_platform and args.ADD_TAG)
     if out_wheel is not None:
-        print('\nWriting fixed-up wheel written to %s...' % out_wheel)
+        print('\nWriting fixed-up wheel written to %s' % out_wheel)
         print('Done!')
     else:
         print('\nWheel already contains requested ABI tag')

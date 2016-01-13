@@ -26,8 +26,7 @@ def execute(args, p):
                 print('\nTo acheive the the "%s" ABI tag, the following '
                       'external shared\nlibrary dependencies would need to '
                       'be relocated inside the wheel:' % p['name'])
-                print(json.dumps(external_refs[p['name']]['libs'],
-                                 indent=4))
+                print(json.dumps(external_refs[p['name']]['libs'], indent=4))
     else:
         print('Based on external shared library dependencies, "%s" would '
               'be assigned the following ABI tag: "%s". However, other '

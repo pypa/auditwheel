@@ -1,4 +1,3 @@
-import sys
 import argparse
 import logging
 from . import main_versym
@@ -8,11 +7,11 @@ from . import main_fixup
 
 
 def main():
-    if len(sys.argv) == 1:
-        sys.argv.append('-h')
-
     p = argparse.ArgumentParser()
-    p.add_argument('-V', '--version', help='Show version and exit.', action='store_true')
+    p.add_argument('-V',
+                   '--version',
+                   help='Show version and exit.',
+                   action='store_true')
     p.add_argument("-v",
                    "--verbose",
                    action='count',
@@ -38,6 +37,10 @@ def main():
     else:
         logging.basicConfig(level=logging.WARN)
 
+    if not hasattr(args, 'func'):
+        p.print_help()
+        return
+
     try:
         args.func(args, p)
     except:
@@ -46,10 +49,11 @@ def main():
 
 
 def show_version():
+    import sys
     import pkg_resources
     dist = pkg_resources.get_distribution('deloc8')
-    print('deloc8 %s from %s (python %s)' % (
-        dist.version, dist.location, sys.version[:3]))
+    print('deloc8 %s from %s (python %s)' % (dist.version, dist.location,
+                                             sys.version[:3]))
     return 1
 
 
