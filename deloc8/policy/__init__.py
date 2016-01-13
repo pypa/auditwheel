@@ -1,15 +1,24 @@
 import json
+import platform
 from typing import Optional
 from os.path import join, dirname, abspath
+_bitness, _linkage = platform.architecture()
 
 with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
     _POLICIES = json.load(f)
+    for p in _POLICIES:
+        if _bitness == '32bit':
+            p['name'] = p['name'] + '_i386'
+        elif _bitness == '64bit':
+            p['name'] = p['name'] + '_x86_64'
 
 POLICY_PRIORITY_HIGHEST = max(p['priority'] for p in _POLICIES)
 POLICY_PRIORITY_LOWEST = min(p['priority'] for p in _POLICIES)
 
 
 def load_policies():
+    if _linkage != 'ELF':
+        raise RuntimeError('Only ELF linkage is supported')
     return _POLICIES
 
 

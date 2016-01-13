@@ -1,10 +1,10 @@
 [
-    {"name": "linux_x86_64",
+    {"name": "linux",
      "priority": 0,
      "symbol_versions": {},
      "lib_whitelist": []
     },
-    {"name": "linux_pybe1_core_x86_64",
+    {"name": "linux_pybe1_core",
      "priority": 100,
      "symbol_versions": {
          "GLIBC": "2.5",
