@@ -81,7 +81,7 @@ Limitations
 
 1. ``deloc8`` uses the `DT_NEEDED <https://en.wikipedia.org/wiki/Direct_binding>`_
    information from the Python extension modules to determine which system system
-   libraries they depend on. Code that that dynamically loads compiled code at
+   libraries they depend on. Code that that dynamically loads libraries at
    at runtime using ``ctypes`` / ``cffi`` (from Python) or ``dlopen`` (from C/C++)
    doesn't contain this information in a way that can be statically determined, so
    dependencies that are loaded via those mechanisms will be missed.
@@ -89,7 +89,7 @@ Limitations
    against a too-recent version of ``libc`` ot ``libstdc++``. These libraries
    (and some others) use symbol versioning for backward compatibility. In general, this
    means that code that was compiled against an old version of ``glibc`` will run
-   fine on systems with a newer version of ``glibc``, but code what were compiled
+   fine on systems with a newer version of ``glibc``, but code what was compiled
    on a new system won't / might not run on older system.
 
    So, to compile widely-compatible binaries, you're best off doing the build on an
