@@ -199,7 +199,8 @@ def load_ld_paths(root='/', prefix=''):
     ldpaths['conf'] = parse_ld_so_conf(root + prefix + '/etc/ld.so.conf',
                                        root=root)
     # the trusted directories are not necessarily in ld.so.conf
-    ldpaths['conf'].extend(['/lib', '/usr/lib'])
+    ldpaths['conf'].extend(['/lib', '/lib64/', '/usr/lib', '/usr/lib64'])
+    log.info('linker ldpaths: %s', ldpaths)
     return ldpaths
 
 

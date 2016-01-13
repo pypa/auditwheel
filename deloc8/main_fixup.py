@@ -65,8 +65,10 @@ def execute(args, p):
     if not exists(args.WHEEL_DIR):
         os.makedirs(args.WHEEL_DIR)
 
-    fixup_wheel(args.wheel,
-                abi=args.abi,
-                lib_sdir=args.LIB_SDIR,
-                out_dir=args.WHEEL_DIR,
-                add_platform_tag=can_add_platform)
+    out_wheel = fixup_wheel(args.wheel,
+                            abi=args.abi,
+                            lib_sdir=args.LIB_SDIR,
+                            out_dir=args.WHEEL_DIR,
+                            add_platform_tag=can_add_platform)
+    print('\nWriting fixed-up wheel written to %s...' % out_wheel)
+    print('Done!')
