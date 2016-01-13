@@ -70,5 +70,8 @@ def execute(args, p):
                             lib_sdir=args.LIB_SDIR,
                             out_dir=args.WHEEL_DIR,
                             add_platform_tag=can_add_platform)
-    print('\nWriting fixed-up wheel written to %s...' % out_wheel)
-    print('Done!')
+    if out_wheel is not None:
+        print('\nWriting fixed-up wheel written to %s...' % out_wheel)
+        print('Done!')
+    else:
+        print('\nWheel already contains requested ABI tag')

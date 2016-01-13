@@ -4,7 +4,7 @@ from os.path import (exists, isdir, relpath, dirname, split, basename, abspath,
                      isabs)
 from os.path import join as pjoin
 from subprocess import check_call
-from typing import Dict
+from typing import Dict, Optional
 
 from .wheeltools import InWheelCtx, add_platforms
 from .wheel_abi import get_wheel_elfdata
@@ -14,7 +14,7 @@ def fixup_wheel(wheel_path: str,
                 abi: str,
                 lib_sdir: str,
                 out_dir: str,
-                add_platform_tag: bool=False):
+                add_platform_tag: bool=False) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
 
@@ -23,10 +23,14 @@ def fixup_wheel(wheel_path: str,
 
     with InWheelCtx(wheel_path) as ctx:
         if add_platform_tag:
-            add_platforms(ctx, [abi])
-            # tell context manager to write wheel on exit with
-            # the proper output directory
-            ctx.out_wheel = pjoin(out_dir, basename(ctx.out_wheel))
+            out_wheel = add_platforms(ctx, [abi])
+            if out_wheel:
+                # tell context manager to write wheel on exit with
+                # the proper output directory
+                ctx.out_wheel = pjoin(out_dir, basename(out_wheel))
+            else:
+                # wheel already contains requested ABI tag
+                return None
         else:
             ctx.out_wheel = pjoin(out_dir, basename(ctx.in_wheel))
 
