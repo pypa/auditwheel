@@ -86,15 +86,16 @@ Limitations
    doesn't contain this information in a way that can be statically determined, so
    dependencies that are loaded via those mechanisms will be missed.
 2. There's nothing we can do about "fixing" binaries if they were compiled and linked
-   against a too-recent version of ``libc`` ot ``libstdc++``. These libraries symbol
-   versioning for backward compatibility. In general, this means that libraries that
-   were compiled against an old version of ``glibc`` will run fine on systems with a
-   newer version of ``glibc``, but libraries what were compiled on a new system won't
-   run on older system.
+   against a too-recent version of ``libc`` ot ``libstdc++``. These libraries
+   (and some others) use symbol versioning for backward compatibility. In general, this
+   means that code that was compiled against an old version of ``glibc`` will run
+   fine on systems with a newer version of ``glibc``, but code what were compiled
+   on a new system won't / might not run on older system.
 
-   So, to compile widely-compatible binaries, you basically need to compile on an old
-   Linux distribution. The ``linux_pybe1_core`` platform tag is consistent with symbol
-   versions from CentOS 5. Fortunately with Docker, this is hard anymore.
+   So, to compile widely-compatible binaries, you're best off doing the build on an
+   old Linux distribution. The ``linux_pybe1_core`` platform tag is consistent with
+   symbol versions from CentOS 5. Fortunately with Docker, this is hard anymore.
+
 
 Policies
 --------
