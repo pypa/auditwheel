@@ -26,7 +26,7 @@ def get_wheel_elfdata(wheel_fn: str):
         for fn, elf in elf_file_filter(ctx.iter_files()):
             if elf_match_dt_needed(elf, LIBPYTHON_RE):
 
-                log.info('processing so: %s', fn)
+                log.info('processing: %s', fn)
                 elftree = parse_elf(fn)
                 full_elftree[fn] = elftree
                 for key, value in elf_find_versioned_symbols(elf):

@@ -60,7 +60,7 @@ def execute(args, p):
                         get_priority_by_name(wheel_abi.sym_tag))
 
     if not can_add_platform:
-        msg = ('cannot really fixup "%s" to "%s" ABI because of the presence '
+        msg = ('cannot fixup "%s" to "%s" ABI because of the presence '
                'of too-recent versioned symbols. You\'ll need to compile '
                'the wheel on an older toolchain. Try: ...' %
                (args.wheel, args.PLAT))

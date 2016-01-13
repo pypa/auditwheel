@@ -16,7 +16,9 @@ def execute(args, p):
     from functools import reduce
     from os.path import isfile, basename
     from .policy import (load_policies, get_priority_by_name,
-                         POLICY_PRIORITY_LOWEST, get_policy_name)
+                         POLICY_PRIORITY_LOWEST,
+                         POLICY_PRIORITY_HIGHEST,
+                         get_policy_name)
     from .wheel_abi import analyze_wheel_abi
     fn = basename(args.WHEEL_FILE)
 
@@ -33,13 +35,14 @@ def execute(args, p):
            'symbols in system-provided shared libraries: %s.' %
            ', '.join(versions))
 
-    if get_priority_by_name(winfo.sym_tag) == POLICY_PRIORITY_LOWEST:
+    if get_priority_by_name(winfo.sym_tag) < POLICY_PRIORITY_HIGHEST:
         printp(('This constrains the platform tag to "%s". '
                 'In order to achieve a more compatible tag, you '
                 'would to recompile a new wheel from source on a system '
                 'with earlier versions of these libraries, such as '
                 'CentOS 5.') % winfo.sym_tag)
-        return
+        if args.verbose < 1:
+            return
 
     printp(('The following external shared libraries are required '
             'by the wheel:'))
