@@ -1,9 +1,3 @@
-import os
-import json
-
-from .wheel_abi import analyze_wheel_abi
-
-
 def configure_parser(sub_parsers):
     help = "List external versioned symbol dependencies of a wheel."
     p = sub_parsers.add_parser('versym', help=help, description=help)
@@ -12,20 +6,24 @@ def configure_parser(sub_parsers):
 
 
 def execute(args, p):
-    if not os.path.isfile(args.wheel):
+    import json
+    from os.path import isfile, basename
+    from .wheel_abi import analyze_wheel_abi
+
+    if not isfile(args.wheel):
         p.error('cannot access %s. No such file' % args.wheel)
 
     tag, _, _, versioned_syms, sym_tag = analyze_wheel_abi(args.wheel)
 
     print('\n%s references the following versioned external symbols: ' %
-          os.path.basename(args.wheel))
+          basename(args.wheel))
     print(json.dumps(versioned_syms, indent=4))
 
     if tag == sym_tag:
         print('Based on this information, %s is assigned the following '
-              'ABI tag: "%s"' % (os.path.basename(args.wheel), tag))
+              'ABI tag: "%s"' % (basename(args.wheel), tag))
     else:
         print('Based on this information alone, %s would be assigned the '
               'following ABI tag: "%s". However, other factors such as '
               'external shared library dependencies constrain the ABI '
-              'tag to: "%s".' % (os.path.basename(args.wheel), sym_tag, tag))
+              'tag to: "%s".' % (basename(args.wheel), sym_tag, tag))

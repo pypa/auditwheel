@@ -4,7 +4,7 @@
      "symbol_versions": {},
      "lib_whitelist": []
     },
-    {"name": "linux_pybe1_core",
+    {"name": "linux_pybe1_core_x86_64",
      "priority": 100,
      "symbol_versions": {
          "GLIBC": "2.5",

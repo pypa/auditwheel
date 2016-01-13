@@ -18,7 +18,7 @@ import json
 import errno
 import logging
 import functools
-from typing import Iterator, Tuple, List, Dict, Optional, Any
+from typing import Iterator, Tuple, List, Dict, Optional, Any, re
 
 from elftools.common.exceptions import ELFError  # type: ignore
 from elftools.elf.elffile import ELFFile  # type: ignore
@@ -428,6 +428,10 @@ def parse_elf(path: str,
 
 
 def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
+    """Filter through an iterator of filenames and load up only ELF
+    files
+    """
+
     for path in paths:
         if path.endswith('.py'):
             continue
@@ -441,6 +445,21 @@ def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
                 continue
 
 
+def elf_match_dt_needed(elf, regex: re):
+    """Check if any of the direct shared library dependencies
+    (DT_NEEDED) of and elf match a regular expression
+    """
+    section = elf.get_section_by_name(b'.dynamic')
+    if section is not None:
+        for tag in section.iter_tags():
+            if tag.entry.d_tag == 'DT_NEEDED':
+                dt_needed = tag.needed.decode('utf-8')
+                if regex.match(dt_needed):
+                    return True
+
+    return False
+
+
 def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
     section = elf.get_section_by_name(b'.gnu.version_r')
     if section is None:
@@ -449,9 +468,3 @@ def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
     for verneed, verneed_iter in section.iter_versions():
         for vernaux in verneed_iter:
             yield (verneed.name.decode('utf-8'), vernaux.name.decode('utf-8'))
-
-
-if __name__ == '__main__':
-    import sys
-    import json
-    print(json.dumps(parse_elf(sys.argv[1]), indent=4))

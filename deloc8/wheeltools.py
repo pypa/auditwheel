@@ -13,7 +13,7 @@ from itertools import product
 
 from wheel.util import urlsafe_b64encode, open_for_csv, native
 from wheel.pkginfo import read_pkg_info, write_pkg_info
-from wheel.install import WheelFile
+from wheel.install import WheelFile, WHEEL_INFO_RE
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip
@@ -21,6 +21,21 @@ from .tools import unique_by_index, zip2dir, dir2zip
 
 class WheelToolsError(Exception):
     pass
+
+
+def _dist_info_dir(bdist_dir):
+    """Get the .dist-info directort from an unpacked wheel
+
+    Parameters
+    ----------
+    bdist_dir : str
+        Path of unpacked wheel file
+    """
+
+    info_dirs = glob.glob(pjoin(bdist_dir, '*.dist-info'))
+    if len(info_dirs) != 1:
+        raise WheelToolsError("Should be exactly one `*.dist_info` directory")
+    return info_dirs[0]
 
 
 def rewrite_record(bdist_dir):
@@ -35,13 +50,11 @@ def rewrite_record(bdist_dir):
     bdist_dir : str
         Path of unpacked wheel file
     """
-    info_dirs = glob.glob(pjoin(bdist_dir, '*.dist-info'))
-    if len(info_dirs) != 1:
-        raise WheelToolsError("Should be exactly one `*.dist_info` directory")
-    record_path = pjoin(info_dirs[0], 'RECORD')
+    info_dir = _dist_info_dir(bdist_dir)
+    record_path = pjoin(info_dir, 'RECORD')
     record_relpath = relpath(record_path, bdist_dir)
     # Unsign wheel - because we're invalidating the record hash
-    sig_path = pjoin(info_dirs[0], 'RECORD.jws')
+    sig_path = pjoin(info_dir, 'RECORD.jws')
     if exists(sig_path):
         os.unlink(sig_path)
 
@@ -155,65 +168,53 @@ class InWheelCtx(InWheel):
             yield filename
 
 
-def add_platforms(in_wheel, platforms, out_path=None, clobber=False):
-    """ Add platform tags `platforms` to `in_wheel` filename and WHEEL tags
+def add_platforms(wheel_ctx, platforms):
+    """Add platform tags `platforms` to a wheel
 
-    Add any platform tags in `platforms` that are missing from `in_wheel`
-    filename.
-
-    Add any platform tags in `platforms` that are missing from `in_wheel`
-    ``WHEEL`` file.
+    Add any platform tags in `platforms` that are missing
+    to wheel_ctx's filename and ``WHEEL`` file.
 
     Parameters
     ----------
-    in_wheel : str
-        Filename of wheel to which to add platform tags
+    wheel_ctx : InWheelCtx
+        An open wheel context
     platforms : iterable
         platform tags to add to wheel filename and WHEEL tags - e.g.
         ``('macosx_10_9_intel', 'macosx_10_9_x86_64')
-    out_path : None or str, optional
-        Directory to which to write new wheel.  Default is directory containing
-        `in_wheel`
-    clobber : bool, optional
-        If True, overwrite existing output filename, otherwise raise error
-
-    Returns
-    -------
-    out_wheel : None or str
-        Absolute path of wheel file written, or None if no wheel file written.
     """
-    in_wheel = abspath(in_wheel)
-    out_path = dirname(in_wheel) if out_path is None else abspath(out_path)
-    wf = WheelFile(in_wheel)
-    info_fname = wf.wheelinfo_name
+    info_fname = pjoin(_dist_info_dir(wheel_ctx.path), 'WHEEL')
+    info = read_pkg_info(info_fname)
+    if info['Root-Is-Purelib'] == 'true':
+        raise WheelToolsError('Cannot add platforms to pure wheel')
+
     # Check what tags we have
-    in_fname_tags = wf.parsed_filename.groupdict()['plat'].split('.')
+    if wheel_ctx.out_wheel is None:
+        in_wheel = wheel_ctx.in_wheel
+    else:
+        raise NotImplementedError()
+
+    parsed_fname = WHEEL_INFO_RE(basename(in_wheel))
+    in_fname_tags = parsed_fname.groupdict()['plat'].split('.')
     extra_fname_tags = [tag for tag in platforms if tag not in in_fname_tags]
     in_wheel_base, ext = splitext(basename(in_wheel))
     out_wheel_base = '.'.join([in_wheel_base] + list(extra_fname_tags))
-    out_wheel = pjoin(out_path, out_wheel_base + ext)
-    if exists(out_wheel) and not clobber:
-        raise WheelToolsError('Not overwriting {0}; set clobber=True '
-                              'to overwrite'.format(out_wheel))
-    with InWheelCtx(in_wheel) as ctx:
-        info = read_pkg_info(info_fname)
-        if info['Root-Is-Purelib'] == 'true':
-            raise WheelToolsError('Cannot add platforms to pure wheel')
-        in_info_tags = [tag for name, tag in info.items() if name == 'Tag']
-        # Python version, C-API version combinations
-        pyc_apis = ['-'.join(tag.split('-')[:2]) for tag in in_info_tags]
-        # unique Python version, C-API version combinations
-        pyc_apis = unique_by_index(pyc_apis)
-        # Add new platform tags for each Python version, C-API combination
-        required_tags = ['-'.join(tup) for tup in product(pyc_apis, platforms)]
-        needs_write = False
-        for req_tag in required_tags:
-            if req_tag in in_info_tags:
-                continue
-            needs_write = True
-            info.add_header('Tag', req_tag)
-        if needs_write:
-            write_pkg_info(info_fname, info)
-            # Tell context manager to write wheel on exit by setting filename
-            ctx.out_wheel = out_wheel
-    return ctx.out_wheel
+    out_wheel = out_wheel_base + ext
+
+    in_info_tags = [tag for name, tag in info.items() if name == 'Tag']
+    # Python version, C-API version combinations
+    pyc_apis = ['-'.join(tag.split('-')[:2]) for tag in in_info_tags]
+    # unique Python version, C-API version combinations
+    pyc_apis = unique_by_index(pyc_apis)
+    # Add new platform tags for each Python version, C-API combination
+    required_tags = ['-'.join(tup) for tup in product(pyc_apis, platforms)]
+    needs_write = False
+    for req_tag in required_tags:
+        if req_tag in in_info_tags:
+            continue
+        needs_write = True
+        info.add_header('Tag', req_tag)
+    if needs_write:
+        write_pkg_info(info_fname, info)
+        # Tell context manager to write wheel on exit by setting filename
+        wheel_ctx.out_wheel = out_wheel
+    return wheel_ctx.out_wheel
