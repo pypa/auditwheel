@@ -1,5 +1,5 @@
 [
-    {"name": "linux",
+    {"name": "linux_x86_64",
      "priority": 0,
      "symbol_versions": {},
      "lib_whitelist": []
@@ -9,7 +9,7 @@
      "symbol_versions": {
          "GLIBC": "2.5",
          "CXXABI": "3.4.8",
-         "GLIBCXX": "1.3.1",
+         "GLIBCXX": "3.4.9",
          "GCC": "4.2.0"},
      "lib_whitelist": [
          "libpanelw.so.5", "libncursesw.so.5",

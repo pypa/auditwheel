@@ -467,5 +467,7 @@ def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
         return []
 
     for verneed, verneed_iter in section.iter_versions():
+        if verneed.name.decode('utf-8').startswith('ld-linux'):
+            continue
         for vernaux in verneed_iter:
             yield (verneed.name.decode('utf-8'), vernaux.name.decode('utf-8'))
