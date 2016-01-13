@@ -31,9 +31,13 @@ def execute(args, p):
     printp('%s is consistent with the following platform tag: "%s".' %
            (fn, winfo.overall_tag))
 
-    printp('The wheel references the following external versioned '
-           'symbols in system-provided shared libraries: %s.' %
-           ', '.join(versions))
+    if len(versions) == 0:
+        printp(("The wheel references no external versioned symbols from "
+                "system-provided shared libraries."))
+    else:
+        printp('The wheel references the following external versioned '
+               'symbols in system-provided shared libraries: %s.' %
+               ', '.join(versions))
 
     if get_priority_by_name(winfo.sym_tag) < POLICY_PRIORITY_HIGHEST:
         printp(('This constrains the platform tag to "%s". '
@@ -44,11 +48,15 @@ def execute(args, p):
         if args.verbose < 1:
             return
 
-    printp(('The following external shared libraries are required '
-            'by the wheel:'))
-    print(json.dumps(winfo.external_refs[get_policy_name(
-        POLICY_PRIORITY_LOWEST)]['libs'],
-                     indent=4))
+
+    libs = winfo.external_refs[get_policy_name(POLICY_PRIORITY_LOWEST)]['libs']
+    if len(libs) == 0:
+        printp('The wheel requires no external shared libraries.')
+    else:
+        printp(('The following external shared libraries are required '
+                'by the wheel:'))
+        print(json.dumps(libs, indent=4))
+
 
     for p in sorted(load_policies(), key=lambda p: p['priority']):
         if p['priority'] > get_priority_by_name(winfo.overall_tag):

@@ -7,7 +7,7 @@ from .genericpkgctx import InGenericPkgCtx
 from .lddtree import (elf_file_filter, elf_find_versioned_symbols, parse_elf,
                       elf_match_dt_needed)
 from .policy import (elf_exteral_referenences, versioned_symbols_policy,
-                     get_policy_name, POLICY_PRIORITY_LOWEST)
+                     get_policy_name, POLICY_PRIORITY_LOWEST, load_policies)
 from .policy.external_references import LIBPYTHON_RE
 
 log = logging.getLogger(__name__)
@@ -42,7 +42,8 @@ def get_wheel_elfdata(wheel_fn: str):
 
 
 def analyze_wheel_abi(wheel_fn: str):
-    external_refs = {}
+    external_refs = {p['name']: {'libs': {}, 'priority': p['priority']}
+                     for p in load_policies()}
 
     elftree_by_fn, external_refs_by_fn, versioned_symbols = \
             get_wheel_elfdata(wheel_fn)

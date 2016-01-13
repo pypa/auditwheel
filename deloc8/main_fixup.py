@@ -5,7 +5,7 @@ from .policy import (load_policies, get_policy_name, get_priority_by_name,
 def configure_parser(sub_parsers):
     policy_names = [p['name'] for p in load_policies()]
     highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)
-    help = "Fix up external shared library dependencies of a wheel."
+    help = "Embed external shared library dependencies into a wheel, and retag."
 
     p = sub_parsers.add_parser('fixup', help=help, description=help)
     p.add_argument('wheel', help='Path to wheel file')
