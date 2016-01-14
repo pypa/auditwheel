@@ -44,8 +44,8 @@ def execute(args, p):
                 'would to recompile a new wheel from source on a system '
                 'with earlier versions of these libraries, such as '
                 'CentOS 5.') % winfo.sym_tag)
-        if args.verbose < 1:
-            return
+        # if args.verbose < 1:
+        #     return
 
     libs = winfo.external_refs[get_policy_name(POLICY_PRIORITY_LOWEST)]['libs']
     if len(libs) == 0:
