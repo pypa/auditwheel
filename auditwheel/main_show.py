@@ -16,8 +16,7 @@ def execute(args, p):
     from functools import reduce
     from os.path import isfile, basename
     from .policy import (load_policies, get_priority_by_name,
-                         POLICY_PRIORITY_LOWEST,
-                         POLICY_PRIORITY_HIGHEST,
+                         POLICY_PRIORITY_LOWEST, POLICY_PRIORITY_HIGHEST,
                          get_policy_name)
     from .wheel_abi import analyze_wheel_abi
     fn = basename(args.WHEEL_FILE)
@@ -48,7 +47,6 @@ def execute(args, p):
         if args.verbose < 1:
             return
 
-
     libs = winfo.external_refs[get_policy_name(POLICY_PRIORITY_LOWEST)]['libs']
     if len(libs) == 0:
         printp('The wheel requires no external shared libraries! :)')
@@ -56,7 +54,6 @@ def execute(args, p):
         printp(('The following external shared libraries are required '
                 'by the wheel:'))
         print(json.dumps(libs, indent=4))
-
 
     for p in sorted(load_policies(), key=lambda p: p['priority']):
         if p['priority'] > get_priority_by_name(winfo.overall_tag):

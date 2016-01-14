@@ -5,6 +5,7 @@ import argparse
 import pkg_resources
 
 from . import main_show
+from . import main_addtag
 from . import main_lddtree
 
 
@@ -25,7 +26,7 @@ def main():
     sub_parsers = p.add_subparsers(metavar='command', dest='cmd')
 
     main_show.configure_parser(sub_parsers)
-    # main_fixup.configure_parser(sub_parsers)
+    main_addtag.configure_parser(sub_parsers)
     main_lddtree.configure_subparser(sub_parsers)
 
     args = p.parse_args()
@@ -43,7 +44,9 @@ def main():
         return
 
     try:
-        args.func(args, p)
+        rval = args.func(args, p)
     except:
         # TODO(rmcgibbo): nice message
         raise
+
+    return rval

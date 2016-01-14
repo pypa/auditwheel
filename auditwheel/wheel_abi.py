@@ -42,7 +42,8 @@ def get_wheel_elfdata(wheel_fn: str):
 
 
 def analyze_wheel_abi(wheel_fn: str):
-    external_refs = {p['name']: {'libs': {}, 'priority': p['priority']}
+    external_refs = {p['name']: {'libs': {},
+                                 'priority': p['priority']}
                      for p in load_policies()}
 
     elftree_by_fn, external_refs_by_fn, versioned_symbols = \

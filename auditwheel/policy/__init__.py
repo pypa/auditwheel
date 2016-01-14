@@ -4,8 +4,11 @@ import platform as _platform_module
 from typing import Optional
 from os.path import join, dirname, abspath
 
-_sys_map = {'linux2': 'linux', 'linux': 'linux',
-            'darwin': 'osx', 'win32': 'win', 'openbsd5': 'openbsd'}
+_sys_map = {'linux2': 'linux',
+            'linux': 'linux',
+            'darwin': 'osx',
+            'win32': 'win',
+            'openbsd5': 'openbsd'}
 non_x86_linux_machines = {'armv6l', 'armv7l', 'ppc64le'}
 platform = _sys_map.get(sys.platform, 'unknown')
 bits = 8 * tuple.__itemsize__
@@ -15,25 +18,24 @@ linkage = _platform_module.architecture()[1]
 # Windows probably, but there's not much reason to inspect foreign package
 # that won't run on the platform.
 if platform != 'linux':
-   print('Error: This tool only supports Linux', file=sys.stderr)
-   sys.exit(1)
+    print('Error: This tool only supports Linux', file=sys.stderr)
+    sys.exit(1)
 if linkage != 'ELF':
-   print(('Error: This tool only supports platforms that use the ELF '
-          'executable and linker format.'), file=sys.stderr)
-   sys.exit(1)
-
+    print(
+        ('Error: This tool only supports platforms that use the ELF '
+         'executable and linker format.'),
+        file=sys.stderr)
+    sys.exit(1)
 
 if _platform_module.machine() in non_x86_linux_machines:
     arch_name = machine()
 else:
     arch_name = {64: 'x86_64', 32: '_i386'}[bits]
 
-
 with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
     _POLICIES = json.load(f)
     for p in _POLICIES:
         p['name'] = p['name'] + '_' + arch_name
-
 
 POLICY_PRIORITY_HIGHEST = max(p['priority'] for p in _POLICIES)
 POLICY_PRIORITY_LOWEST = min(p['priority'] for p in _POLICIES)
