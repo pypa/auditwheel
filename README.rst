@@ -53,6 +53,10 @@ Inspecting a wheel: ::
       "libpthread.so.0": "/lib64/libpthread-2.5.so"
   }
 
+In order to achieve the tag platform tag "manylinux_1" the following
+shared library dependencies would need to be eliminated:
+
+libgfortran.so.1, libopenblas.so.0
 
 Limitations
 -----------
