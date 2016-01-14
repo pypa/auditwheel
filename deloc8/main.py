@@ -6,7 +6,7 @@ import pkg_resources
 
 from . import main_show
 from . import main_lddtree
-from . import main_fixup
+# from . import main_fixup
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
     sub_parsers = p.add_subparsers(metavar='command', dest='cmd')
 
     main_show.configure_parser(sub_parsers)
-    main_fixup.configure_parser(sub_parsers)
+    # main_fixup.configure_parser(sub_parsers)
     main_lddtree.configure_subparser(sub_parsers)
 
     args = p.parse_args()

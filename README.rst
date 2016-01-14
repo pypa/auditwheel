@@ -1,7 +1,7 @@
 deloc8
 ======
 
-Cross-distribution Linux wheels.
+Auditing and relabeling cross-distribution Linux wheels.
 
 Overview
 --------
@@ -17,10 +17,6 @@ standard subset of the kernel+core userspace ABI.
 checks the extension modules for the use of versioned symbols that exceed
 the ``linux_pybe1_core`` ABI.
 
-``deloc8 fixup``: if possible, modify a wheel to bring it into compliance
-with the ``linux_pybe1_core`` ABI by copying external shared libraries
-into the wheel itself, and patching in RPATHS.
-
 
 Installation
 -------------
@@ -29,8 +25,8 @@ Installation
 
   pip install git+git://github.com/rmcgibbo/deloc8
 
-It requires Python 3.3+, and runs on Linux. It requires the shell commands
-``unzip`` and ``patchelf`` be available in the ``PATH``. Only systems that use
+It requires Python 3.3+, and runs on Linux. It requires that the shell command
+``unzip`` be available in the ``PATH``. Only systems that use
 `ELF <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based
 linkage are supported (this should be essentially every Linux).
 
@@ -56,24 +52,6 @@ Inspecting a wheel: ::
       "libopenblas.so.0": "/usr/local/lib/libopenblas_nehalemp-r0.2.14.so",
       "libpthread.so.0": "/lib64/libpthread-2.5.so"
   }
-
-  In order to achieve the tag platform tag "linux_pybe1_core_x86_64" the
-  following shared library dependencies will need to be relocated inside
-  the wheel:
-
-  libgfortran.so.1, libopenblas.so.0
-
-Fixing up the wheel: ::
-
-  $ deloc8 fixup numpy-1.10.4-cp35-cp35m-linux_x86_64.whl -w wheelhouse
-  Grafting: /usr/local/lib/libopenblas_nehalemp-r0.2.14.so
-  Grafting: /usr/lib64/libgfortran.so.1.0.0
-  Setting RPATH: numpy/linalg/_umath_linalg.cpython-35m-x86_64-linux-gnu.so
-  Setting RPATH: numpy/linalg/lapack_lite.cpython-35m-x86_64-linux-gnu.so
-  Setting RPATH: numpy/core/multiarray.cpython-35m-x86_64-linux-gnu.so
-
-  Writing fixed-up wheel written to /wheelhouse/numpy-1.10.4-cp35-cp35m-linux_x86_64.whl
-  Done!
 
 
 Limitations
