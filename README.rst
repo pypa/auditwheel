@@ -1,6 +1,9 @@
 auditwheel
 ==========
 
+.. image:: https://travis-ci.org/manylinux/auditwheel.svg?branch=master
+    :target: https://travis-ci.org/manylinux/auditwheel
+
 Auditing and relabeling cross-distribution Linux wheels.
 
 Overview
