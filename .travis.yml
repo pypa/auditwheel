@@ -9,6 +9,7 @@ branches:
 
 before_install:
   - pip install --upgrade pip wheel
+  - pip -V
 
 install:
   - pip install -r test-requirements.txt
