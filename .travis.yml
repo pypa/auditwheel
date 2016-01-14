@@ -7,4 +7,4 @@ install:
   - pip install .
   - pip install -r test-requirements.txt
 
-script: tox
+script: py.test

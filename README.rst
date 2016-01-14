@@ -1,29 +1,29 @@
-deloc8
-======
+auditwheel
+==========
 
 Auditing and relabeling cross-distribution Linux wheels.
 
 Overview
 --------
 
-``deloc8`` is a command line tool to facilitate the creation of Python
+``auditwheel`` is a command line tool to facilitate the creation of Python
 `wheel packages <http://pythonwheels.com/>`_ for Linux containing
 pre-compiled binary extensions that can be expected to be compatible
 with a wide variety of Linux distributions because they use only a small
 standard subset of the kernel+core userspace ABI.
 
-``deloc8 show``: shows external shared libraries that the wheel depends on
-(beyond the libraries included in the ``linux_pybe1_core`` policy), and
+``auditwheel show``: shows external shared libraries that the wheel depends on
+(beyond the libraries included in the ``manylinux_1`` policy), and
 checks the extension modules for the use of versioned symbols that exceed
-the ``linux_pybe1_core`` ABI.
+the ``manylinux_1`` ABI.
 
 
 Installation
 -------------
 
-``deloc8`` can be installed using pip: ::
+``auditwheel`` can be installed using pip: ::
 
-  pip install git+git://github.com/rmcgibbo/deloc8
+  pip install git+git://github.com/manylinux/auditwheel
 
 It requires Python 3.3+, and runs on Linux. It requires that the shell command
 ``unzip`` be available in the ``PATH``. Only systems that use
@@ -36,7 +36,7 @@ Examples
 
 Inspecting a wheel: ::
 
-  $ deloc8 show numpy-1.10.4-cp35-cp35m-linux_x86_64.whl
+  $ manylinux show numpy-1.10.4-cp35-cp35m-linux_x86_64.whl
 
   numpy-1.10.4-cp35-cp35m-linux_x86_64.whl is consistent with the
   following platform tag: "linux_x86_64".
@@ -57,7 +57,7 @@ Inspecting a wheel: ::
 Limitations
 -----------
 
-1. ``deloc8`` uses the `DT_NEEDED <https://en.wikipedia.org/wiki/Direct_binding>`_
+1. ``auditwheel`` uses the `DT_NEEDED <https://en.wikipedia.org/wiki/Direct_binding>`_
    information from the Python extension modules to determine which system system
    libraries they depend on. Code that that dynamically loads libraries at
    at runtime using ``ctypes`` / ``cffi`` (from Python) or ``dlopen`` (from C/C++)
@@ -78,16 +78,12 @@ Limitations
 Policies
 --------
 
-The exact content of the policy is open for discussion. The following libraries
-are, I (=rmcgibbo) think, are a pretty good start. I determined these by
-analyzing the shared library dependencies of all of the pre-compiled packages
-included in the Linux-x86_64 Anaconda Python distribution produced by
-Continuum Analytics, which, empirically, has been determined to work pretty well
-across a wide variety of Linux distros.
+The exact content of the policy is open for discussion. For example, here's a
+first draft.
 
 ::
 
-    {"name": "linux_pybe1_core",
+    {"name": "manylinux_1",
      "symbol_versions": {
          "GLIBC": "2.5",
          "CXXABI": "3.4.8",

@@ -6,12 +6,11 @@ import pkg_resources
 
 from . import main_show
 from . import main_lddtree
-# from . import main_fixup
 
 
 def main():
-    dist = pkg_resources.get_distribution('deloc8')
-    version = 'deloc8 %s installed at %s (python %s)' % (
+    dist = pkg_resources.get_distribution('auditwheel')
+    version = 'auditwheel %s installed at %s (python %s)' % (
         dist.version, dist.location, sys.version[:3])
 
     p = argparse.ArgumentParser(description='Cross-distro Python wheels.')

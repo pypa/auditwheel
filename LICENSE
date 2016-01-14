@@ -1,4 +1,4 @@
-The deloc8 package is covered by the MIT license.
+The auditwheel package is covered by the MIT license.
 
 ::
 
@@ -28,7 +28,7 @@ The deloc8 package is covered by the MIT license.
 3rd party code and data
 =======================
 
-Some code distributed within the deloc8 sources was developed by other
+Some code distributed within the auditwheel sources was developed by other
 projects. This code is distributed under its respective licenses that are
 listed below.
 
