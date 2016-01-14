@@ -20,3 +20,7 @@ python:
 
 script:
   - py.test
+  - PYVER=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
+  - wget "https://github.com/getnikola/wheelhouse/archive/v${PYVER}.zip"
+  - unzip v${PYVER}.zip
+  - find wheelhouse-* -name '*.whl' | xargs -n 1 auditwheel show
