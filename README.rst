@@ -26,7 +26,7 @@ Installation
 
 ``auditwheel`` can be installed using pip: ::
 
-  pip install git+git://github.com/manylinux/auditwheel
+  pip3 install git+git://github.com/manylinux/auditwheel
 
 It requires Python 3.3+, and runs on Linux. It requires that the shell command
 ``unzip`` be available in the ``PATH``. Only systems that use
@@ -65,9 +65,9 @@ Limitations
 -----------
 
 1. ``auditwheel`` uses the `DT_NEEDED <https://en.wikipedia.org/wiki/Direct_binding>`_
-   information from the Python extension modules to determine which system system
-   libraries they depend on. Code that that dynamically loads libraries at
-   at runtime using ``ctypes`` / ``cffi`` (from Python) or ``dlopen`` (from C/C++)
+   information (like ``ldd``) from the Python extension modules to determine which
+   system system libraries they depend on. Code that that dynamically loads libraries
+   at at runtime using ``ctypes`` / ``cffi`` (from Python) or ``dlopen`` (from C/C++)
    doesn't contain this information in a way that can be statically determined, so
    dependencies that are loaded via those mechanisms will be missed.
 2. There's nothing we can do about "fixing" binaries if they were compiled and linked

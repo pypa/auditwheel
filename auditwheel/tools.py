@@ -1,4 +1,6 @@
 import os
+import shutil
+from glob import glob
 from os.path import exists, isfile, isdir
 from os.path import join as pjoin
 import zipfile
@@ -38,6 +40,17 @@ def zip2dir(zip_fname, out_dir):
     # Use unzip command rather than zipfile module to preserve permissions
     # http://bugs.python.org/issue15795
     subprocess.check_output(['unzip', '-o', '-d', out_dir, zip_fname])
+
+    try:
+        # but sometimes preserving permssions is really bad, and makes it
+        # we don't have the permissions to read any of the files
+        with open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0]) as f:
+            pass
+    except PermissionError:
+        shutil.rmtree(out_dir)
+        with zipfile.ZipFile(zip_fname) as zf:
+            zf.extractall(out_dir)
+
 
 
 def dir2zip(in_dir, zip_fname):
