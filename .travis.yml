@@ -9,6 +9,10 @@ branches:
 
 before_install:
   - pip install --upgrade pip wheel
+
+install:
+  - pip install -r test-requirements.txt
+  - pip install .
     
 python:
   - "3.4"
@@ -16,5 +20,3 @@ python:
 
 script:
   - py.test
-
-cache: pip
