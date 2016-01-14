@@ -1,5 +1,5 @@
 def configure_parser(sub_parsers):
-    help = "List external shared library dependencies of a wheel."
+    help = "Audit a wheel for external shared library dependencies."
     p = sub_parsers.add_parser('show', help=help, description=help)
     p.add_argument('WHEEL_FILE', help='Path to wheel file.')
     p.set_defaults(func=execute)
@@ -51,7 +51,7 @@ def execute(args, p):
 
     libs = winfo.external_refs[get_policy_name(POLICY_PRIORITY_LOWEST)]['libs']
     if len(libs) == 0:
-        printp('The wheel requires no external shared libraries.')
+        printp('The wheel requires no external shared libraries! :)')
     else:
         printp(('The following external shared libraries are required '
                 'by the wheel:'))
@@ -62,5 +62,5 @@ def execute(args, p):
         if p['priority'] > get_priority_by_name(winfo.overall_tag):
             printp(('In order to achieve the tag platform tag "%s" '
                     'the following shared library dependencies '
-                    'will need to be relocated inside the wheel:') % p['name'])
+                    'will need to be eliminated:') % p['name'])
             printp(', '.join(winfo.external_refs[p['name']]['libs'].keys()))
