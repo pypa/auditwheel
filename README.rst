@@ -75,7 +75,7 @@ Limitations
    on a new system won't / might not run on older system.
 
    So, to compile widely-compatible binaries, you're best off doing the build on an
-   old Linux distribution. The ``linux_pybe1_core`` platform tag is consistent with
+   old Linux distribution. The ``manylinux_1`` platform tag is consistent with
    symbol versions from CentOS 5. Fortunately with Docker, this is hard anymore.
 
 
