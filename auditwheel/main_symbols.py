@@ -1,4 +1,4 @@
-"""The runtime dynamic linker that loads your Python extension module when it's imported doesn't have the same concept of namespaces that exists in Python, so it's possibe for symbols defined in one module to automatically, at runtime override symbols defined or used in another file, in ways that the author of that module probably didn't intend.
+"""The runtime dynamic linker that loads your Python extension module when it's imported doesn't have the same concept of namespaces that exists in Python, so it's possibe for symbols defined in one module to automatically, at runtime, override symbols defined or used in another file, in ways that the author of that module probably didn't intend.
 
 (This why tricks line LD_PRELOAD work.)
 
