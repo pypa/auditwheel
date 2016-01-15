@@ -1,6 +1,6 @@
 """The runtime dynamic linker that loads your Python extension module when it's imported doesn't have the same concept of namespaces that exists in Python, so it's possible for symbols defined in one module to automatically, at runtime, override symbols defined or used in another file, in ways that the author of that module probably didn't intend.
 
-(This why tricks line LD_PRELOAD work.)
+(This why tricks like LD_PRELOAD work.)
 
 It's therefore good practice to limit the number of dynamic symbols that your module adds to the global symbol namespace.
 
