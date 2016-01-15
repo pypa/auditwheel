@@ -7,7 +7,7 @@ import pkg_resources
 from . import main_show
 from . import main_addtag
 from . import main_lddtree
-
+from . import main_symbols
 
 def main():
     dist = pkg_resources.get_distribution('auditwheel')
@@ -28,6 +28,7 @@ def main():
     main_show.configure_parser(sub_parsers)
     main_addtag.configure_parser(sub_parsers)
     main_lddtree.configure_subparser(sub_parsers)
+    main_symbols.configure_subparser(sub_parsers)
 
     args = p.parse_args()
 
