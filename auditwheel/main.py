@@ -31,7 +31,6 @@ def main():
     main_repair.configure_parser(sub_parsers)
     main_lddtree.configure_subparser(sub_parsers)
 
-    
     args = p.parse_args()
 
     logging.disable(logging.NOTSET)

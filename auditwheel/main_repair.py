@@ -25,20 +25,18 @@ def configure_parser(sub_parsers):
         help=("Add new platform tag to wheel. (this doesn't work"
               "with the current pip, since it doesn't recognize the tag"),
         action="store_true")
-    p.add_argument(
-        '-L',
-        '--lib-sdir',
-        dest='LIB_SDIR',
-        help=('Subdirectory in packages to store copied libraries.'
-              ' (default: ".libs")'),
-        default='.libs')
-    p.add_argument(
-        '-w',
-        '--wheel-dir',
-        dest='WHEEL_DIR',
-        help=('Directory to store delocated wheels (default:'
-              ' "wheelhouse/")'),
-        default='wheelhouse/')
+    p.add_argument('-L',
+                   '--lib-sdir',
+                   dest='LIB_SDIR',
+                   help=('Subdirectory in packages to store copied libraries.'
+                         ' (default: ".libs")'),
+                   default='.libs')
+    p.add_argument('-w',
+                   '--wheel-dir',
+                   dest='WHEEL_DIR',
+                   help=('Directory to store delocated wheels (default:'
+                         ' "wheelhouse/")'),
+                   default='wheelhouse/')
     p.set_defaults(func=execute)
 
 
@@ -58,7 +56,7 @@ def execute(args, p):
 
     if not exists(args.WHEEL_DIR):
         os.makedirs(args.WHEEL_DIR)
-                    
+
     wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
     out_wheel = repair_wheel(args.WHEEL_FILE,
                              abi=args.PLAT,
@@ -67,4 +65,3 @@ def execute(args, p):
 
     if out_wheel is not None:
         print('\nWriting fixed-up wheel written to %s' % out_wheel)
-        

@@ -1,7 +1,7 @@
 import os
 import shutil
-from os.path import (exists, isdir, relpath, dirname, split, basename,
-                     abspath, isabs)
+from os.path import (exists, isdir, relpath, dirname, split, basename, abspath,
+                     isabs)
 from os.path import join as pjoin
 from subprocess import check_call
 from distutils.spawn import find_executable
@@ -11,10 +11,8 @@ from .wheeltools import InWheelCtx
 from .wheel_abi import get_wheel_elfdata
 
 
-def repair_wheel(wheel_path: str,
-                abi: str,
-                lib_sdir: str,
-                out_dir: str) -> Optional[str]:
+def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
+                 str) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
     if not isabs(out_dir):
@@ -51,7 +49,6 @@ def repair_wheel(wheel_path: str,
     return ctx.out_wheel
 
 
-
 def patchelf(fn, libdir):
     if not find_executable('patchelf'):
         raise ValueError('Cannot find required utility `patchelf` in PATH')
@@ -59,4 +56,3 @@ def patchelf(fn, libdir):
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
     print('Setting RPATH: %s' % fn)
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])
-
