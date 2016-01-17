@@ -42,12 +42,10 @@ def configure_parser(sub_parsers):
 
 def execute(args, p):
     import os
-    import logging
     from os.path import isfile, exists
     from distutils.spawn import find_executable
     from .repair import repair_wheel
     from .wheel_abi import analyze_wheel_abi
-    log = logging.getLogger(__name__)
 
     if not isfile(args.WHEEL_FILE):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
@@ -58,6 +56,15 @@ def execute(args, p):
         os.makedirs(args.WHEEL_DIR)
 
     wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
+    can_add_platform = (get_priority_by_name(args.PLAT) <=
+                        get_priority_by_name(wheel_abi.sym_tag))
+    if not can_add_platform:
+        msg = ('cannot really fixup "%s" to "%s" ABI because of the presence '
+               'of too-recent versioned symbols. You\'ll need to compile '
+               'the wheel on an older toolchain.' %
+               (args.WHEEL_FILE, args.PLAT))
+        p.error(msg)
+
     out_wheel = repair_wheel(args.WHEEL_FILE,
                              abi=args.PLAT,
                              lib_sdir=args.LIB_SDIR,
