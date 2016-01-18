@@ -26,7 +26,7 @@ def execute(args, p):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
 
     winfo = analyze_wheel_abi(args.WHEEL_FILE)
-    versions = list(reduce(set.union, winfo.versioned_symbols.values(), set()))
+    versions = ['%s_%s' % (k, v) for k, v in winfo.versioned_symbols.items()]
 
     printp('%s is consistent with the following platform tag: "%s".' %
            (fn, winfo.overall_tag))

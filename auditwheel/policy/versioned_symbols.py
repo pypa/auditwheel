@@ -8,7 +8,7 @@ from . import load_policies
 log = logging.getLogger(__name__)
 
 
-def versioned_symbols_policy(data: Dict[str, Sequence[str]]) -> int:
+def max_versioned_symbol(data: Dict[str, Sequence[str]]) -> Dict[str, Version]:
     def set_if_greater(d, k, v):
         if (k in d and v > d[k]) or (k not in d):
             d[k] = v
@@ -21,7 +21,10 @@ def versioned_symbols_policy(data: Dict[str, Sequence[str]]) -> int:
             set_if_greater(max_required_ver, name, Version(ver))
 
     log.debug('Required symbol versions: %s', max_required_ver)
+    return max_required_ver
 
+
+def versioned_symbols_policy(max_required_ver: Dict[str, Version]) -> int:
     def policy_is_satisfied(tag: str, policy_sym_vers: Dict[str, Version]):
         for name in (set(max_required_ver.keys())
                      & set(policy_sym_vers.keys())):
@@ -43,4 +46,5 @@ def versioned_symbols_policy(data: Dict[str, Sequence[str]]) -> int:
     if len(matching_policies) == 0:
         # the base policy (generic linux) should always match
         raise RuntimeError('Internal error')
+
     return max(matching_policies)

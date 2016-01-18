@@ -71,7 +71,8 @@ def get_priority_by_name(name: str):
 
 
 from .external_references import elf_exteral_referenences
-from .versioned_symbols import versioned_symbols_policy
+from .versioned_symbols import versioned_symbols_policy, max_versioned_symbol
 
 __all__ = ['elf_exteral_referenences', 'versioned_symbols_policy',
-           'load_policy', 'POLICY_PRIORITY_HIGHEST', 'POLICY_PRIORITY_LOWEST']
+           'max_versioned_symbol', 'load_policy', 'POLICY_PRIORITY_HIGHEST',
+           'POLICY_PRIORITY_LOWEST']

@@ -7,7 +7,8 @@ from collections import defaultdict, Mapping, Sequence, namedtuple
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import elf_file_filter, elf_find_versioned_symbols, parse_elf
 from .policy import (elf_exteral_referenences, versioned_symbols_policy,
-                     get_policy_name, POLICY_PRIORITY_LOWEST, load_policies)
+                     max_versioned_symbol, get_policy_name,
+                     POLICY_PRIORITY_LOWEST, load_policies)
 
 log = logging.getLogger(__name__)
 WheelAbIInfo = namedtuple('WheelAbIInfo',
@@ -30,19 +31,18 @@ def get_wheel_elfdata(wheel_fn: str):
                 for key, value in elf_find_versioned_symbols(elf):
                     versioned_symbols[key].add(value)
 
-                full_external_refs[fn] = elf_exteral_referenences(
-                    elftree, ctx.path)
+                full_external_refs[fn] = elf_exteral_referenences(elftree,
+                                                                  ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
     return (full_elftree, full_external_refs,
-            {k: sorted(v)
-             for k, v in versioned_symbols.items()})
+            max_versioned_symbol(versioned_symbols))
 
 
 def analyze_wheel_abi(wheel_fn: str):
-    external_refs = {p['name']: {'libs': {},
-                                 'priority': p['priority']}
-                     for p in load_policies()}
+    external_refs = {
+        p['name']: {'libs': {}, 'priority': p['priority']}
+        for p in load_policies()}
 
     elftree_by_fn, external_refs_by_fn, versioned_symbols = \
             get_wheel_elfdata(wheel_fn)
@@ -81,7 +81,7 @@ def update(d, u):
 
 def elf_is_python_extension(fn, elf):
     modname = basename(fn).split('.', 1)[0]
-    module_init_f = {'init' + modname : 2, 'PyInit_' + modname : 3}
+    module_init_f = {'init' + modname: 2, 'PyInit_' + modname: 3}
 
     sect = elf.get_section_by_name(b'.dynsym')
     if sect is None:
@@ -89,8 +89,8 @@ def elf_is_python_extension(fn, elf):
 
     for sym in sect.iter_symbols():
         if (sym.name.decode('utf-8') in module_init_f and
-            sym['st_shndx'] != 'SHN_UNDEF' and
-            sym['st_info']['type'] == 'STT_FUNC'):
+                sym['st_shndx'] != 'SHN_UNDEF' and
+                sym['st_info']['type'] == 'STT_FUNC'):
 
             return True
 
