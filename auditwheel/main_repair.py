@@ -18,13 +18,6 @@ def configure_parser(sub_parsers):
         help='Desired target platform. (default: "%s")' % highest_policy,
         choices=policy_names,
         default=highest_policy)
-    p.add_argument(
-        '-a',
-        '--add-tag',
-        dest='ADD_TAG',
-        help=("Add new platform tag to wheel. (this doesn't work"
-              "with the current pip, since it doesn't recognize the tag"),
-        action="store_true")
     p.add_argument('-L',
                    '--lib-sdir',
                    dest='LIB_SDIR',
@@ -59,7 +52,7 @@ def execute(args, p):
     can_add_platform = (get_priority_by_name(args.PLAT) <=
                         get_priority_by_name(wheel_abi.sym_tag))
     if not can_add_platform:
-        msg = ('cannot really fixup "%s" to "%s" ABI because of the presence '
+        msg = ('cannot repair "%s" to "%s" ABI because of the presence '
                'of too-recent versioned symbols. You\'ll need to compile '
                'the wheel on an older toolchain.' %
                (args.WHEEL_FILE, args.PLAT))
