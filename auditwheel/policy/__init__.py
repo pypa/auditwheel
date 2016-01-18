@@ -20,12 +20,13 @@ linkage = _platform_module.architecture()[1]
 if platform != 'linux':
     print('Error: This tool only supports Linux', file=sys.stderr)
     sys.exit(1)
-if linkage != 'ELF':
-    print(
-        ('Error: This tool only supports platforms that use the ELF '
-         'executable and linker format.'),
-        file=sys.stderr)
-    sys.exit(1)
+
+# if linkage != 'ELF':
+#     print(
+#         ('Error: This tool only supports platforms that use the ELF '
+#          'executable and linker format.'),
+#         file=sys.stderr)
+#     sys.exit(1)
 
 if _platform_module.machine() in non_x86_linux_machines:
     arch_name = machine()
