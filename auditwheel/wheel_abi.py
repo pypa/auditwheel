@@ -1,14 +1,13 @@
 import json
 import logging
 import functools
+from os.path import basename
 from collections import defaultdict, Mapping, Sequence, namedtuple
 
 from .genericpkgctx import InGenericPkgCtx
-from .lddtree import (elf_file_filter, elf_find_versioned_symbols, parse_elf,
-                      elf_match_dt_needed)
+from .lddtree import elf_file_filter, elf_find_versioned_symbols, parse_elf
 from .policy import (elf_exteral_referenences, versioned_symbols_policy,
                      get_policy_name, POLICY_PRIORITY_LOWEST, load_policies)
-from .policy.external_references import LIBPYTHON_RE
 
 log = logging.getLogger(__name__)
 WheelAbIInfo = namedtuple('WheelAbIInfo',
@@ -24,16 +23,15 @@ def get_wheel_elfdata(wheel_fn: str):
 
     with InGenericPkgCtx(wheel_fn) as ctx:
         for fn, elf in elf_file_filter(ctx.iter_files()):
-            if elf_match_dt_needed(elf, LIBPYTHON_RE):
-
+            if elf_is_python_extension(fn, elf):
                 log.info('processing: %s', fn)
                 elftree = parse_elf(fn)
                 full_elftree[fn] = elftree
                 for key, value in elf_find_versioned_symbols(elf):
                     versioned_symbols[key].add(value)
 
-                full_external_refs[fn] = elf_exteral_referenences(elftree,
-                                                                  ctx.path)
+                full_external_refs[fn] = elf_exteral_referenences(
+                    elftree, ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
     return (full_elftree, full_external_refs,
@@ -79,3 +77,21 @@ def update(d, u):
         else:
             raise RuntimeError('!', d, k)
     return d
+
+
+def elf_is_python_extension(fn, elf):
+    modname = basename(fn).split('.', 1)[0]
+    module_init_f = {'init' + modname : 2, 'PyInit_' + modname : 3}
+
+    sect = elf.get_section_by_name(b'.dynsym')
+    if sect is None:
+        return False
+
+    for sym in sect.iter_symbols():
+        if (sym.name.decode('utf-8') in module_init_f and
+            sym['st_shndx'] != 'SHN_UNDEF' and
+            sym['st_info']['type'] == 'STT_FUNC'):
+
+            return True
+
+    return False
