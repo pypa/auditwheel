@@ -61,4 +61,4 @@ def execute(args, p):
             printp(('In order to achieve the tag platform tag "%s" '
                     'the following shared library dependencies '
                     'will need to be eliminated:') % p['name'])
-            printp(', '.join(winfo.external_refs[p['name']]['libs'].keys()))
+            printp(', '.join(sorted(winfo.external_refs[p['name']]['libs'].keys())))

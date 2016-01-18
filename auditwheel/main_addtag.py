@@ -1,3 +1,4 @@
+from os.path import basename, exists, join, abspath
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
 
@@ -9,15 +10,12 @@ def configure_parser(sub_parsers):
 
     p = sub_parsers.add_parser('addtag', help=help, description=help)
     p.add_argument('WHEEL_FILE', help='Path to wheel file')
-    p.add_argument('-f',
-                   '--force',
-                   help='Override symbol version ABI check',
-                   action='store_true')
     p.add_argument('-w',
                    '--wheel-dir',
                    dest='WHEEL_DIR',
                    help=('Directory to store new wheel file (default:'
                          ' "wheelhouse/")'),
+                   type=abspath,
                    default='wheelhouse/')
     p.set_defaults(func=execute)
 
@@ -25,7 +23,6 @@ def configure_parser(sub_parsers):
 def execute(args, p):
     import os
     import sys
-    from os.path import basename, exists, join
     from wheel.install import WHEEL_INFO_RE
     from .wheeltools import InWheelCtx, add_platforms, WheelToolsError
     from .wheel_abi import analyze_wheel_abi
@@ -35,8 +32,8 @@ def execute(args, p):
     parsed_fname = WHEEL_INFO_RE(basename(args.WHEEL_FILE))
     in_fname_tags = parsed_fname.groupdict()['plat'].split('.')
 
-    print('%s recieves the following tag: "%s"' % (basename(args.WHEEL_FILE),
-                                                   wheel_abi.overall_tag))
+    print('%s recieves the following tag: "%s".' % (
+        basename(args.WHEEL_FILE), wheel_abi.overall_tag))
     print('Use ``auditwheel show`` for more details')
 
     if wheel_abi.overall_tag in in_fname_tags:

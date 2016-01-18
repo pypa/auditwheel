@@ -1,3 +1,4 @@
+from os.path import isfile, exists, abspath
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
 
@@ -27,6 +28,7 @@ def configure_parser(sub_parsers):
     p.add_argument('-w',
                    '--wheel-dir',
                    dest='WHEEL_DIR',
+                   type=abspath,
                    help=('Directory to store delocated wheels (default:'
                          ' "wheelhouse/")'),
                    default='wheelhouse/')
@@ -35,7 +37,6 @@ def configure_parser(sub_parsers):
 
 def execute(args, p):
     import os
-    from os.path import isfile, exists
     from distutils.spawn import find_executable
     from .repair import repair_wheel
     from .wheel_abi import analyze_wheel_abi
