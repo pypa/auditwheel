@@ -29,4 +29,4 @@ script:
 
   - find wheelhouse-* -name '*.whl' | xargs -n1 -I '{}' sh -c "auditwheel show '{}'; echo ----------; echo ---------- "
   - find wheelhouse-* -name '*.whl' | xargs -n1 -I '{}' sh -c "auditwheel repair '{}'; echo ----------; echo ---------- "
-  - find wheelhouse-* -name '*.whl' | xargs -n1 -I '{}' sh -c "auditwheel show '{}'; echo ----------; echo ---------- "
+  - find wheelhouse/ -name '*.whl' | xargs -n1 -I '{}' sh -c "auditwheel show '{}'; echo ----------; echo ---------- "
