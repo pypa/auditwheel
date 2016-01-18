@@ -40,8 +40,8 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
             for libname, src_path in ext_libs.items():
                 dest_path = os.path.join(dest_dir, libname)
                 if not os.path.exists(dest_path):
-                    shutil.copy2(src_path, dest_path)
                     print('Grafting: %s' % src_path)
+                    shutil.copy2(src_path, dest_path)
 
             if len(ext_libs) > 0:
                 patchelf(fn, dest_dir)

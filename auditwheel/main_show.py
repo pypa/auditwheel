@@ -14,6 +14,7 @@ def printp(text):
 def execute(args, p):
     import json
     from functools import reduce
+    from collections import OrderedDict
     from os.path import isfile, basename
     from .policy import (load_policies, get_priority_by_name,
                          POLICY_PRIORITY_LOWEST, POLICY_PRIORITY_HIGHEST,
@@ -53,7 +54,7 @@ def execute(args, p):
     else:
         printp(('The following external shared libraries are required '
                 'by the wheel:'))
-        print(json.dumps(libs, indent=4))
+        print(json.dumps(OrderedDict(sorted(libs.items())), indent=4))
 
     for p in sorted(load_policies(), key=lambda p: p['priority']):
         if p['priority'] > get_priority_by_name(winfo.overall_tag):
