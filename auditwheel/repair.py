@@ -38,6 +38,10 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
 
             ext_libs = v[abi]['libs']  # type: Dict[str, str]
             for libname, src_path in ext_libs.items():
+                if src_path is None:
+                    raise ValueError('Cannot repair wheel, because required '
+                                     'library "%s" could not be located')
+
                 dest_path = os.path.join(dest_dir, libname)
                 if not os.path.exists(dest_path):
                     print('Grafting: %s' % src_path)

@@ -23,6 +23,10 @@ script:
   - PYVER=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
   - wget "https://github.com/getnikola/wheelhouse/archive/v${PYVER}.zip"
   - unzip v${PYVER}.zip
+
   - URL=http://vorpus.org/~njs/tmp/manylinux-test-wheels/original/
   - curl --silent $URL | grep 'a href' | grep whl | cut -d ' ' -f 8 | cut -d '=' -f 2 | cut -d '"' -f 2 | xargs -n1 -I '{}' wget -P wheelhouse-njs "$URL/{}" 
+
+  - find wheelhouse-* -name '*.whl' | xargs -n1 -I '{}' sh -c "auditwheel show '{}'; echo ----------; echo ---------- "
+  - find wheelhouse-* -name '*.whl' | xargs -n1 -I '{}' sh -c "auditwheel repair '{}'; echo ----------; echo ---------- "
   - find wheelhouse-* -name '*.whl' | xargs -n1 -I '{}' sh -c "auditwheel show '{}'; echo ----------; echo ---------- "
