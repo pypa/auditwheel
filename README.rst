@@ -26,7 +26,7 @@ Installation
 
 ``auditwheel`` can be installed using pip: ::
 
-  pip3 install git+git://github.com/manylinux/auditwheel
+  pip3 install auditwheel
 
 It requires Python 3.3+, and runs on Linux. It requires that the shell command
 ``unzip`` be available in the ``PATH``. Only systems that use
