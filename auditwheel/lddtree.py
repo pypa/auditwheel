@@ -104,7 +104,7 @@ def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
             # The ldso treats "" paths as $PWD.
             ldpath = os.getcwd()
         elif '$ORIGIN' in ldpath:
-            ldpath = ldpath.replace('$ORIGIN', os.path.dirname(path))
+            ldpath = ldpath.replace('$ORIGIN', os.path.dirname(os.path.abspath(path)))
         else:
             ldpath = root + ldpath
         ldpaths.append(normpath(ldpath))

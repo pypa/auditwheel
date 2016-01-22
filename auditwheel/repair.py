@@ -29,10 +29,16 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
             # more than one pkg, which is why we detect the pkg root
             # for each fn.
             pkg_root = fn.split(os.sep)[0]
-            if not exists(pjoin(pkg_root, '__init__.py')):
-                raise RuntimeError('Is this wheel malformatted? Or a bug?')
 
-            dest_dir = pjoin(pkg_root, lib_sdir)
+            if pkg_root == fn:
+                # this file is an extension that's not contained in a directory -- just supposed to
+                # be directly in site-packages
+                dest_dir = lib_sdir + pkg_root.split('.')[0]
+            else:
+                if not exists(pjoin(pkg_root, '__init__.py')):
+                    raise RuntimeError('Is this wheel malformatted? Or a bug?')
+                dest_dir = pjoin(pkg_root, lib_sdir)
+
             if not exists(dest_dir):
                 os.mkdir(dest_dir)
 
