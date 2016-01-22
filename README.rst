@@ -79,7 +79,7 @@ Limitations
 
    So, to compile widely-compatible binaries, you're best off doing the build on an
    old Linux distribution. The ``manylinux_1`` platform tag is consistent with
-   symbol versions from CentOS 5. Fortunately with Docker, this is hard anymore.
+   symbol versions from CentOS 5. Fortunately with Docker, this isn't hard anymore.
 
 
 Policies
