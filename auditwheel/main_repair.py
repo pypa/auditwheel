@@ -1,4 +1,4 @@
-from os.path import isfile, exists, abspath
+from os.path import isfile, exists, abspath, basename
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
 
@@ -45,6 +45,8 @@ def execute(args, p):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
     if find_executable('patchelf') is None:
         p.error('cannot find the \'patchelf\' tool, which is required')
+
+    print('Repairing %s' % basename(args.WHEEL_FILE))
 
     if not exists(args.WHEEL_DIR):
         os.makedirs(args.WHEEL_DIR)
