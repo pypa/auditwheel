@@ -404,7 +404,7 @@ def parse_elf(path: str,
             if lib in _all_libs:
                 continue
             if all_ldpaths is None:
-                all_ldpaths = rpaths + ldpaths['rpath'] + runpaths + \
+                all_ldpaths = ldpaths['rpath'] + rpaths + runpaths + \
                               ldpaths['env'] + ldpaths['runpath'] + ldpaths['conf'] + \
                               ldpaths['interp']
             realpath, fullpath = find_lib(elf, lib, all_ldpaths, root)
