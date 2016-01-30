@@ -34,7 +34,7 @@ It requires Python 3.3+, and runs on Linux. It requires that the shell command
 linkage are supported (this should be essentially every Linux).
 
 But in general, building ``manylinux1`` wheels requires running on a CentOS5
-machine, so we recommend using the pre-build ``manylinux`` `Docker image
+machine, so we recommend using the pre-built manylinux `Docker image
 <https://quay.io/repository/manylinux/manylinux?tag=latest>`_. ::
 
   $ docker run -i -t -v `pwd`:/io quay.io/manylinux/manylinux /bin/bash
@@ -94,4 +94,4 @@ Limitations
    on older system.
 
    So, to compile widely-compatible binaries, you're best off doing the build
-   on an old Linux distribution.
+   on an old Linux distribution, such as the manylinux Docker image.
