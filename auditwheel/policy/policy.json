@@ -4,7 +4,7 @@
      "symbol_versions": {},
      "lib_whitelist": []
     },
-    {"name": "manylinux_1",
+    {"name": "manylinux1",
      "priority": 100,
      "symbol_versions": {
          "GLIBC": "2.5",
