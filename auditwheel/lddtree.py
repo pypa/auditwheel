@@ -20,11 +20,10 @@ import logging
 import functools
 from typing import Iterator, Tuple, List, Dict, Optional, Any, re
 
-from elftools.common.exceptions import ELFError  # type: ignore
 from elftools.elf.elffile import ELFFile  # type: ignore
 
 log = logging.getLogger(__name__)
-__all__ = ['parse_elf', 'elf_file_filter', 'elf_find_versioned_symbols']
+__all__ = ['lddtree']
 
 
 def normpath(path: str) -> str:
@@ -269,13 +268,13 @@ def find_lib(elf, lib, ldpaths, root='/'):
     return (None, None)
 
 
-def parse_elf(path: str,
-              root: str='/',
-              prefix: str='',
-              ldpaths: Optional[List[str]]=None,
-              display: Optional[str]=None,
-              _first: bool=True,
-              _all_libs: Dict={}) -> Dict:
+def lddtree(path: str,
+            root: str='/',
+            prefix: str='',
+            ldpaths: Optional[List[str]]=None,
+            display: Optional[str]=None,
+            _first: bool=True,
+            _all_libs: Dict={}) -> Dict:
     """Parse the ELF dependency tree of the specified file
 
     Parameters
@@ -329,7 +328,7 @@ def parse_elf(path: str,
         'libs': _all_libs,
     }  # type: Dict[str, Any]
 
-    log.debug('parse_elf(%s)' % path)
+    log.debug('lddtree(%s)' % path)
 
     with open(path, 'rb') as f:
         elf = ELFFile(f)
@@ -414,45 +413,15 @@ def parse_elf(path: str,
                 'needed': [],
             }
             if fullpath:
-                lret = parse_elf(realpath,
-                                 root,
-                                 prefix,
-                                 ldpaths,
-                                 display=fullpath,
-                                 _first=False,
-                                 _all_libs=_all_libs)
+                lret = lddtree(realpath,
+                               root,
+                               prefix,
+                               ldpaths,
+                               display=fullpath,
+                               _first=False,
+                               _all_libs=_all_libs)
                 _all_libs[lib]['needed'] = lret['needed']
 
         del elf
 
     return ret
-
-
-def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
-    """Filter through an iterator of filenames and load up only ELF
-    files
-    """
-
-    for path in paths:
-        if path.endswith('.py'):
-            continue
-        else:
-            try:
-                with open(path, 'rb') as f:
-                    candidate = ELFFile(f)
-                    yield path, candidate
-            except ELFError:
-                # not an elf file
-                continue
-
-
-def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
-    section = elf.get_section_by_name(b'.gnu.version_r')
-    if section is None:
-        return []
-
-    for verneed, verneed_iter in section.iter_versions():
-        if verneed.name.decode('utf-8').startswith('ld-linux'):
-            continue
-        for vernaux in verneed_iter:
-            yield (verneed.name.decode('utf-8'), vernaux.name.decode('utf-8'))
