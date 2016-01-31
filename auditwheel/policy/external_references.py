@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 LIBPYTHON_RE = re.compile('^libpython\d\.\dm?.so(.\d)*$')
 
 
-def elf_exteral_referenences(elftree: Dict, wheel_path: str):
-    # XXX: Document the elftree structure, or put it in something
+def lddtree_exteral_referenences(lddtree: Dict, wheel_path: str):
+    # XXX: Document the lddtree structure, or put it in something
     # more stable than a big nested dict
     policies = load_policies()
 
@@ -34,7 +34,7 @@ def elf_exteral_referenences(elftree: Dict, wheel_path: str):
     def get_req_external(libs: Set[str], whitelist: Set[str]):
         # recurisvely get all the required external libraries
         return reduce(set.union, (get_req_external(
-            set(filter_libs(elftree['libs'][lib]['needed'], whitelist)),
+            set(filter_libs(lddtree['libs'][lib]['needed'], whitelist)),
             whitelist) for lib in libs), libs)
 
     ret = {}  # type: Dict[str, Dict[str, Any]]
@@ -48,19 +48,19 @@ def elf_exteral_referenences(elftree: Dict, wheel_path: str):
             # is considered "external" that needs to be copied in.
             whitelist = set(p['lib_whitelist'])
             needed_external_libs = get_req_external(
-                set(filter_libs(elftree['needed'], whitelist)),
+                set(filter_libs(lddtree['needed'], whitelist)),
                 whitelist)  # type: List[str]
 
         pol_ext_deps = {}
         for lib in needed_external_libs:
-            if is_subdir(elftree['libs'][lib]['realpath'], wheel_path):
+            if is_subdir(lddtree['libs'][lib]['realpath'], wheel_path):
                 # we didn't filter libs that resolved via RPATH out
                 # earlier because we wanted to make sure to pick up
                 # our elf's indirect dependencies. But now we want to
                 # filter these ones out, since they're not "external".
                 log.debug('RPATH FTW: %s', lib)
                 continue
-            pol_ext_deps[lib] = elftree['libs'][lib]['realpath']
+            pol_ext_deps[lib] = lddtree['libs'][lib]['realpath']
         ret[p['name']] = {'libs': pol_ext_deps, 'priority': p['priority']}
     return ret
 

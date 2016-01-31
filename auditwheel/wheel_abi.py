@@ -5,15 +5,18 @@ from os.path import basename
 from collections import defaultdict, Mapping, Sequence, namedtuple
 
 from .genericpkgctx import InGenericPkgCtx
-from .lddtree import elf_file_filter, elf_find_versioned_symbols, parse_elf
-from .policy import (elf_exteral_referenences, versioned_symbols_policy,
+from .lddtree import lddtree
+from .elfutils import (elf_file_filter, elf_find_versioned_symbols,
+                       elf_find_ucs2_symbols, elf_is_python_extension)
+from .policy import (lddtree_exteral_referenences, versioned_symbols_policy,
                      max_versioned_symbol, get_policy_name,
-                     POLICY_PRIORITY_LOWEST, load_policies)
+                     POLICY_PRIORITY_LOWEST, POLICY_PRIORITY_HIGHEST,
+                     load_policies)
 
 log = logging.getLogger(__name__)
 WheelAbIInfo = namedtuple('WheelAbIInfo',
                           ['overall_tag', 'external_refs', 'ref_tag',
-                           'versioned_symbols', 'sym_tag'])
+                           'versioned_symbols', 'sym_tag', 'ucs_tag'])
 
 
 @functools.lru_cache()
@@ -21,22 +24,27 @@ def get_wheel_elfdata(wheel_fn: str):
     full_elftree = {}
     full_external_refs = {}
     versioned_symbols = defaultdict(lambda: set())
+    uses_ucs2_symbols = False
 
     with InGenericPkgCtx(wheel_fn) as ctx:
         for fn, elf in elf_file_filter(ctx.iter_files()):
-            if elf_is_python_extension(fn, elf):
+            is_py_ext, py_ver = elf_is_python_extension(fn, elf)
+            if is_py_ext:
                 log.info('processing: %s', fn)
-                elftree = parse_elf(fn)
+                elftree = lddtree(fn)
                 full_elftree[fn] = elftree
                 for key, value in elf_find_versioned_symbols(elf):
                     versioned_symbols[key].add(value)
 
-                full_external_refs[fn] = elf_exteral_referenences(elftree,
-                                                                  ctx.path)
+                if py_ver == 2:
+                    uses_ucs2_symbols |= any(True for _ in elf_find_ucs2_symbols(elf))
+                full_external_refs[fn] = lddtree_exteral_referenences(
+                    elftree, ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
     return (full_elftree, full_external_refs,
-            max_versioned_symbol(versioned_symbols))
+            max_versioned_symbol(versioned_symbols),
+            uses_ucs2_symbols)
 
 
 def analyze_wheel_abi(wheel_fn: str):
@@ -44,7 +52,7 @@ def analyze_wheel_abi(wheel_fn: str):
         p['name']: {'libs': {}, 'priority': p['priority']}
         for p in load_policies()}
 
-    elftree_by_fn, external_refs_by_fn, versioned_symbols = \
+    elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2 = \
             get_wheel_elfdata(wheel_fn)
 
     for fn, elftree in elftree_by_fn.items():
@@ -59,12 +67,20 @@ def analyze_wheel_abi(wheel_fn: str):
         (e['priority'] for e in external_refs.values() if len(e['libs']) == 0),
         default=POLICY_PRIORITY_LOWEST)
 
+    if has_ucs2:
+        ucs_policy = POLICY_PRIORITY_LOWEST
+    else:
+        ucs_policy = POLICY_PRIORITY_HIGHEST
+
     ref_tag = get_policy_name(ref_policy)
     sym_tag = get_policy_name(symbol_policy)
-    overall_tag = get_policy_name(min(symbol_policy, ref_policy))
+    ucs_tag = get_policy_name(ucs_policy)
+    overall_tag = get_policy_name(min(symbol_policy, ref_policy, ucs_policy))
 
-    return WheelAbIInfo(overall_tag, external_refs, ref_tag, versioned_symbols,
-                        sym_tag)
+
+    return WheelAbIInfo(overall_tag, external_refs, ref_tag,
+                        versioned_symbols, sym_tag, ucs_tag)
+
 
 
 def update(d, u):
@@ -77,21 +93,3 @@ def update(d, u):
         else:
             raise RuntimeError('!', d, k)
     return d
-
-
-def elf_is_python_extension(fn, elf):
-    modname = basename(fn).split('.', 1)[0]
-    module_init_f = {'init' + modname: 2, 'PyInit_' + modname: 3}
-
-    sect = elf.get_section_by_name(b'.dynsym')
-    if sect is None:
-        return False
-
-    for sym in sect.iter_symbols():
-        if (sym.name.decode('utf-8') in module_init_f and
-                sym['st_shndx'] != 'SHN_UNDEF' and
-                sym['st_info']['type'] == 'STT_FUNC'):
-
-            return True
-
-    return False
