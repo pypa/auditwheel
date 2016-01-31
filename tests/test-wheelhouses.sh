@@ -9,7 +9,7 @@ done
 
 # Download some other wheels that Nathaniel made
 URL=https://vorpus.org/~njs/tmp/manylinux-test-wheels/original/
-curl --silent $URL | grep 'a href' | grep whl | cut -d ' ' -f 8 | cut -d '=' -f 2 | cut -d '"' -f 2 | xargs -n1 -I '{}' wget -P wheelhouse-njs "$URL/{}"
+curl --silent $URL | grep 'a href' | grep whl | cut -d ' ' -f 8 | cut -d '=' -f 2 | cut -d '"' -f 2 | xargs -n1 -I '{}' wget --no-check-certificate -P wheelhouse-njs "$URL/{}"
 
 # Download some more wheels that Robert made
 URL=http://stanford.edu/~rmcgibbo/wheelhouse/
