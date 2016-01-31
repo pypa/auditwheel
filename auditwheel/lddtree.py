@@ -20,7 +20,6 @@ import logging
 import functools
 from typing import Iterator, Tuple, List, Dict, Optional, Any, re
 
-from elftools.common.exceptions import ELFError  # type: ignore
 from elftools.elf.elffile import ELFFile  # type: ignore
 
 log = logging.getLogger(__name__)
