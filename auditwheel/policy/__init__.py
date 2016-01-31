@@ -70,9 +70,9 @@ def get_priority_by_name(name: str):
     return matches[0]
 
 
-from .external_references import lddtree_exteral_referenences
+from .external_references import lddtree_external_references
 from .versioned_symbols import versioned_symbols_policy, max_versioned_symbol
 
-__all__ = ['lddtree_exteral_referenences', 'versioned_symbols_policy',
+__all__ = ['lddtree_external_references', 'versioned_symbols_policy',
            'max_versioned_symbol', 'load_policy', 'POLICY_PRIORITY_HIGHEST',
            'POLICY_PRIORITY_LOWEST']

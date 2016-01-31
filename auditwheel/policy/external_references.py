@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 LIBPYTHON_RE = re.compile('^libpython\d\.\dm?.so(.\d)*$')
 
 
-def lddtree_exteral_referenences(lddtree: Dict, wheel_path: str):
+def lddtree_external_references(lddtree: Dict, wheel_path: str):
     # XXX: Document the lddtree structure, or put it in something
     # more stable than a big nested dict
     policies = load_policies()

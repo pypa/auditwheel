@@ -8,7 +8,7 @@ from .genericpkgctx import InGenericPkgCtx
 from .lddtree import lddtree
 from .elfutils import (elf_file_filter, elf_find_versioned_symbols,
                        elf_find_ucs2_symbols, elf_is_python_extension)
-from .policy import (lddtree_exteral_referenences, versioned_symbols_policy,
+from .policy import (lddtree_external_references, versioned_symbols_policy,
                      max_versioned_symbol, get_policy_name,
                      POLICY_PRIORITY_LOWEST, POLICY_PRIORITY_HIGHEST,
                      load_policies)
@@ -38,7 +38,7 @@ def get_wheel_elfdata(wheel_fn: str):
 
                 if py_ver == 2:
                     uses_ucs2_symbols |= any(True for _ in elf_find_ucs2_symbols(elf))
-                full_external_refs[fn] = lddtree_exteral_referenences(
+                full_external_refs[fn] = lddtree_external_references(
                     elftree, ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
