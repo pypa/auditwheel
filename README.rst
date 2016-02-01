@@ -100,7 +100,7 @@ Limitations
 Code of Conduct
 ---------------
 
-Everyone interacting in the virtualenv project's codebases, issue trackers,
+Everyone interacting in the auditwheel project's codebases, issue trackers,
 chat rooms, and mailing lists is expected to follow the
 `PyPA Code of Conduct`_.
 
