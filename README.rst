@@ -1,8 +1,8 @@
 auditwheel
 ==========
 
-.. image:: https://travis-ci.org/manylinux/auditwheel.svg?branch=master
-    :target: https://travis-ci.org/manylinux/auditwheel
+.. image:: https://travis-ci.org/pypa/auditwheel.svg?branch=master
+    :target: https://travis-ci.org/pypa/auditwheel
 
 Auditing and relabeling `PEP 513 manylinux1 <https://www.python.org/dev/peps/pep-0513/>`_ Linux wheels.
 
@@ -37,7 +37,7 @@ But in general, building ``manylinux1`` wheels requires running on a CentOS5
 machine, so we recommend using the pre-built manylinux `Docker image
 <https://quay.io/repository/manylinux/manylinux?tag=latest>`_. ::
 
-  $ docker run -i -t -v `pwd`:/io quay.io/manylinux/manylinux /bin/bash
+  $ docker run -i -t -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 /bin/bash
 
 
 Examples
