@@ -95,3 +95,13 @@ Limitations
 
    So, to compile widely-compatible binaries, you're best off doing the build
    on an old Linux distribution, such as the manylinux Docker image.
+
+
+Code of Conduct
+---------------
+
+Everyone interacting in the virtualenv project's codebases, issue trackers,
+chat rooms, and mailing lists is expected to follow the
+`PyPA Code of Conduct`_.
+
+.. _PyPA Code of Conduct: https://www.pypa.io/en/latest/code-of-conduct/
