@@ -52,7 +52,6 @@ def zip2dir(zip_fname, out_dir):
             zf.extractall(out_dir)
 
 
-
 def dir2zip(in_dir, zip_fname):
     """ Make a zip file `zip_fname` with contents of directory `in_dir`
 

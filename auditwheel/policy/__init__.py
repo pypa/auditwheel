@@ -29,7 +29,7 @@ if platform != 'linux':
 #     sys.exit(1)
 
 if _platform_module.machine() in non_x86_linux_machines:
-    arch_name = machine()
+    arch_name = _platform_module.machine()
 else:
     arch_name = {64: 'x86_64', 32: '_i386'}[bits]
 

@@ -11,9 +11,9 @@ import hashlib
 import csv
 from itertools import product
 
-from wheel.util import urlsafe_b64encode, open_for_csv, native
-from wheel.pkginfo import read_pkg_info, write_pkg_info
-from wheel.install import WheelFile, WHEEL_INFO_RE
+from wheel.util import urlsafe_b64encode, open_for_csv, native  # type: ignore
+from wheel.pkginfo import read_pkg_info, write_pkg_info  # type: ignore
+from wheel.install import WheelFile, WHEEL_INFO_RE  # type: ignore
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip

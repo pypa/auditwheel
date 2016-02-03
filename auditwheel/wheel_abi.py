@@ -2,6 +2,7 @@ import json
 import logging
 import functools
 from os.path import basename
+from typing import Dict, Set
 from collections import defaultdict, Mapping, Sequence, namedtuple
 
 from .genericpkgctx import InGenericPkgCtx
@@ -23,7 +24,7 @@ WheelAbIInfo = namedtuple('WheelAbIInfo',
 def get_wheel_elfdata(wheel_fn: str):
     full_elftree = {}
     full_external_refs = {}
-    versioned_symbols = defaultdict(lambda: set())
+    versioned_symbols = defaultdict(lambda: set())  # type: Dict[str, Set[str]]
     uses_ucs2_symbols = False
 
     with InGenericPkgCtx(wheel_fn) as ctx:
@@ -37,20 +38,22 @@ def get_wheel_elfdata(wheel_fn: str):
                     versioned_symbols[key].add(value)
 
                 if py_ver == 2:
-                    uses_ucs2_symbols |= any(True for _ in elf_find_ucs2_symbols(elf))
-                full_external_refs[fn] = lddtree_external_references(
-                    elftree, ctx.path)
+                    uses_ucs2_symbols |= any(
+                        True for _ in elf_find_ucs2_symbols(elf))
+                full_external_refs[fn] = lddtree_external_references(elftree,
+                                                                     ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
     return (full_elftree, full_external_refs,
-            max_versioned_symbol(versioned_symbols),
-            uses_ucs2_symbols)
+            max_versioned_symbol(versioned_symbols), uses_ucs2_symbols)
 
 
 def analyze_wheel_abi(wheel_fn: str):
     external_refs = {
-        p['name']: {'libs': {}, 'priority': p['priority']}
-        for p in load_policies()}
+        p['name']: {'libs': {},
+                    'priority': p['priority']}
+        for p in load_policies()
+    }
 
     elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2 = \
             get_wheel_elfdata(wheel_fn)
@@ -77,10 +80,8 @@ def analyze_wheel_abi(wheel_fn: str):
     ucs_tag = get_policy_name(ucs_policy)
     overall_tag = get_policy_name(min(symbol_policy, ref_policy, ucs_policy))
 
-
-    return WheelAbIInfo(overall_tag, external_refs, ref_tag,
-                        versioned_symbols, sym_tag, ucs_tag)
-
+    return WheelAbIInfo(overall_tag, external_refs, ref_tag, versioned_symbols,
+                        sym_tag, ucs_tag)
 
 
 def update(d, u):
