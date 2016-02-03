@@ -7,6 +7,6 @@ def configure_subparser(sub_parsers):
 
 def execute(args, p):
     import json
-    from .lddtree import parse_elf
+    from .lddtree import lddtree
 
-    print(json.dumps(parse_elf(args.file), indent=4))
+    print(json.dumps(lddtree(args.file), indent=4))

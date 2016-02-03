@@ -1,10 +1,9 @@
 from os.path import basename
 from auditwheel.policy.external_references import LIBPYTHON_RE
 
-from elftools.elf.elffile import ELFFile
+from elftools.elf.elffile import ELFFile  # type: ignore
 from elftools.common.exceptions import ELFError  # type: ignore
 from typing import Iterator, Tuple, Optional
-
 
 
 def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
@@ -27,28 +26,26 @@ def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
 
 def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
     section = elf.get_section_by_name(b'.gnu.version_r')
-    if section is None:
-        return []
 
-    for verneed, verneed_iter in section.iter_versions():
-        if verneed.name.decode('utf-8').startswith('ld-linux'):
-            continue
-        for vernaux in verneed_iter:
-            yield (verneed.name.decode('utf-8'), vernaux.name.decode('utf-8'))
+    if section is not None:
+        for verneed, verneed_iter in section.iter_versions():
+            if verneed.name.decode('utf-8').startswith('ld-linux'):
+                continue
+            for vernaux in verneed_iter:
+                yield (verneed.name.decode('utf-8'),
+                       vernaux.name.decode('utf-8'))
 
 
 def elf_find_ucs2_symbols(elf: ELFFile) -> Iterator[str]:
     section = elf.get_section_by_name(b'.dynsym')
-    if section is None:
-        return []
+    if section is not None:
+        # look for UCS2 symbols that are externally referenced
+        for sym in section.iter_symbols():
+            if (b'PyUnicodeUCS2_' in sym.name and
+                    sym['st_shndx'] == 'SHN_UNDEF' and
+                    sym['st_info']['type'] == 'STT_FUNC'):
 
-    # look for UCS2 symbols that are externally referenced
-    for sym in section.iter_symbols():
-        if (b'PyUnicodeUCS2_' in sym.name and
-            sym['st_shndx'] == 'SHN_UNDEF' and
-            sym['st_info']['type'] == 'STT_FUNC'):
-
-            yield sym.name
+                yield sym.name
 
 
 def elf_is_python_extension(fn, elf) -> Tuple[bool, Optional[int]]:

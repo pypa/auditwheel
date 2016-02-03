@@ -1,14 +1,15 @@
 import logging
 from functools import reduce
-from pip._vendor.distlib.version import NormalizedVersion as Version
-from typing import Dict, Sequence
+from typing import Dict, Iterable
+# XXX: Maybe pip._vendor isn't the best place to get stuff from....
+from pip._vendor.distlib.version import NormalizedVersion as Version  # type: ignore
 
 from . import load_policies
 
 log = logging.getLogger(__name__)
 
 
-def max_versioned_symbol(data: Dict[str, Sequence[str]]) -> Dict[str, Version]:
+def max_versioned_symbol(data: Dict[str, Iterable[str]]) -> Dict[str, Version]:
     def set_if_greater(d, k, v):
         if (k in d and v > d[k]) or (k not in d):
             d[k] = v

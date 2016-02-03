@@ -3,7 +3,7 @@ conda packages.
 """
 import os
 
-from wheel.util import native
+from wheel.util import native  # type: ignore
 from .tmpdirs import InTemporaryDirectory
 from .tools import tarbz2todir
 
