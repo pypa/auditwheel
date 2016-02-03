@@ -5,7 +5,7 @@ import logging
 from functools import reduce
 from typing import Tuple, Dict, List, Set, Any
 
-from elftools.elf.elffile import ELFFile
+from elftools.elf.elffile import ELFFile  # type: ignore
 
 from . import POLICY_PRIORITY_HIGHEST, load_policies
 

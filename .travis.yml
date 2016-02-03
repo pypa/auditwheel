@@ -21,6 +21,7 @@ python:
 script:
   - py.test
   - bash tests/test-wheelhouses.sh
+  - auditwheel lddtree $(python -c 'import sys; print(sys.executable)')
 
 deploy:
   provider: pypi

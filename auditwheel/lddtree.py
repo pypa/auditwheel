@@ -18,7 +18,7 @@ import json
 import errno
 import logging
 import functools
-from typing import Iterator, Tuple, List, Dict, Optional, Any, re
+from typing import Iterator, Tuple, List, Dict, Optional, Any
 
 from elftools.elf.elffile import ELFFile  # type: ignore
 
@@ -103,7 +103,8 @@ def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
             # The ldso treats "" paths as $PWD.
             ldpath = os.getcwd()
         elif '$ORIGIN' in ldpath:
-            ldpath = ldpath.replace('$ORIGIN', os.path.dirname(os.path.abspath(path)))
+            ldpath = ldpath.replace('$ORIGIN',
+                                    os.path.dirname(os.path.abspath(path)))
         else:
             ldpath = root + ldpath
         ldpaths.append(normpath(ldpath))
@@ -111,7 +112,9 @@ def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
 
 
 @functools.lru_cache()
-def parse_ld_so_conf(ldso_conf: str, root: str='/', _first: bool=True):
+def parse_ld_so_conf(ldso_conf: str,
+                     root: str='/',
+                     _first: bool=True) -> List[str]:
     """Load all the paths from a given ldso config file
 
     This should handle comments, whitespace, and "include" statements.
@@ -165,7 +168,7 @@ def parse_ld_so_conf(ldso_conf: str, root: str='/', _first: bool=True):
 
 
 @functools.lru_cache()
-def load_ld_paths(root='/', prefix=''):
+def load_ld_paths(root: str='/', prefix: str='') -> Dict[str, List[str]]:
     """Load linker paths from common locations
 
     This parses the ld.so.conf and LD_LIBRARY_PATH env var.
@@ -271,7 +274,7 @@ def find_lib(elf, lib, ldpaths, root='/'):
 def lddtree(path: str,
             root: str='/',
             prefix: str='',
-            ldpaths: Optional[List[str]]=None,
+            ldpaths: Optional[Dict[str, List[str]]]=None,
             display: Optional[str]=None,
             _first: bool=True,
             _all_libs: Dict={}) -> Dict:
