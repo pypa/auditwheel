@@ -30,3 +30,7 @@ deploy:
   on:
     tags: true
     repo: pypa/auditwheel
+
+cache:
+  directories:
+    - wheelhouse-rmcgibbo/
