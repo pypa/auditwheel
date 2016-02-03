@@ -13,7 +13,7 @@ done
 
 # Download some more wheels that Robert made
 URL=http://stanford.edu/~rmcgibbo/wheelhouse/
-curl --silent $URL | grep 'a href' | grep whl | cut -d ' ' -f 8 | cut -d '=' -f 2 | cut -d '"' -f 2 | xargs -n1 -I '{}' wget -P -nc wheelhouse-rmcgibbo "$URL/{}"
+curl --silent $URL | grep 'a href' | grep whl | cut -d ' ' -f 8 | cut -d '=' -f 2 | cut -d '"' -f 2 | xargs -n1 -I '{}' wget -P wheelhouse-rmcgibbo "$URL/{}" -nc
 
 # These are boring
 rm -f wheelhouse*/*-none-any.whl
