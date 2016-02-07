@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 import argparse
-import pkg_resources
+import pkg_resources  # type: ignore
 
 from . import main_show
 from . import main_addtag

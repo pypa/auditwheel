@@ -7,6 +7,7 @@ from typing import Tuple, Dict, List, Set, Any
 
 from elftools.elf.elffile import ELFFile  # type: ignore
 
+from ..elfutils import is_subdir
 from . import POLICY_PRIORITY_HIGHEST, load_policies
 
 log = logging.getLogger(__name__)
@@ -63,16 +64,3 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
             pol_ext_deps[lib] = lddtree['libs'][lib]['realpath']
         ret[p['name']] = {'libs': pol_ext_deps, 'priority': p['priority']}
     return ret
-
-
-def is_subdir(path, directory):
-    if path is None:
-        return False
-
-    path = os.path.realpath(path)
-    directory = os.path.realpath(directory)
-
-    relative = os.path.relpath(path, directory)
-    if relative.startswith(os.pardir):
-        return False
-    return True

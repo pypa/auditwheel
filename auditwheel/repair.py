@@ -1,5 +1,6 @@
 import os
 import shutil
+import itertools
 from os.path import (exists, isdir, relpath, dirname, split, basename, abspath,
                      isabs)
 from os.path import join as pjoin
@@ -9,6 +10,7 @@ from typing import Dict, Optional
 
 from .wheeltools import InWheelCtx
 from .wheel_abi import get_wheel_elfdata
+from .elfutils import elf_read_rpaths, is_subdir
 
 
 def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
@@ -51,8 +53,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
 
                 dest_path = os.path.join(dest_dir, libname)
                 if not os.path.exists(dest_path):
-                    print('Grafting: %s' % src_path)
-                    shutil.copy2(src_path, dest_path)
+                    copylib(src_path, dest_path)
 
             if len(ext_libs) > 0:
                 patchelf(fn, dest_dir)
@@ -60,10 +61,25 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
     return ctx.out_wheel
 
 
+def copylib(src_path, dest_path):
+    # Copy the a shared library from the system (src_path) into the wheel
+    # if the library has a RUNPATH/RPATH to it's current location on the
+    # system, we also update that to point to its new location.
+
+    print('Grafting: %s' % src_path)
+    rpaths = elf_read_rpaths(src_path)
+    shutil.copy2(src_path, dest_path)
+
+    for rp in itertools.chain(rpaths['rpaths'], rpaths['runpaths']):
+        if is_subdir(rp, os.path.dirname(src_path)):
+            patchelf(dest_path, pjoin(dirname(dest_path), relpath(rp, dirname(src_path))))
+            break
+
+
 def patchelf(fn, libdir):
     if not find_executable('patchelf'):
         raise ValueError('Cannot find required utility `patchelf` in PATH')
 
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
-    print('Setting RPATH: %s' % fn)
+    print('Setting RPATH: %s to "%s"' % (fn, rpath))
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])

@@ -1,9 +1,10 @@
-from os.path import basename
-from auditwheel.policy.external_references import LIBPYTHON_RE
+import os
+from os.path import basename, realpath, relpath
+from .lddtree import parse_ld_paths
 
 from elftools.elf.elffile import ELFFile  # type: ignore
 from elftools.common.exceptions import ELFError  # type: ignore
-from typing import Iterator, Tuple, Optional
+from typing import Iterator, Tuple, Optional, Dict, List
 
 
 def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
@@ -64,3 +65,40 @@ def elf_is_python_extension(fn, elf) -> Tuple[bool, Optional[int]]:
             return True, module_init_f[sym.name.decode('utf-8')]
 
     return False, None
+
+
+def elf_read_rpaths(fn: str) -> Dict[str, List[str]]:
+    result = {'rpaths': [], 'runpaths': []}  # type: Dict[str, List[str]]
+
+    with open(fn, 'rb') as f:
+        elf = ELFFile(f)
+        section = elf.get_section_by_name(b'.dynamic')
+        if section is None:
+            return result
+
+        for t in section.iter_tags():
+            if t.entry.d_tag == 'DT_RPATH':
+                result['rpaths'] = parse_ld_paths(
+                    t.rpath.decode('utf-8'),
+                    root='/',
+                    path=fn)
+            elif t.entry.d_tag == 'DT_RUNPATH':
+                result['runpaths'] = parse_ld_paths(
+                    t.runpath.decode('utf-8'),
+                    root='/',
+                    path=fn)
+
+    return result
+
+
+def is_subdir(path: str, directory: str) -> bool:
+    if path is None:
+        return False
+
+    path = realpath(path)
+    directory = realpath(directory)
+
+    relative = relpath(path, directory)
+    if relative.startswith(os.pardir):
+        return False
+    return True
