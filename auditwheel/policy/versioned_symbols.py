@@ -18,7 +18,7 @@ def max_versioned_symbol(data: Dict[str, Iterable[str]]) -> Dict[str, Version]:
     max_required_ver = {}  # type: Dict[str, Version]
     for val in sym_vers:
         if val is not None:
-            name, ver = val.split('_')
+            name, ver = val.rsplit('_', 1)
             set_if_greater(max_required_ver, name, Version(ver))
 
     log.debug('Required symbol versions: %s', max_required_ver)
