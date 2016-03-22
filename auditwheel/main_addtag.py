@@ -4,8 +4,6 @@ from .policy import (load_policies, get_policy_name, get_priority_by_name,
 
 
 def configure_parser(sub_parsers):
-    policy_names = [p['name'] for p in load_policies()]
-    highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)
     help = "Add new platform ABI tags to a wheel"
 
     p = sub_parsers.add_parser('addtag', help=help, description=help)
@@ -55,5 +53,5 @@ def execute(args, p):
             # tell context manager to write wheel on exit with
             # the proper output directory
             ctx.out_wheel = join(args.WHEEL_DIR, basename(out_wheel))
-
+            print('\nUpdated wheel written to %s' % out_wheel)
     return 0

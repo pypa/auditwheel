@@ -5,7 +5,7 @@ Tools that aren't specific to delocation
 
 import os
 from os.path import (join as pjoin, abspath, relpath, exists, sep as psep,
-                     splitext, basename, dirname)
+                     splitext, dirname, basename)
 import glob
 import hashlib
 import csv
@@ -13,7 +13,7 @@ from itertools import product
 
 from wheel.util import urlsafe_b64encode, open_for_csv, native  # type: ignore
 from wheel.pkginfo import read_pkg_info, write_pkg_info  # type: ignore
-from wheel.install import WheelFile, WHEEL_INFO_RE  # type: ignore
+from wheel.install import WHEEL_INFO_RE  # type: ignore
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip
@@ -168,7 +168,7 @@ class InWheelCtx(InWheel):
             yield filename
 
 
-def add_platforms(wheel_ctx, platforms):
+def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     """Add platform tags `platforms` to a wheel
 
     Add any platform tags in `platforms` that are missing
@@ -181,6 +181,9 @@ def add_platforms(wheel_ctx, platforms):
     platforms : iterable
         platform tags to add to wheel filename and WHEEL tags - e.g.
         ``('macosx_10_9_intel', 'macosx_10_9_x86_64')
+    remove_platforms : iterable
+        platform tags to remove to the wheel filename and WHEEL tags, e.g.
+        ``('linux_x86_64',)`` when ``('manylinux_x86_64')`` is added
     """
     info_fname = pjoin(_dist_info_dir(wheel_ctx.path), 'WHEEL')
     info = read_pkg_info(info_fname)
@@ -188,33 +191,53 @@ def add_platforms(wheel_ctx, platforms):
         raise WheelToolsError('Cannot add platforms to pure wheel')
 
     # Check what tags we have
-    if wheel_ctx.out_wheel is None:
-        in_wheel = wheel_ctx.in_wheel
+    if wheel_ctx.out_wheel is not None:
+        out_dir = dirname(wheel_ctx.out_wheel)
+        wheel_fname = basename(wheel_ctx.out_wheel)
     else:
-        raise NotImplementedError()
+        out_dir = '.'
+        wheel_fname = basename(wheel_ctx.in_wheel)
 
-    parsed_fname = WHEEL_INFO_RE(basename(in_wheel))
-    in_fname_tags = parsed_fname.groupdict()['plat'].split('.')
-    extra_fname_tags = [tag for tag in platforms if tag not in in_fname_tags]
-    in_wheel_base, ext = splitext(basename(in_wheel))
-    out_wheel_base = '.'.join([in_wheel_base] + list(extra_fname_tags))
-    out_wheel = out_wheel_base + ext
+    parsed_fname = WHEEL_INFO_RE(wheel_fname)
+    fparts = parsed_fname.groupdict()
+    original_fname_tags = fparts['plat'].split('.')
+    print('Previous filename tags:', ', '.join(original_fname_tags))
+    fname_tags = [tag for tag in original_fname_tags
+                  if tag not in remove_platforms]
+    for platform in platforms:
+        if platform not in fname_tags:
+            fname_tags.append(platform)
+    if fname_tags != original_fname_tags:
+        print('New filename tags:', ', '.join(fname_tags))
+    else:
+        print('No filename tags change needed.')
+
+    wheel_base, ext = splitext(wheel_fname)
+    fparts['plat'] = '.'.join(fname_tags)
+    fparts['ext'] = ext
+    out_wheel_fname = "{namever}-{pyver}-{abi}-{plat}{ext}".format(**fparts)
+    out_wheel = pjoin(out_dir, out_wheel_fname)
 
     in_info_tags = [tag for name, tag in info.items() if name == 'Tag']
+    print('Previous WHEEL info tags:', ', '.join(in_info_tags))
     # Python version, C-API version combinations
     pyc_apis = ['-'.join(tag.split('-')[:2]) for tag in in_info_tags]
     # unique Python version, C-API version combinations
     pyc_apis = unique_by_index(pyc_apis)
     # Add new platform tags for each Python version, C-API combination
-    required_tags = ['-'.join(tup) for tup in product(pyc_apis, platforms)]
-    needs_write = False
-    for req_tag in required_tags:
-        if req_tag in in_info_tags:
-            continue
-        needs_write = True
-        info.add_header('Tag', req_tag)
+    wanted_tags = ['-'.join(tup) for tup in product(pyc_apis, platforms)]
+    new_tags = [tag for tag in wanted_tags if tag not in in_info_tags]
+    unwanted_tags = ['-'.join(tup)
+                     for tup in product(pyc_apis, remove_platforms)]
+    updated_tags = [tag for tag in in_info_tags if tag not in unwanted_tags]
+    updated_tags += new_tags
+    needs_write = updated_tags != in_info_tags
     if needs_write:
+        del info['Tag']
+        for tag in updated_tags:
+            info.add_header('Tag', tag)
+        print('New WHEEL info tags:', ', '.join(info.get_all('Tag')))
         write_pkg_info(info_fname, info)
-        # Tell context manager to write wheel on exit by setting filename
-        wheel_ctx.out_wheel = out_wheel
-    return wheel_ctx.out_wheel
+    else:
+        print('No WHEEL info change needed.')
+    return out_wheel
