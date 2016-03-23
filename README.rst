@@ -45,7 +45,7 @@ Examples
 
 Inspecting a wheel: ::
 
-  $ auditwheel show cffi-1.5.0-cp35-cp35m-linux_x86_64.whl
+    $ auditwheel show cffi-1.5.0-cp35-cp35m-linux_x86_64.whl
 
     cffi-1.5.0-cp35-cp35m-linux_x86_64.whl is consistent with the
     following platform tag: "linux_x86_64".
@@ -67,12 +67,16 @@ Inspecting a wheel: ::
 
 Repairing a wheel. ::
 
-    $ auditwheel repair cffi-1.5.0-cp35-cp35m-linux_x86_64.whl
-    Repairing cffi-1.5.0-cp35-cp35m-linux_x86_64.whl
+    $ auditwheel repair cffi-1.5.2-cp35-cp35m-linux_x86_64.whl
+    Repairing cffi-1.5.2-cp35-cp35m-linux_x86_64.whl
     Grafting: /usr/lib64/libffi.so.5.0.6
-    Setting RPATH: _cffi_backend.cpython-35m-x86_64-linux-gnu.so
-
-    Writing fixed-up wheel written to wheelhouse/cffi-1.5.0-cp35-cp35m-linux_x86_64.whl
+    Setting RPATH: _cffi_backend.cpython-35m-x86_64-linux-gnu.so to "$ORIGIN/.libs_cffi_backend"
+    Previous filename tags: linux_x86_64
+    New filename tags: manylinux1_x86_64
+    Previous WHEEL info tags: cp35-cp35m-linux_x86_64
+    New WHEEL info tags: cp35-cp35m-manylinux1_x86_64
+    
+    Fixed-up wheel written to /wheelhouse/cffi-1.5.2-cp35-cp35m-manylinux1_x86_64.whl
 
 
 Limitations
