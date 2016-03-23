@@ -1,27 +1,29 @@
 import os
 import shutil
 import itertools
-from os.path import (exists, isdir, relpath, dirname, split, basename, abspath,
-                     isabs)
+from os.path import exists, relpath, dirname, basename, abspath, isabs
 from os.path import join as pjoin
 from subprocess import check_call
 from distutils.spawn import find_executable
-from typing import Dict, Optional
+from typing import Optional
 
-from .wheeltools import InWheelCtx
+from .policy import get_replace_platforms
+from .wheeltools import InWheelCtx, add_platforms
 from .wheel_abi import get_wheel_elfdata
 from .elfutils import elf_read_rpaths, is_subdir
 
 
 def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
-                 str) -> Optional[str]:
+                 str, update_tags: bool) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
     if not isabs(out_dir):
         out_dir = abspath(out_dir)
 
+    wheel_fname = basename(wheel_path)
+
     with InWheelCtx(wheel_path) as ctx:
-        ctx.out_wheel = pjoin(out_dir, basename(wheel_path))
+        ctx.out_wheel = pjoin(out_dir, wheel_fname)
 
         # here, fn is a path to a python extension library in
         # the wheel, and v['libs'] contains its required libs
@@ -33,8 +35,8 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
             pkg_root = fn.split(os.sep)[0]
 
             if pkg_root == fn:
-                # this file is an extension that's not contained in a directory -- just supposed to
-                # be directly in site-packages
+                # this file is an extension that's not contained in a
+                # directory -- just supposed to be directly in site-packages
                 dest_dir = lib_sdir + pkg_root.split('.')[0]
             else:
                 if not exists(pjoin(pkg_root, '__init__.py')):
@@ -57,7 +59,9 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
 
             if len(ext_libs) > 0:
                 patchelf(fn, dest_dir)
-
+        if update_tags:
+            ctx.out_wheel = add_platforms(ctx, [abi],
+                                          get_replace_platforms(abi))
     return ctx.out_wheel
 
 
