@@ -7,7 +7,7 @@ from elftools.common.exceptions import ELFError  # type: ignore
 from typing import Iterator, Tuple, Optional, Dict, List
 
 
-def elf_read_soname(fn : str) -> Optional[str]
+def elf_read_soname(fn : str) -> Optional[str]:
     with open(fn, 'rb') as f:
         elf = ELFFile(f)
         section = elf.get_section_by_name(b'.dynamic')
