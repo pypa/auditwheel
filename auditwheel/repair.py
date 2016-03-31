@@ -1,23 +1,44 @@
 import os
+import re
 import shutil
 import itertools
+import functools
 from os.path import exists, relpath, dirname, basename, abspath, isabs
 from os.path import join as pjoin
-from subprocess import check_call
+from subprocess import check_call, check_output, CalledProcessError
 from distutils.spawn import find_executable
 from typing import Optional
 
 from .policy import get_replace_platforms
 from .wheeltools import InWheelCtx, add_platforms
 from .wheel_abi import get_wheel_elfdata
-from .elfutils import elf_read_rpaths, is_subdir, elf_read_soname
+from .elfutils import elf_read_rpaths, is_subdir, elf_read_dt_needed
 from .hashfile import hashfile
 
 
-def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
-                 str, update_tags: bool) -> Optional[str]:
+@functools.lru_cache()
+def verify_patchelf():
+    if not find_executable('patchelf'):
+        raise ValueError('Cannot find required utility `patchelf` in PATH')
+    try:
+        version = check_output(['patchelf', '--version']).decode('utf-8')
+    except CalledProcessError:
+        raise ValueError('Could not call `patchelf` binary')
+
+    m = re.match('patchelf\s+(\d+(.\d+)?)', version)
+    if m:
+        if float(m.group(1)) >= 0.9:
+            return True
+    raise ValueError(('Could not parse patchelf version number: '
+                      '%s. patchelf >= 0.9 is required for auditwheel') %
+                     version)
+
+
+def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
+                 update_tags: bool) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
+    soname_map = {}  # type: Dict[str, str]
     if not isabs(out_dir):
         out_dir = abspath(out_dir)
 
@@ -48,17 +69,31 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
                 os.mkdir(dest_dir)
 
             ext_libs = v[abi]['libs']  # type: Dict[str, str]
-            for libname, src_path in ext_libs.items():
+            for soname, src_path in ext_libs.items():
                 if src_path is None:
                     raise ValueError(('Cannot repair wheel, because required '
                                       'library "%s" could not be located') %
-                                      libname)
+                                     libname)
 
-                old_soname, new_soname, new_path = copylib(src_path, dest_dir)
-                check_call(['patchelf', '--replace-needed', old_soname, new_soname, fn])
+                new_soname, new_path = copylib(src_path, dest_dir)
+                soname_map[soname] = (new_soname, new_path)
+                check_call(['patchelf', '--replace-needed', soname, new_soname,
+                            fn])
 
             if len(ext_libs) > 0:
-                patchelf(fn, dest_dir)
+                patchelf_set_rpath(fn, dest_dir)
+
+        # we grafted in a bunch of libraries and modifed their sonames, but
+        # they may have internal dependencies (DT_NEEDED) on one another, so
+        # we need to update those records so each now knows about the new
+        # name of the other.
+        for old_soname, (new_soname, path) in soname_map.items():
+            needed = elf_read_dt_needed(path)
+            for n in needed:
+                if n in soname_map:
+                    check_call(['patchelf', '--replace-needed', n, soname_map[
+                        n][0], path])
+
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, [abi],
                                           get_replace_platforms(abi))
@@ -79,29 +114,33 @@ def copylib(src_path, dest_dir):
     with open(src_path, 'rb') as f:
         shorthash = hashfile(f)[:8]
 
-    old_soname = elf_read_soname(src_path)
-    new_soname = '%s.%s' % (os.path.split(src_path)[1], shorthash)
+    base, ext = os.path.basename(src_path).split('.', 1)
+    if not base.endswith('-%s' % shorthash):
+        new_soname = '%s-%s.%s' % (base, shorthash, ext)
+    else:
+        new_soname = src_name
+
     dest_path = os.path.join(dest_dir, new_soname)
     if os.path.exists(dest_path):
-        return old_soname, new_soname, dest_path
+        return new_soname, dest_path
 
     print('Grafting: %s -> %s' % (src_path, dest_path))
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
 
-    if not find_executable('patchelf'):
-        raise ValueError('Cannot find required utility `patchelf` in PATH')
+    verify_patchelf()
     check_call(['patchelf', '--set-soname', new_soname, dest_path])
 
     for rp in itertools.chain(rpaths['rpaths'], rpaths['runpaths']):
         if is_subdir(rp, os.path.dirname(src_path)):
-            patchelf(dest_path, pjoin(dirname(dest_path), relpath(rp, dirname(src_path))))
+            patchelf_set_rpath(dest_path, pjoin(
+                dirname(dest_path), relpath(rp, dirname(src_path))))
             break
 
-    return old_soname, new_soname, dest_path
+    return new_soname, dest_path
 
 
-def patchelf(fn, libdir):
+def patchelf_set_rpath(fn, libdir):
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
     print('Setting RPATH: %s to "%s"' % (fn, rpath))
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])
