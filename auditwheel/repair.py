@@ -55,7 +55,6 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir:
                                       libname)
 
                 old_soname, new_soname, new_path = copylib(src_path, dest_dir)
-                print(['patchelf', '--replace-needed', old_soname, new_soname, fn])
                 check_call(['patchelf', '--replace-needed', old_soname, new_soname, fn])
 
             if len(ext_libs) > 0:
