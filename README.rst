@@ -35,7 +35,7 @@ linkage are supported (this should be essentially every Linux).
 
 But in general, building ``manylinux1`` wheels requires running on a CentOS5
 machine, so we recommend using the pre-built manylinux `Docker image
-<https://quay.io/repository/manylinux/manylinux?tag=latest>`_. ::
+<https://quay.io/repository/pypa/manylinux1_x86_64>`_. ::
 
   $ docker run -i -t -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 /bin/bash
 
