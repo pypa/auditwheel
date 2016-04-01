@@ -22,7 +22,7 @@ python:
   - "3.5"
 
 script:
-  - py.test
+  - py.test -s
   - bash tests/test-wheelhouses.sh
   - auditwheel lddtree $(python -c 'import sys; print(sys.executable)')
 
