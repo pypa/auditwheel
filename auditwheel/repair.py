@@ -18,6 +18,10 @@ from .hashfile import hashfile
 
 @functools.lru_cache()
 def verify_patchelf():
+    """This function looks for the ``patchelf`` external binary in the PATH,
+    checks for the required version, and throws an exception if a proper
+    version can't be found. Otherwise, silcence is golden
+    """
     if not find_executable('patchelf'):
         raise ValueError('Cannot find required utility `patchelf` in PATH')
     try:
@@ -26,11 +30,10 @@ def verify_patchelf():
         raise ValueError('Could not call `patchelf` binary')
 
     m = re.match('patchelf\s+(\d+(.\d+)?)', version)
-    if m:
-        if float(m.group(1)) >= 0.9:
-            return True
-    raise ValueError(('Could not parse patchelf version number: '
-                      '%s. patchelf >= 0.9 is required for auditwheel') %
+    if m and tuple(int(x) for x in m.group(1).split('.')) >= (0, 9):
+        return
+    raise ValueError(('patchelf %s found. auditwheel repair requires'
+                      'patchelf >= 0.9.') %
                      version)
 
 
