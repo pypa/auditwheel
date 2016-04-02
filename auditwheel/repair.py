@@ -80,8 +80,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
 
                 new_soname, new_path = copylib(src_path, dest_dir)
                 soname_map[soname] = (new_soname, new_path)
-                check_call(['patchelf', '--replace-needed', soname, new_soname,
-                            fn])
+                check_call(['patchelf', '--replace-needed', soname, new_soname, fn])
 
             if len(ext_libs) > 0:
                 patchelf_set_rpath(fn, dest_dir)
@@ -94,8 +93,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
             needed = elf_read_dt_needed(path)
             for n in needed:
                 if n in soname_map:
-                    check_call(['patchelf', '--replace-needed', n, soname_map[
-                        n][0], path])
+                    check_call(['patchelf', '--replace-needed', n, soname_map[n][0], path])
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, [abi],
