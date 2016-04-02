@@ -43,7 +43,9 @@ def docker_start(image, volumes={}, env_variables={}):
 
 def docker_exec(container_id, cmd):
     """Executed a command in the runtime context of a running container."""
-    cmd = ['docker', 'exec', container_id] + cmd.split()
+    if isinstance(cmd, str):
+        cmd = cmd.split()
+    cmd = ['docker', 'exec', container_id] + cmd
     if VERBOSE:
         print("$ " + " ".join(cmd))
     output = check_output(cmd).decode(ENCODING)
@@ -142,3 +144,13 @@ def test_build_repair_numpy(docker_container):
     output = docker_exec(
         python_id, 'python /auditwheel_src/tests/quick_check_numpy.py').strip()
     assert output.strip() == 'ok'
+
+    # Check that numpy f2py works with a more recent version of gfortran
+    docker_exec(python_id, 'apt-get update -yqq')
+    docker_exec(python_id, 'apt-get install -y gfortran')
+    docker_exec(python_id, 'python -m numpy.f2py'
+                           '       -c /auditwheel_src/tests/foo.f90 -m foo')
+
+    # Check that the 2 fortran runtimes are well isolated and can be loaded
+    # at once in the same Python program:
+    docker_exec(python_id, ["python", "-c", "'import numpy; import foo'"])
