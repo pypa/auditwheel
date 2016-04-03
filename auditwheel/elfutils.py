@@ -7,6 +7,21 @@ from elftools.common.exceptions import ELFError  # type: ignore
 from typing import Iterator, Tuple, Optional, Dict, List
 
 
+def elf_read_dt_needed(fn : str) -> List[str]:
+    needed = []
+    with open(fn, 'rb') as f:
+        elf = ELFFile(f)
+        section = elf.get_section_by_name(b'.dynamic')
+        if section is None:
+            raise ValueError('Could not find soname in %s' % fn)
+
+        for t in section.iter_tags():
+            if t.entry.d_tag == 'DT_NEEDED':
+                needed.append(t.needed.decode('utf-8'))
+
+    return needed
+
+
 def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
     """Filter through an iterator of filenames and load up only ELF
     files

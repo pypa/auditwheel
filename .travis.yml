@@ -38,3 +38,4 @@ deploy:
 cache:
   directories:
     - wheelhouse-rmcgibbo/
+    - .cache/auditwheel_tests/
