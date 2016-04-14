@@ -38,7 +38,7 @@ def get_arch_name():
     if _platform_module.machine() in non_x86_linux_machines:
         return _platform_module.machine()
     else:
-        return {64: 'x86_64', 32: '_i686'}[bits]
+        return {64: 'x86_64', 32: 'i686'}[bits]
 
 _ARCH_NAME = get_arch_name()
 
