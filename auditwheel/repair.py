@@ -76,7 +76,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
                 if src_path is None:
                     raise ValueError(('Cannot repair wheel, because required '
                                       'library "%s" could not be located') %
-                                     libname)
+                                     soname)
 
                 new_soname, new_path = copylib(src_path, dest_dir)
                 soname_map[soname] = (new_soname, new_path)
