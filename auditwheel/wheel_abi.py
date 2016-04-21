@@ -1,6 +1,7 @@
 import json
 import logging
 import functools
+import os
 from os.path import basename
 from typing import Dict, Set
 from collections import defaultdict, Mapping, Sequence, namedtuple
@@ -30,6 +31,14 @@ def get_wheel_elfdata(wheel_fn: str):
     with InGenericPkgCtx(wheel_fn) as ctx:
         for fn, elf in elf_file_filter(ctx.iter_files()):
             is_py_ext, py_ver = elf_is_python_extension(fn, elf)
+
+            # Check for invalid binary wheel format: no shared library should be found in purelib
+            so_path_split = fn.split(os.sep)
+            if 'purelib' in so_path_split:
+                raise RuntimeError(('Invalid binary wheel, found shared library "%s" in purelib folder.\n'
+                                    'The wheel has to be platlib compliant in order to be repaired by auditwheel.') %
+                                   so_path_split[-1])
+
             if is_py_ext:
                 log.info('processing: %s', fn)
                 elftree = lddtree(fn)
