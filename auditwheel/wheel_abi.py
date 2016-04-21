@@ -39,18 +39,17 @@ def get_wheel_elfdata(wheel_fn: str):
                                     'The wheel has to be platlib compliant in order to be repaired by auditwheel.') %
                                    so_path_split[-1])
 
-            if is_py_ext:
-                log.info('processing: %s', fn)
-                elftree = lddtree(fn)
-                full_elftree[fn] = elftree
-                for key, value in elf_find_versioned_symbols(elf):
-                    versioned_symbols[key].add(value)
+            log.info('processing: %s', fn)
+            elftree = lddtree(fn)
+            full_elftree[fn] = elftree
+            for key, value in elf_find_versioned_symbols(elf):
+                versioned_symbols[key].add(value)
 
-                if py_ver == 2:
-                    uses_ucs2_symbols |= any(
-                        True for _ in elf_find_ucs2_symbols(elf))
-                full_external_refs[fn] = lddtree_external_references(elftree,
-                                                                     ctx.path)
+            if is_py_ext and py_ver == 2:
+                uses_ucs2_symbols |= any(
+                    True for _ in elf_find_ucs2_symbols(elf))
+            full_external_refs[fn] = lddtree_external_references(elftree,
+                                                                 ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
     return (full_elftree, full_external_refs,
