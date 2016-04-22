@@ -30,6 +30,13 @@ def docker_start(image, volumes={}, env_variables={}):
 
     Return the container id to be used for 'docker exec' commands.
     """
+    # Make sure to use the latest public version of the docker image
+    cmd = ['docker', 'pull', image]
+    if VERBOSE:
+        print("$ " + " ".join(cmd))
+    output = check_output(cmd).decode(ENCODING).strip()
+    if VERBOSE:
+        print(output)
     cmd = ['docker', 'run', '-d']
     for guest_path, host_path in sorted(volumes.items()):
         cmd.extend(['-v', '%s:%s' % (host_path, guest_path)])
