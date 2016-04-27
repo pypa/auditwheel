@@ -92,12 +92,13 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
         # we grafted in a bunch of libraries and modifed their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
         # we need to update those records so each now knows about the new
-        # name of the other.
+        # name of the other but also its location by adding rpath.
         for old_soname, (new_soname, path) in soname_map.items():
             needed = elf_read_dt_needed(path)
             for n in needed:
                 if n in soname_map:
                     check_call(['patchelf', '--replace-needed', n, soname_map[n][0], path])
+                    patchelf_set_rpath(path, dirname(soname_map[n][1]))
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, [abi],
