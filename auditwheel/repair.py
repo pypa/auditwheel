@@ -140,6 +140,25 @@ def copylib(src_path, dest_dir):
 
 
 def patchelf_set_rpath(fn, libdir):
-    rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
-    print('Setting RPATH: %s to "%s"' % (fn, rpath))
-    check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])
+    new_rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
+    # Get current rpaths list of the library
+    current_rpaths = set(map(lambda rp: pjoin('$ORIGIN', relpath(rp, dirname(fn))), 
+                         elf_read_rpaths(fn)['rpaths']))
+    # Build a set of equivalent rpaths from the one to add
+    new_rpath_set = set([new_rpath])
+    if new_rpath.endswith('/'):
+        new_rpath_set.add(new_rpath[:-1])
+    elif new_rpath.endswith('/.'):
+        new_rpath_set.add(new_rpath[:-2])
+    else:
+        new_rpath_set.add(new_rpath+'/')
+        new_rpath_set.add(new_rpath+'/.')
+    # Check if the rpath to add is not already in the rpaths list before adding it
+    if len(current_rpaths.intersection(new_rpath_set)) == 0:
+        # Don't override previously set rpaths
+        if current_rpaths:
+            rpaths = new_rpath + ':' + ':'.join(current_rpaths)	
+        else:
+            rpaths = new_rpath
+        print('Setting RPATH: %s to "%s"' % (fn, rpaths))
+        check_call(['patchelf', '--force-rpath', '--set-rpath', rpaths, fn])
