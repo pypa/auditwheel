@@ -76,9 +76,15 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
                                       'library "%s" could not be located') %
                                      soname)
 
-                new_soname, new_path = copylib(src_path, dest_dir)
-                soname_map[soname] = (new_soname, new_path)
-                check_call(['patchelf', '--replace-needed', soname, new_soname, fn])
+                if not soname in soname_map:
+                    new_soname, new_path = copylib(src_path, dest_dir)
+                    soname_map[soname] = (new_soname, new_path)
+                    check_call(['patchelf', '--replace-needed', soname, new_soname, fn])
+                # dependency library has already been grafted, so we just need to change soname
+                # and add rpath to it in that case
+                else:
+                    check_call(['patchelf', '--replace-needed', soname, soname_map[soname][0], fn])
+                    patchelf_set_rpath(fn, dirname(soname_map[soname][1]))
 
             if len(ext_libs) > 0:
                 patchelf_set_rpath(fn, dest_dir)
