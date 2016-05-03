@@ -161,3 +161,55 @@ def test_build_repair_numpy(docker_container):
     # Check that the 2 fortran runtimes are well isolated and can be loaded
     # at once in the same Python program:
     docker_exec(python_id, ["python", "-c", "'import numpy; import foo'"])
+
+CMAKE_TEST_PROJECT_REPO='https://github.com/anlambert/python_manylinux_cmake_test_project.git'
+CMAKE_PROJECT_DIR='/io/python_manylinux_cmake_test_project'
+
+def test_python_cmake_project(docker_container):
+    # Test repairing a binary wheel containing multiple extension modules and other shared libraries
+    # compiled and generated with CMake.
+    # The wheel produced with this sample CMake project contains two modules : zliblinkage and pnglinkage.
+    # The zliblinkage module contains one extension module _zliblinkage linked to
+    # a shared library named libzliblinkage itself linked against zlib.
+    # The pnglinkage module contains one extension module _pnglinkage linked to
+    # a shared library named libpnglinkage itself linked against libpng and zlib.
+    # The libzliblinkage.so and libpnglinkage.so files are already bundled in the wheel
+    # along with the extension modules. Rpaths have been correctly set in order for
+    # the auditwheel tool to no graft those libraries but only the ones provided by the system.
+
+    manylinux_id, python_id, io_folder = docker_container
+
+    # Install build dependencies
+    docker_exec(manylinux_id, 'yum install -y cmake28 zlib-devel libpng-devel')
+
+    # Clone the CMake project repository
+    docker_exec(manylinux_id, 'git clone ' + CMAKE_TEST_PROJECT_REPO +
+                              ' ' + CMAKE_PROJECT_DIR)
+
+    # Generate and build the project with CMake. The produced wheel will be located in <project_root_dir>/modules/dist
+    docker_exec(manylinux_id, ['/bin/bash', '-c', 'cd ' + CMAKE_PROJECT_DIR + ' ; cmake28 . ; make wheel'])
+
+    # Get the name of the generated wheel file
+    wheel_file = docker_exec(manylinux_id, 'ls ' + CMAKE_PROJECT_DIR + '/modules/dist').replace('\n', '')
+
+    # Check that the wheel needs to be repaired
+    output = docker_exec(manylinux_id, 'auditwheel show ' + CMAKE_PROJECT_DIR + '/modules/dist/' + wheel_file)
+    assert (
+        wheel_file + ' is consistent with the following platform tag: "linux_x86_64"'
+    ) in output.replace('\n', ' ')
+
+    # Repair the wheel
+    docker_exec(manylinux_id, 'auditwheel repair -w ' + CMAKE_PROJECT_DIR + '/modules/dist/manylinux ' + CMAKE_PROJECT_DIR + '/modules/dist/' + wheel_file)
+
+    # Get the repaired wheel file name
+    repaired_wheel_file = docker_exec(manylinux_id, 'ls ' + CMAKE_PROJECT_DIR + '/modules/dist/manylinux').replace('\n', '')
+
+    # Check that the wheel has been repaired
+    output = docker_exec(manylinux_id, 'auditwheel show ' + CMAKE_PROJECT_DIR + '/modules/dist/manylinux/' + repaired_wheel_file)
+    assert (
+        repaired_wheel_file + ' is consistent with the following platform tag: "manylinux1_x86_64"'
+    ) in output.replace('\n', ' ')
+
+    # Check that the repaired wheel can be installed and executed on a modern linux image.
+    docker_exec(python_id, 'pip install ' + CMAKE_PROJECT_DIR + '/modules/dist/manylinux/' + repaired_wheel_file)
+    docker_exec(python_id, ["python", "-c", "import zliblinkage; import pnglinkage"])
