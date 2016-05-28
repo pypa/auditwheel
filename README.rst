@@ -90,7 +90,7 @@ Limitations
    be statically determined, so dependencies that are loaded via those
    mechanisms will be missed.
 2. There's nothing we can do about "fixing" binaries if they were compiled and
-   linked against a too-recent version of ``libc`` ot ``libstdc++``. These
+   linked against a too-recent version of ``libc`` or ``libstdc++``. These
    libraries (and some others) use symbol versioning for backward
    compatibility. In general, this means that code that was compiled against an
    old version of ``glibc`` will run fine on systems with a newer version of
