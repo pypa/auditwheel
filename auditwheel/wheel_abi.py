@@ -10,9 +10,8 @@ from .lddtree import lddtree
 from .elfutils import (elf_file_filter, elf_find_versioned_symbols,
                        elf_find_ucs2_symbols, elf_is_python_extension)
 from .policy import (lddtree_external_references, versioned_symbols_policy,
-                     max_versioned_symbol, get_policy_name,
-                     POLICY_PRIORITY_LOWEST, POLICY_PRIORITY_HIGHEST,
-                     load_policies)
+                     get_policy_name, POLICY_PRIORITY_LOWEST,
+                     POLICY_PRIORITY_HIGHEST, load_policies)
 
 log = logging.getLogger(__name__)
 WheelAbIInfo = namedtuple('WheelAbIInfo',
@@ -44,8 +43,9 @@ def get_wheel_elfdata(wheel_fn: str):
                                                                      ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
-    return (full_elftree, full_external_refs,
-            max_versioned_symbol(versioned_symbols), uses_ucs2_symbols)
+
+    return (full_elftree, full_external_refs, versioned_symbols,
+            uses_ucs2_symbols)
 
 
 def analyze_wheel_abi(wheel_fn: str):
