@@ -8,7 +8,8 @@
             "symbol_versions": {
                 "type": "object",
                 "patternProperties": {
-                    ".*": {"type": "string"}
+                    ".*": {"type": "array",
+                           "items": {"type": "string"}}
                 }
             },
             "lib_whitelist": {
