@@ -26,7 +26,8 @@ def execute(args, p):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
 
     winfo = analyze_wheel_abi(args.WHEEL_FILE)
-    versions = ['%s_%s' % (k, v) for k, v in winfo.versioned_symbols.items()]
+    libs_with_versions = ['%s with versions %s' % (k, v)
+                          for k, v in winfo.versioned_symbols.items()]
 
     printp('%s is consistent with the following platform tag: "%s".' %
            (fn, winfo.overall_tag))
@@ -38,13 +39,13 @@ def execute(args, p):
         if args.verbose < 1:
             return
 
-    if len(versions) == 0:
+    if len(libs_with_versions) == 0:
         printp(("The wheel references no external versioned symbols from "
                 "system-provided shared libraries."))
     else:
-        printp('The wheel references the following external versioned '
-               'symbols in system-provided shared libraries: %s.' %
-               ', '.join(versions))
+        printp('The wheel references external versioned symbols in these '
+               'system-provided shared libraries: %s' %
+               ', '.join(libs_with_versions))
 
     if get_priority_by_name(winfo.sym_tag) < POLICY_PRIORITY_HIGHEST:
         printp(('This constrains the platform tag to "%s". '
