@@ -97,8 +97,8 @@ def get_replace_platforms(name: str):
 
 
 from .external_references import lddtree_external_references
-from .versioned_symbols import versioned_symbols_policy, max_versioned_symbol
+from .versioned_symbols import versioned_symbols_policy
 
 __all__ = ['lddtree_external_references', 'versioned_symbols_policy',
-           'max_versioned_symbol', 'load_policies', 'POLICY_PRIORITY_HIGHEST',
+           'load_policies', 'POLICY_PRIORITY_HIGHEST',
            'POLICY_PRIORITY_LOWEST']
