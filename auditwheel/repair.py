@@ -64,8 +64,6 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
                 # directory -- just supposed to be directly in site-packages
                 dest_dir = lib_sdir + pkg_root.split('.')[0]
             else:
-                if not exists(pjoin(pkg_root, '__init__.py')):
-                    raise RuntimeError('Is this wheel malformatted? Or a bug?')
                 dest_dir = pjoin(pkg_root, lib_sdir)
 
             if not exists(dest_dir):
