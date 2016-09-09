@@ -32,7 +32,7 @@ def verify_patchelf():
     m = re.match('patchelf\s+(\d+(.\d+)?)', version)
     if m and tuple(int(x) for x in m.group(1).split('.')) >= (0, 9):
         return
-    raise ValueError(('patchelf %s found. auditwheel repair requires'
+    raise ValueError(('patchelf %s found. auditwheel repair requires '
                       'patchelf >= 0.9.') %
                      version)
 
