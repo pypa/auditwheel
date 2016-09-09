@@ -342,7 +342,7 @@ def lddtree(path: str,
                 if segment.header.p_type != 'PT_INTERP':
                     continue
 
-                interp = segment.get_interp_name().decode('utf-8')
+                interp = segment.get_interp_name()
                 log.debug('  interp           = %s', interp)
                 ret['interp'] = normpath(root + interp)
                 ret['libs'][os.path.basename(interp)] = {
@@ -372,16 +372,16 @@ def lddtree(path: str,
             for t in segment.iter_tags():
                 if t.entry.d_tag == 'DT_RPATH':
                     rpaths = parse_ld_paths(
-                        t.rpath.decode('utf-8'),
+                        t.rpath,
                         root=root,
                         path=path)
                 elif t.entry.d_tag == 'DT_RUNPATH':
                     runpaths = parse_ld_paths(
-                        t.runpath.decode('utf-8'),
+                        t.runpath,
                         root=root,
                         path=path)
                 elif t.entry.d_tag == 'DT_NEEDED':
-                    libs.append(t.needed.decode('utf-8'))
+                    libs.append(t.needed)
             if runpaths:
                 # If both RPATH and RUNPATH are set, only the latter is used.
                 rpaths = []
