@@ -62,7 +62,7 @@ def analyze_wheel_abi(wheel_fn: str):
         update(external_refs, external_refs_by_fn[fn])
 
     log.info(json.dumps(external_refs, indent=4))
-    log.debug('external referene info')
+    log.debug('external reference info')
     log.debug(json.dumps(external_refs, indent=4))
 
     symbol_policy = versioned_symbols_policy(versioned_symbols)
