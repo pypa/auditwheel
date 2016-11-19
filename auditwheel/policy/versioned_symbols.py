@@ -7,19 +7,25 @@ from . import load_policies
 log = logging.getLogger(__name__)
 
 
-def versioned_symbols_policy(required_vers: Dict[str, Set[str]]) -> int:
+def versioned_symbols_policy(versioned_symbols: Dict[str, Set[str]]) -> int:
     def policy_is_satisfied(policy_name: str,
                             policy_sym_vers: Dict[str, Set[str]]):
-        for symbol_name in (set(required_vers.keys())
-                            & set(policy_sym_vers.keys())):
+        policy_satisfied = True
+        for name in (set(required_vers.keys())
+                     & set(policy_sym_vers.keys())):
             if not required_vers[name].issubset(policy_sym_vers[name]):
                 for symbol in required_vers[name] - policy_sym_vers[name]:
                     log.debug('Package requires %s, incompatible with '
                               'policy %s which requires %s', symbol,
                               policy_name, policy_sym_vers[name])
-                return False
-        return True
+                policy_satisfied = False
+        return policy_satisfied
 
+    required_vers = {}  # type: Dict[str, Set[str]]
+    for symbols in versioned_symbols.values():
+        for symbol in symbols:
+            sym_name, _ = symbol.split("_", 2)
+            required_vers.setdefault(sym_name, set()).add(symbol)
     matching_policies = []  # type: List[int]
     for p in load_policies():
         policy_sym_vers = {
