@@ -11,13 +11,13 @@ def elf_read_dt_needed(fn : str) -> List[str]:
     needed = []
     with open(fn, 'rb') as f:
         elf = ELFFile(f)
-        section = elf.get_section_by_name(b'.dynamic')
+        section = elf.get_section_by_name('.dynamic')
         if section is None:
             raise ValueError('Could not find soname in %s' % fn)
 
         for t in section.iter_tags():
             if t.entry.d_tag == 'DT_NEEDED':
-                needed.append(t.needed.decode('utf-8'))
+                needed.append(t.needed)
 
     return needed
 
@@ -41,23 +41,23 @@ def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
 
 
 def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
-    section = elf.get_section_by_name(b'.gnu.version_r')
+    section = elf.get_section_by_name('.gnu.version_r')
 
     if section is not None:
         for verneed, verneed_iter in section.iter_versions():
-            if verneed.name.decode('utf-8').startswith('ld-linux'):
+            if verneed.name.startswith('ld-linux'):
                 continue
             for vernaux in verneed_iter:
-                yield (verneed.name.decode('utf-8'),
-                       vernaux.name.decode('utf-8'))
+                yield (verneed.name,
+                       vernaux.name)
 
 
 def elf_find_ucs2_symbols(elf: ELFFile) -> Iterator[str]:
-    section = elf.get_section_by_name(b'.dynsym')
+    section = elf.get_section_by_name('.dynsym')
     if section is not None:
         # look for UCS2 symbols that are externally referenced
         for sym in section.iter_symbols():
-            if (b'PyUnicodeUCS2_' in sym.name and
+            if ('PyUnicodeUCS2_' in sym.name and
                     sym['st_shndx'] == 'SHN_UNDEF' and
                     sym['st_info']['type'] == 'STT_FUNC'):
 
@@ -68,16 +68,16 @@ def elf_is_python_extension(fn, elf) -> Tuple[bool, Optional[int]]:
     modname = basename(fn).split('.', 1)[0]
     module_init_f = {'init' + modname: 2, 'PyInit_' + modname: 3}
 
-    sect = elf.get_section_by_name(b'.dynsym')
+    sect = elf.get_section_by_name('.dynsym')
     if sect is None:
         return False, None
 
     for sym in sect.iter_symbols():
-        if (sym.name.decode('utf-8') in module_init_f and
+        if (sym.name in module_init_f and
                 sym['st_shndx'] != 'SHN_UNDEF' and
                 sym['st_info']['type'] == 'STT_FUNC'):
 
-            return True, module_init_f[sym.name.decode('utf-8')]
+            return True, module_init_f[sym.name]
 
     return False, None
 
@@ -87,19 +87,19 @@ def elf_read_rpaths(fn: str) -> Dict[str, List[str]]:
 
     with open(fn, 'rb') as f:
         elf = ELFFile(f)
-        section = elf.get_section_by_name(b'.dynamic')
+        section = elf.get_section_by_name('.dynamic')
         if section is None:
             return result
 
         for t in section.iter_tags():
             if t.entry.d_tag == 'DT_RPATH':
                 result['rpaths'] = parse_ld_paths(
-                    t.rpath.decode('utf-8'),
+                    t.rpath,
                     root='/',
                     path=fn)
             elif t.entry.d_tag == 'DT_RUNPATH':
                 result['runpaths'] = parse_ld_paths(
-                    t.runpath.decode('utf-8'),
+                    t.runpath,
                     root='/',
                     path=fn)
 

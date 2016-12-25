@@ -1,5 +1,6 @@
 from jsonschema import validate
-from auditwheel.policy import load_policies, _load_policy_schema
+from auditwheel.policy import (load_policies, _load_policy_schema,
+                               versioned_symbols_policy, POLICY_PRIORITY_LOWEST)
 
 
 def test_policy():
@@ -7,3 +8,9 @@ def test_policy():
     policy_schema = _load_policy_schema()
     validate(policy, policy_schema)
 
+
+def test_policy_checks_glibc():
+    policy = versioned_symbols_policy({"some_library.so": {"GLIBC_2.5"}})
+    assert policy > POLICY_PRIORITY_LOWEST
+    policy = versioned_symbols_policy({"some_library.so": {"GLIBC_999"}})
+    assert policy == POLICY_PRIORITY_LOWEST
