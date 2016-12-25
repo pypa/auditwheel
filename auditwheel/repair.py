@@ -9,7 +9,7 @@ from subprocess import check_call, check_output, CalledProcessError
 from distutils.spawn import find_executable
 from typing import Optional
 
-from .policy import get_replace_platforms
+from .policy import get_replace_platforms, valid_wheel_abi_tag
 from .wheeltools import InWheelCtx, add_platforms
 from .wheel_abi import get_wheel_elfdata
 from .elfutils import elf_read_rpaths, is_subdir, elf_read_dt_needed
@@ -46,6 +46,11 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
         out_dir = abspath(out_dir)
 
     wheel_fname = basename(wheel_path)
+
+    if not valid_wheel_abi_tag(wheel_path):
+        raise ValueError(('Cannot repair wheel, because the ABI tag of "none"'
+                          'is not allowed for Python 2 and 3.0-3.2 manylinux'
+                          'wheels. Use either ucs2 or ucs4.'))
 
     with InWheelCtx(wheel_path) as ctx:
         ctx.out_wheel = pjoin(out_dir, wheel_fname)
@@ -117,7 +122,7 @@ def copylib(src_path, dest_dir):
     if not base.endswith('-%s' % shorthash):
         new_soname = '%s-%s.%s' % (base, shorthash, ext)
     else:
-        new_soname = src_name
+        new_soname = os.path.basename(src_path)
 
     dest_path = os.path.join(dest_dir, new_soname)
     if os.path.exists(dest_path):

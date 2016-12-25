@@ -98,7 +98,9 @@ def get_replace_platforms(name: str):
 
 from .external_references import lddtree_external_references
 from .versioned_symbols import versioned_symbols_policy
+from .abi_tag import valid_wheel_abi_tag
 
 __all__ = ['lddtree_external_references', 'versioned_symbols_policy',
+           'valid_wheel_abi_tag',
            'load_policies', 'POLICY_PRIORITY_HIGHEST',
            'POLICY_PRIORITY_LOWEST']

@@ -167,7 +167,7 @@ class InWheelCtx(InWheel):
             filename = row[0]
             yield filename
 
-
+            
 def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     """Add platform tags `platforms` to a wheel
 
@@ -198,8 +198,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
         out_dir = '.'
         wheel_fname = basename(wheel_ctx.in_wheel)
 
-    parsed_fname = WHEEL_INFO_RE(wheel_fname)
-    fparts = parsed_fname.groupdict()
+    fparts = parse_wheel_info(wheel_fname)
     original_fname_tags = fparts['plat'].split('.')
     print('Previous filename tags:', ', '.join(original_fname_tags))
     fname_tags = [tag for tag in original_fname_tags
@@ -241,3 +240,10 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     else:
         print('No WHEEL info change needed.')
     return out_wheel
+
+
+def parse_wheel_info(wheel_fname: str):
+    wheel_fname = os.path.basename(wheel_fname)
+    parsed_fname = WHEEL_INFO_RE(wheel_fname)
+    fparts = parsed_fname.groupdict()
+    return fparts

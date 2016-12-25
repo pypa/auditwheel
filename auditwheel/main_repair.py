@@ -67,13 +67,6 @@ def execute(args, p):
                (args.WHEEL_FILE, args.PLAT))
         p.error(msg)
 
-    if (reqd_tag > get_priority_by_name(wheel_abi.ucs_tag)):
-        msg = ('cannot repair "%s" to "%s" ABI because it was compiled '
-               'against a UCS2 build of Python. You\'ll need to compile '
-               'the wheel against a wide-unicode build of Python.' %
-               (args.WHEEL_FILE, args.PLAT))
-        p.error(msg)
-
     out_wheel = repair_wheel(args.WHEEL_FILE,
                              abi=args.PLAT,
                              lib_sdir=args.LIB_SDIR,
