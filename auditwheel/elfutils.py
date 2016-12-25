@@ -52,18 +52,6 @@ def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
                        vernaux.name)
 
 
-def elf_find_ucs2_symbols(elf: ELFFile) -> Iterator[str]:
-    section = elf.get_section_by_name('.dynsym')
-    if section is not None:
-        # look for UCS2 symbols that are externally referenced
-        for sym in section.iter_symbols():
-            if ('PyUnicodeUCS2_' in sym.name and
-                    sym['st_shndx'] == 'SHN_UNDEF' and
-                    sym['st_info']['type'] == 'STT_FUNC'):
-
-                yield sym.name
-
-
 def elf_is_python_extension(fn, elf) -> Tuple[bool, Optional[int]]:
     modname = basename(fn).split('.', 1)[0]
     module_init_f = {'init' + modname: 2, 'PyInit_' + modname: 3}

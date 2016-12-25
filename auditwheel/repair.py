@@ -117,7 +117,7 @@ def copylib(src_path, dest_dir):
     if not base.endswith('-%s' % shorthash):
         new_soname = '%s-%s.%s' % (base, shorthash, ext)
     else:
-        new_soname = src_name
+        new_soname = os.path.basename(src_path)
 
     dest_path = os.path.join(dest_dir, new_soname)
     if os.path.exists(dest_path):
