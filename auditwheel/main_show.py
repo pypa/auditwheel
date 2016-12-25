@@ -32,6 +32,12 @@ def execute(args, p):
     printp('%s is consistent with the following platform tag: "%s".' %
            (fn, winfo.overall_tag))
 
+    if get_priority_by_name(winfo.pyfpe_tag) < POLICY_PRIORITY_HIGHEST:
+        printp(('This wheel uses the PyFPE_jbuf function, which is not '
+                'compatible with the manylinux1 tag.'))
+        if args.verbose < 1:
+            return
+
     if get_priority_by_name(winfo.ucs_tag) < POLICY_PRIORITY_HIGHEST:
         printp(('This wheel is compiled against a narrow unicode (UCS2) '
                 'version of Python, which is not compatible with the '
