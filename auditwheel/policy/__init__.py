@@ -44,7 +44,11 @@ _ARCH_NAME = get_arch_name()
 
 
 with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
-    _POLICIES = json.load(f)
+    _ALL_POLICIES = json.load(f)
+    _POLICIES = []
+    for p in _ALL_POLICIES:
+        if (_platform_module.machine() in p["architecture"]):
+            _POLICIES.append(p)
     for p in _POLICIES:
         p['name'] = p['name'] + '_' + _ARCH_NAME
 
