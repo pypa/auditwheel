@@ -72,7 +72,7 @@ def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
         for sym in section.iter_symbols():
             if (sym.name in offending_symbol_names and
                     sym['st_shndx'] == 'SHN_UNDEF' and
-                    sym['st_info']['type'] == 'STT_FUNC'):
+                    sym['st_info']['type'] in ('STT_FUNC', 'STT_NOTYPE')):
                 return True
     return False
 
