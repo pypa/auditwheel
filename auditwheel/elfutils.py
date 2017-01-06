@@ -64,6 +64,19 @@ def elf_find_ucs2_symbols(elf: ELFFile) -> Iterator[str]:
                 yield sym.name
 
 
+def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
+    offending_symbol_names = ('PyFPE_jbuf', 'PyFPE_dummy', 'PyFPE_counter')
+    section = elf.get_section_by_name('.dynsym')
+    if section is not None:
+        # look for symbols that are externally referenced
+        for sym in section.iter_symbols():
+            if (sym.name in offending_symbol_names and
+                    sym['st_shndx'] == 'SHN_UNDEF' and
+                    sym['st_info']['type'] in ('STT_FUNC', 'STT_NOTYPE')):
+                return True
+    return False
+
+
 def elf_is_python_extension(fn, elf) -> Tuple[bool, Optional[int]]:
     modname = basename(fn).split('.', 1)[0]
     module_init_f = {'init' + modname: 2, 'PyInit_' + modname: 3}
