@@ -10,7 +10,21 @@ def test_policy():
 
 
 def test_policy_checks_glibc():
-    policy = versioned_symbols_policy({"some_library.so": {"GLIBC_2.5"}})
+    policy = versioned_symbols_policy(
+        {
+            "some_library.so": {
+                "GLIBC_2.5",
+                "OPENSSL_1.0.1_EC",
+                "some_library.so",
+            },
+        })
     assert policy > POLICY_PRIORITY_LOWEST
-    policy = versioned_symbols_policy({"some_library.so": {"GLIBC_999"}})
+    policy = versioned_symbols_policy(
+        {
+            "some_library.so": {
+                "GLIBC_999",
+                "OPENSSL_1.0.1_EC",
+                "some_library.so",
+            },
+        })
     assert policy == POLICY_PRIORITY_LOWEST
