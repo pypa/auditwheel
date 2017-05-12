@@ -188,7 +188,8 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     info_fname = pjoin(_dist_info_dir(wheel_ctx.path), 'WHEEL')
     info = read_pkg_info(info_fname)
     if info['Root-Is-Purelib'] == 'true':
-        raise WheelToolsError('Cannot add platforms to pure wheel')
+        print('No need to add platforms to pure wheel - Skipping {}'.format(wheel_ctx.in_wheel))
+        return
 
     # Check what tags we have
     if wheel_ctx.out_wheel is not None:
