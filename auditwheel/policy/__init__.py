@@ -22,7 +22,7 @@ _PLATFORM_REPLACEMENT_MAP = {
 # XXX: this could be weakened. The show command _could_ run on OS X or
 # Windows probably, but there's not much reason to inspect foreign package
 # that won't run on the platform.
-if platform == 'linux':
+if platform != 'linux':
     print('Error: This tool only supports Linux', file=sys.stderr)
     sys.exit(1)
 
