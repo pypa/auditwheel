@@ -18,3 +18,5 @@ def test_policy_checks_glibc():
     assert policy == POLICY_PRIORITY_LOWEST
     policy = versioned_symbols_policy({"some_library.so": {"OPENSSL_1_1_0"}})
     assert policy == POLICY_PRIORITY_HIGHEST
+    policy = versioned_symbols_policy({"some_library.so": {"IAMALIBRARY"}})
+    assert policy == POLICY_PRIORITY_HIGHEST
