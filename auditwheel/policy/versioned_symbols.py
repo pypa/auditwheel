@@ -11,8 +11,7 @@ def versioned_symbols_policy(versioned_symbols: Dict[str, Set[str]]) -> int:
     def policy_is_satisfied(policy_name: str,
                             policy_sym_vers: Dict[str, Set[str]]):
         policy_satisfied = True
-        for name in (set(required_vers.keys())
-                     & set(policy_sym_vers.keys())):
+        for name in (set(required_vers) & set(policy_sym_vers)):
             if not required_vers[name].issubset(policy_sym_vers[name]):
                 for symbol in required_vers[name] - policy_sym_vers[name]:
                     log.debug('Package requires %s, incompatible with '
