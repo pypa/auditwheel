@@ -23,7 +23,7 @@ def versioned_symbols_policy(versioned_symbols: Dict[str, Set[str]]) -> int:
     required_vers = {}  # type: Dict[str, Set[str]]
     for symbols in versioned_symbols.values():
         for symbol in symbols:
-            sym_name, _ = symbol.split("_", 2)
+            sym_name, _, _ = symbol.partition("_")
             required_vers.setdefault(sym_name, set()).add(symbol)
     matching_policies = []  # type: List[int]
     for p in load_policies():
