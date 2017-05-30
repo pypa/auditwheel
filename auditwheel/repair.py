@@ -76,9 +76,15 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
                                       'library "%s" could not be located') %
                                      soname)
 
-                new_soname, new_path = copylib(src_path, dest_dir)
-                soname_map[soname] = (new_soname, new_path)
-                check_call(['patchelf', '--replace-needed', soname, new_soname, fn])
+                if not soname in soname_map:
+                    new_soname, new_path = copylib(src_path, dest_dir)
+                    soname_map[soname] = (new_soname, new_path)
+                    check_call(['patchelf', '--replace-needed', soname, new_soname, fn])
+                # dependency library has already been grafted, so we just need to change soname
+                # and add rpath to it in that case
+                else:
+                    check_call(['patchelf', '--replace-needed', soname, soname_map[soname][0], fn])
+                    patchelf_set_rpath(fn, dirname(soname_map[soname][1]))
 
             if len(ext_libs) > 0:
                 patchelf_set_rpath(fn, dest_dir)
@@ -86,12 +92,13 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
         # we grafted in a bunch of libraries and modifed their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
         # we need to update those records so each now knows about the new
-        # name of the other.
+        # name of the other but also its location by adding rpath.
         for old_soname, (new_soname, path) in soname_map.items():
             needed = elf_read_dt_needed(path)
             for n in needed:
                 if n in soname_map:
                     check_call(['patchelf', '--replace-needed', n, soname_map[n][0], path])
+                    patchelf_set_rpath(path, dirname(soname_map[n][1]))
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, [abi],
@@ -140,6 +147,25 @@ def copylib(src_path, dest_dir):
 
 
 def patchelf_set_rpath(fn, libdir):
-    rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
-    print('Setting RPATH: %s to "%s"' % (fn, rpath))
-    check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])
+    new_rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
+    # Get current rpaths list of the library
+    current_rpaths = set(map(lambda rp: pjoin('$ORIGIN', relpath(rp, dirname(fn))), 
+                         elf_read_rpaths(fn)['rpaths']))
+    # Build a set of equivalent rpaths from the one to add
+    new_rpath_set = set([new_rpath])
+    if new_rpath.endswith('/'):
+        new_rpath_set.add(new_rpath[:-1])
+    elif new_rpath.endswith('/.'):
+        new_rpath_set.add(new_rpath[:-2])
+    else:
+        new_rpath_set.add(new_rpath+'/')
+        new_rpath_set.add(new_rpath+'/.')
+    # Check if the rpath to add is not already in the rpaths list before adding it
+    if len(current_rpaths.intersection(new_rpath_set)) == 0:
+        # Don't override previously set rpaths
+        if current_rpaths:
+            rpaths = new_rpath + ':' + ':'.join(current_rpaths)	
+        else:
+            rpaths = new_rpath
+        print('Setting RPATH: %s to "%s"' % (fn, rpaths))
+        check_call(['patchelf', '--force-rpath', '--set-rpath', rpaths, fn])
