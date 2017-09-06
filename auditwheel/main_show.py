@@ -56,8 +56,8 @@ def execute(args, p):
 
     if get_priority_by_name(winfo.sym_tag) < POLICY_PRIORITY_HIGHEST:
         printp(('This constrains the platform tag to "%s". '
-                'In order to achieve a more compatible tag, you '
-                'would to recompile a new wheel from source on a system '
+                'In order to achieve a more compatible tag, you would '
+                'need to recompile a new wheel from source on a system '
                 'with earlier versions of these libraries, such as '
                 'CentOS 5.') % winfo.sym_tag)
         if args.verbose < 1:
