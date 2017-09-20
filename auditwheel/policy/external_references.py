@@ -2,7 +2,6 @@ import re
 import os
 import json
 import logging
-from functools import reduce
 from typing import Tuple, Dict, List, Set, Any
 
 from elftools.elf.elffile import ELFFile  # type: ignore
@@ -33,10 +32,16 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
             yield lib
 
     def get_req_external(libs: Set[str], whitelist: Set[str]):
-        # recurisvely get all the required external libraries
-        return reduce(set.union, (get_req_external(
-            set(filter_libs(lddtree['libs'][lib]['needed'], whitelist)),
-            whitelist) for lib in libs), libs)
+        # get all the required external libraries
+        libs = libs.copy()
+        reqs = set()
+        while libs:
+            lib = libs.pop()
+            reqs.add(lib)
+            for dep in filter_libs(lddtree['libs'][lib]['needed'], whitelist):
+                if dep not in reqs:
+                    libs.add(dep)
+        return reqs
 
     ret = {}  # type: Dict[str, Dict[str, Any]]
     for p in policies:
