@@ -1,4 +1,15 @@
 language: python
+matrix:
+  include:
+  - python: "3.4"
+  - python: "3.5"
+  - python: "3.5"
+    env: WHEELHOUSE=1
+  - python: "3.6"
+  allow_failures:
+  - python: "3.5"
+    env: WHEELHOUSE=1
+
 sudo: required
 services:
   - docker
@@ -17,14 +28,15 @@ install:
   - pip install -r test-requirements.txt
   - pip install .
 
-python:
-  - "3.4"
-  - "3.5"
 
 script:
-  - py.test -s
-  - bash tests/test-wheelhouses.sh
-  - auditwheel lddtree $(python -c 'import sys; print(sys.executable)')
+  - |
+    if [[ "$WHEELHOUSE" == "1" ]]; then
+        bash tests/test-wheelhouses.sh
+    else
+        py.test -s
+        auditwheel lddtree $(python -c 'import sys; print(sys.executable)')
+    fi
 
 deploy:
   provider: pypi
