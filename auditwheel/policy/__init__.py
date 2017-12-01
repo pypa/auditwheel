@@ -1,8 +1,12 @@
 import sys
+import codecs
 import json
 import platform as _platform_module
 from typing import Optional
 from os.path import join, dirname, abspath
+
+import pkg_resources
+
 
 _sys_map = {'linux2': 'linux',
             'linux': 'linux',
@@ -43,8 +47,8 @@ def get_arch_name():
 _ARCH_NAME = get_arch_name()
 
 
-with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
-    _POLICIES = json.load(f)
+with pkg_resources.resource_stream(__name__, 'policy.json') as f:
+    _POLICIES = json.load(codecs.getreader('utf-8')(f))
     for p in _POLICIES:
         p['name'] = p['name'] + '_' + _ARCH_NAME
 
@@ -57,8 +61,9 @@ def load_policies():
 
 
 def _load_policy_schema():
-    with open(join(dirname(abspath(__file__)), 'policy-schema.json')) as f:
-        schema = json.load(f)
+    schema = json.loads(
+        pkg_resources.resource_string(
+            __name__, 'policy-schema.json').decode('utf-8'))
     return schema
 
 
