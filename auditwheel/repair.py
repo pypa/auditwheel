@@ -20,6 +20,13 @@ from .hashfile import hashfile
 logger = logging.getLogger(__name__)
 
 
+# Copied from wheel 0.31.1
+WHEEL_INFO_RE = re.compile(
+    r"""^(?P<namever>(?P<name>.+?)-(?P<ver>\d.*?))(-(?P<build>\d.*?))?
+     -(?P<pyver>[a-z].+?)-(?P<abi>.+?)-(?P<plat>.+?)(\.whl|\.dist-info)$""",
+    re.VERBOSE).match
+
+
 @functools.lru_cache()
 def verify_patchelf():
     """This function looks for the ``patchelf`` external binary in the PATH,
@@ -59,24 +66,14 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
     with InWheelCtx(wheel_path) as ctx:
         ctx.out_wheel = pjoin(out_dir, wheel_fname)
 
+        dest_dir = WHEEL_INFO_RE(wheel_fname).group('name') + lib_sdir
+
+        if not exists(dest_dir):
+            os.mkdir(dest_dir)
+
         # here, fn is a path to a python extension library in
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
-            # pkg_root should resolve to like numpy/ or scipy/
-            # note that it's possible for the wheel to contain
-            # more than one pkg, which is why we detect the pkg root
-            # for each fn.
-            pkg_root = fn.split(os.sep)[0]
-
-            if pkg_root == fn:
-                # this file is an extension that's not contained in a
-                # directory -- just supposed to be directly in site-packages
-                dest_dir = lib_sdir + pkg_root.split('.')[0]
-            else:
-                dest_dir = pjoin(pkg_root, lib_sdir)
-
-            if not exists(dest_dir):
-                os.mkdir(dest_dir)
 
             ext_libs = v[abi]['libs']  # type: Dict[str, str]
             for soname, src_path in ext_libs.items():
