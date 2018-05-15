@@ -9,7 +9,7 @@ from distutils.spawn import find_executable
 
 VERBOSE = True
 ENCODING = 'utf-8'
-MANYLINUX_IMAGE_ID = 'markrwilliams/manylinux2:x86_64'
+MANYLINUX_IMAGE_ID = 'zombiefeynman/manylinux2010_x86_64'
 DOCKER_CONTAINER_NAME = 'auditwheel-test-manylinux'
 PYTHON_IMAGE_ID = 'python:3.5'
 PATH = ('/opt/python/cp35-cp35m/bin:/opt/rh/devtoolset-2/root/usr/bin:'
@@ -132,23 +132,23 @@ def test_build_repair_numpy(docker_container):
     orig_wheel = filenames[0]
     assert 'manylinux' not in orig_wheel
 
-    # Repair the wheel using the manylinux2 container
+    # Repair the wheel using the manylinux2010 container
     docker_exec(manylinux_id, 'auditwheel repair -w /io /io/' + orig_wheel)
     filenames = os.listdir(io_folder)
     assert len(filenames) == 2
-    repaired_wheels = [fn for fn in filenames if 'manylinux2' in fn]
-    assert repaired_wheels == ['numpy-1.11.0-cp35-cp35m-manylinux2_x86_64.whl']
+    repaired_wheels = [fn for fn in filenames if 'manylinux2010' in fn]
+    assert repaired_wheels == ['numpy-1.11.0-cp35-cp35m-manylinux2010_x86_64.whl']
     repaired_wheel = repaired_wheels[0]
     output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
     assert (
-        'numpy-1.11.0-cp35-cp35m-manylinux2_x86_64.whl is consistent'
-        ' with the following platform tag: "manylinux2_x86_64"'
+        'numpy-1.11.0-cp35-cp35m-manylinux2010_x86_64.whl is consistent'
+        ' with the following platform tag: "manylinux2010_x86_64"'
     ) in output.replace('\n', ' ')
 
     # TODO: Remove once pip supports manylinux2
     docker_exec(
         python_id,
-        "pip install git+https://github.com/markrwilliams/pip.git@manylinux2",
+        "pip install git+https://github.com/wtolson/pip.git@manylinux2010",
     )
 
     # Check that the repaired numpy wheel can be installed and executed
