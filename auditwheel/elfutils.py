@@ -79,7 +79,11 @@ def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
 
 def elf_is_python_extension(fn, elf) -> Tuple[bool, Optional[int]]:
     modname = basename(fn).split('.', 1)[0]
-    module_init_f = {'init' + modname: 2, 'PyInit_' + modname: 3}
+    module_init_f = {
+        'init' + modname: 2,
+        'PyInit_' + modname: 3,
+        '_cffi_pypyinit_' + modname: 2,
+    }
 
     sect = elf.get_section_by_name('.dynsym')
     if sect is None:
