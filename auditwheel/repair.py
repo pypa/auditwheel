@@ -113,11 +113,12 @@ def copylib(src_path, dest_dir):
     with open(src_path, 'rb') as f:
         shorthash = hashfile(f)[:8]
 
-    base, ext = os.path.basename(src_path).split('.', 1)
+    src_name = os.path.basename(src_path)
+    base, ext = src_name.split('.', 1)
     if not base.endswith('-%s' % shorthash):
         new_soname = '%s-%s.%s' % (base, shorthash, ext)
     else:
-        new_soname = src_path
+        new_soname = src_name
 
     dest_path = os.path.join(dest_dir, new_soname)
     if os.path.exists(dest_path):
