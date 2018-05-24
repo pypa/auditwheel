@@ -16,7 +16,9 @@ linkage = _platform_module.architecture()[1]
 
 _PLATFORM_REPLACEMENT_MAP = {
     'manylinux1_x86_64': ['linux_x86_64'],
+    'manylinux2_x86_64': ['linux_x86_64'],
     'manylinux1_i686': ['linux_i686'],
+    'manylinux2_i686': ['linux_i686'],
 }
 
 # XXX: this could be weakened. The show command _could_ run on OS X or

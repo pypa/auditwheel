@@ -13,7 +13,6 @@ def printp(text):
 
 def execute(args, p):
     import json
-    from functools import reduce
     from collections import OrderedDict
     from os.path import isfile, basename
     from .policy import (load_policies, get_priority_by_name,
