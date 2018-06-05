@@ -9,7 +9,8 @@ from distutils.spawn import find_executable
 
 VERBOSE = True
 ENCODING = 'utf-8'
-MANYLINUX_IMAGE_ID = 'zombiefeynman/manylinux2010_x86_64'
+MANYLINUX1_IMAGE_ID = 'quay.io/pypa/manylinux1_x86_64'
+MANYLINUX2010_IMAGE_ID = 'zombiefeynman/manylinux2010_x86_64'
 DOCKER_CONTAINER_NAME = 'auditwheel-test-manylinux'
 PYTHON_IMAGE_ID = 'python:3.5'
 PATH = ('/opt/python/cp35-cp35m/bin:/opt/rh/devtoolset-2/root/usr/bin:'
@@ -61,8 +62,8 @@ def docker_exec(container_id, cmd):
     return output
 
 
-@pytest.yield_fixture
-def docker_container():
+@pytest.fixture(params=[MANYLINUX1_IMAGE_ID, MANYLINUX2010_IMAGE_ID])
+def docker_container(request):
     if find_executable("docker") is None:
         pytest.skip('docker is required')
     if not op.exists(WHEEL_CACHE_FOLDER):
@@ -80,7 +81,7 @@ def docker_container():
         # This container will be used to build and repair manylinux compatible
         # wheels
         manylinux_id = docker_start(
-            MANYLINUX_IMAGE_ID,
+            request.param,
             volumes={'/io': io_folder, '/auditwheel_src': src_folder},
             env_variables={'PATH': PATH})
         # Install the development version of auditwheel from source:
