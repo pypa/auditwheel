@@ -16,6 +16,7 @@ PATH = ('/opt/python/cp35-cp35m/bin:/opt/rh/devtoolset-2/root/usr/bin:'
         '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')
 WHEEL_CACHE_FOLDER = op.expanduser('~/.cache/auditwheel_tests')
 ORIGINAL_NUMPY_WHEEL = 'numpy-1.11.0-cp35-cp35m-linux_x86_64.whl'
+ORIGINAL_TESTPACKAGE_WHEEL = 'testpackage-0.0.1-cp35-cp35m-linux_x86_64.whl'
 
 
 def find_src_folder():
@@ -161,3 +162,37 @@ def test_build_repair_numpy(docker_container):
     # Check that the 2 fortran runtimes are well isolated and can be loaded
     # at once in the same Python program:
     docker_exec(python_id, ["python", "-c", "'import numpy; import foo'"])
+
+
+def test_build_wheel_with_binary_executable(docker_container):
+    # Test building a wheel that contains a binary executable (e.g., a program)
+
+    manylinux_id, python_id, io_folder = docker_container
+    docker_exec(manylinux_id, 'yum install -y gsl-devel')
+
+    docker_exec(manylinux_id, 'cd /auditwheel_src/test/testpackage && python setup.py bdist_wheel -d /io')
+
+    filenames = os.listdir(io_folder)
+    assert filenames == [ORIGINAL_TESTPACKAGE_WHEEL]
+    orig_wheel = filenames[0]
+    assert 'manylinux' not in orig_wheel
+
+    # Repair the wheel using the manylinux1 container
+    docker_exec(manylinux_id, 'auditwheel repair -w /io /io/' + orig_wheel)
+    filenames = os.listdir(io_folder)
+    assert len(filenames) == 2
+    repaired_wheels = [fn for fn in filenames if 'manylinux1' in fn]
+    assert repaired_wheels == ['testpackage-0.0.1-cp35-cp35m-manylinux1_x86_64.whl']
+    repaired_wheel = repaired_wheels[0]
+    output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
+    assert (
+        'testpackage-0.0.1-cp35-cp35m-manylinux1_x86_64.whl is consistent'
+        ' with the following platform tag: "manylinux1_x86_64"'
+    ) in output.replace('\n', ' ')
+
+    # Check that the repaired numpy wheel can be installed and executed
+    # on a modern linux image.
+    docker_exec(python_id, 'pip install /io/' + repaired_wheel)
+    output = docker_exec(
+        python_id, 'python -c "from testpackage import runit; print(runit(1.5))"').strip()
+    assert output.strip() == '2.25'
