@@ -9,10 +9,6 @@ def configure_parser(sub_parsers):
     help = "Vendor in external shared library dependencies of a wheel."
     p = sub_parsers.add_parser('repair', help=help, description=help)
     p.add_argument('WHEEL_FILE', help='Path to wheel file.')
-    p.add_argument('-f',
-                   '--force',
-                   help='Override symbol version ABI check',
-                   action='store_true')
     p.add_argument(
         '--plat',
         dest='PLAT',
