@@ -11,8 +11,10 @@ _sys_map = {'linux2': 'linux',
             'openbsd5': 'openbsd'}
 non_x86_linux_machines = {'armv6l', 'armv7l', 'ppc64le'}
 platform = _sys_map.get(sys.platform, 'unknown')
-bits = 8 * tuple.__itemsize__
 linkage = _platform_module.architecture()[1]
+
+# https://docs.python.org/3/library/platform.html#platform.architecture
+bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 
 _PLATFORM_REPLACEMENT_MAP = {
     'manylinux1_x86_64': ['linux_x86_64'],
