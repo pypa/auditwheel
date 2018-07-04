@@ -14,7 +14,7 @@ platform = _sys_map.get(sys.platform, 'unknown')
 linkage = _platform_module.architecture()[1]
 
 # https://docs.python.org/3/library/platform.html#platform.architecture
-bits = 8 if sys.maxsize > 2 ** 32 else 4
+bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 
 _PLATFORM_REPLACEMENT_MAP = {
     'manylinux1_x86_64': ['linux_x86_64'],
