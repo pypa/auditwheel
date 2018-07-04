@@ -3,6 +3,8 @@ auditwheel
 
 .. image:: https://travis-ci.org/pypa/auditwheel.svg?branch=master
     :target: https://travis-ci.org/pypa/auditwheel
+.. image:: https://badge.fury.io/py/auditwheel.svg
+    :target: https://pypi.org/project/auditwheel
 
 Auditing and relabeling `PEP 513 manylinux1 <https://www.python.org/dev/peps/pep-0513/>`_ Linux wheels.
 
