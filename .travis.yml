@@ -17,10 +17,6 @@ services:
 notifications:
   email: false
 
-branches:
-  only:
-    - master
-
 before_install:
   - pip install --upgrade pip wheel
 
