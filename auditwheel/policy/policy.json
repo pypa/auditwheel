@@ -27,7 +27,7 @@
          "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2"
      ]},
     {"name": "manylinux2010",
-     "priority": 200,
+     "priority": 90,
      "symbol_versions": {
          "GLIBC": ["2.2.5", "2.2.6", "2.3", "2.3.2", "2.3.3", "2.3.4", "2.4",
                    "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12"],
