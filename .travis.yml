@@ -23,7 +23,6 @@ branches:
 
 before_install:
   - pip install --upgrade pip
-  - pip install wheel==0.31.1
 
 install:
   - pip install -r test-requirements.txt
@@ -35,8 +34,7 @@ script:
     if [[ "$WHEELHOUSE" == "1" ]]; then
         bash tests/test-wheelhouses.sh
     else
-        py.test -s
-        auditwheel lddtree $(python -c 'import sys; print(sys.executable)')
+        py.test -s && auditwheel lddtree $(python -c 'import sys; print(sys.executable)')
     fi
 
 deploy:
