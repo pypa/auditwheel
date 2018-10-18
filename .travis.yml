@@ -22,7 +22,8 @@ branches:
     - master
 
 before_install:
-  - pip install --upgrade pip wheel
+  - pip install --upgrade pip
+  - pip install wheel==0.31.1
 
 install:
   - pip install -r test-requirements.txt
