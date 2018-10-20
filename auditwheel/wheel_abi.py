@@ -1,3 +1,4 @@
+import itertools
 import json
 import logging
 import functools
@@ -25,6 +26,7 @@ WheelAbIInfo = namedtuple('WheelAbIInfo',
 @functools.lru_cache()
 def get_wheel_elfdata(wheel_fn: str):
     full_elftree = {}
+    nonpy_elftree = {}
     full_external_refs = {}
     versioned_symbols = defaultdict(lambda: set())  # type: Dict[str, Set[str]]
     uses_ucs2_symbols = False
@@ -43,19 +45,32 @@ def get_wheel_elfdata(wheel_fn: str):
 
             log.info('processing: %s', fn)
             elftree = lddtree(fn)
-            full_elftree[fn] = elftree
-            if is_py_ext:
-                uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
+
             for key, value in elf_find_versioned_symbols(elf):
+                log.debug('key %s, value %s', key, value)
                 versioned_symbols[key].add(value)
 
             if is_py_ext:
+                full_elftree[fn] = elftree
+                uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
                 if py_ver == 2:
                     uses_ucs2_symbols |= any(
                         True for _ in elf_find_ucs2_symbols(elf))
-            full_external_refs[fn] = lddtree_external_references(elftree,
-                                                                 ctx.path)
+                full_external_refs[fn] = lddtree_external_references(elftree,
+                                                                     ctx.path)
+            else:
+                nonpy_elftree[fn] = elftree
 
+        needed_libs = [elf['needed'] for elf
+                       in itertools.chain(full_elftree.values(),
+                                          nonpy_elftree.values())]
+        uniq_needs = set(sum(needed_libs, []))  # concatenate needed libs together, get uniq
+
+        for fn in nonpy_elftree.keys():
+            if basename(fn) not in uniq_needs:
+                full_elftree[fn] = nonpy_elftree[fn]
+                full_external_refs[fn] = lddtree_external_references(nonpy_elftree[fn],
+                                                                     ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
 
