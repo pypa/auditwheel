@@ -209,6 +209,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     # Can't be 'any' and another platform
     if 'any' in fname_tags and len(fname_tags) > 1:
         fname_tags.remove('any')
+        remove_platforms.append('any')
         definitely_not_purelib = True
 
     if fname_tags != original_fname_tags:
