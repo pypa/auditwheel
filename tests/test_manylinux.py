@@ -139,7 +139,7 @@ def test_build_repair_numpy(docker_container):
     repaired_wheels = [fn for fn in filenames if 'manylinux1' in fn]
     assert repaired_wheels == ['numpy-1.11.0-cp35-cp35m-manylinux1_x86_64.whl']
     repaired_wheel = repaired_wheels[0]
-    output = docker_exec(manylinux_id, 'auditwheel -vv show /io/' + repaired_wheel)
+    output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
     assert (
         'numpy-1.11.0-cp35-cp35m-manylinux1_x86_64.whl is consistent'
         ' with the following platform tag: "manylinux1_x86_64"'
