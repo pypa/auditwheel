@@ -223,7 +223,11 @@ def test_build_repair_pure_wheel(docker_container):
     assert filenames == [ORIGINAL_SIX_WHEEL]
 
     output = docker_exec(manylinux_id, 'auditwheel show /io/' + filenames[0])
-    assert (
-        ORIGINAL_SIX_WHEEL +
-        ' is consistent with the following platform tag: "manylinux1_x86_64"'
-    ) in output.replace('\n', ' ')
+    assert ''.join([
+        ORIGINAL_SIX_WHEEL,
+        ' is consistent with the following platform tag: ',
+        '"manylinux1_x86_64".  ',
+        'The wheel references no external versioned symbols from system- ',
+        'provided shared libraries.  ',
+        'The wheel requires no external shared libraries! :)',
+    ]) in output.replace('\n', ' ')
