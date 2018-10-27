@@ -20,7 +20,7 @@ PATH = ('/opt/python/cp35-cp35m/bin:/opt/rh/devtoolset-2/root/usr/bin:'
         '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')
 WHEEL_CACHE_FOLDER = op.expanduser('~/.cache/auditwheel_tests')
 ORIGINAL_NUMPY_WHEEL = 'numpy-1.11.0-cp35-cp35m-linux_x86_64.whl'
-ORIGINAL_TESTPACKAGE_WHEEL = 'testpackage-0.0.1-cp35-cp35m-linux_x86_64.whl'
+ORIGINAL_SIX_WHEEL = 'six-1.11.0-py2.py3-none-any.whl'
 
 
 def find_src_folder():
@@ -84,7 +84,7 @@ def docker_container():
             volumes={'/io': io_folder, '/auditwheel_src': src_folder},
             env_variables={'PATH': PATH})
         # Install the development version of auditwheel from source:
-        docker_exec(manylinux_id, 'pip install -U pip setuptools wheel')
+        docker_exec(manylinux_id, 'pip install -U pip setuptools')
         docker_exec(manylinux_id, 'pip install -U /auditwheel_src')
 
         # Launch a docker container with a more recent userland to check that
@@ -169,10 +169,10 @@ def test_build_wheel_with_binary_executable(docker_container):
     manylinux_id, python_id, io_folder = docker_container
     docker_exec(manylinux_id, 'yum install -y gsl-devel')
 
-    docker_exec(manylinux_id, 'cd /auditwheel_src/test/testpackage && python setup.py bdist_wheel -d /io')
+    docker_exec(manylinux_id, ['bash', '-c', 'cd /auditwheel_src/tests/testpackage && python setup.py bdist_wheel -d /io'])
 
     filenames = os.listdir(io_folder)
-    assert filenames == [ORIGINAL_TESTPACKAGE_WHEEL]
+    assert filenames == ['testpackage-0.0.1-py3-none-any.whl']
     orig_wheel = filenames[0]
     assert 'manylinux' not in orig_wheel
 
@@ -181,11 +181,11 @@ def test_build_wheel_with_binary_executable(docker_container):
     filenames = os.listdir(io_folder)
     assert len(filenames) == 2
     repaired_wheels = [fn for fn in filenames if 'manylinux1' in fn]
-    assert repaired_wheels == ['testpackage-0.0.1-cp35-cp35m-manylinux1_x86_64.whl']
+    assert repaired_wheels == ['testpackage-0.0.1-py3-none-manylinux1_x86_64.whl']
     repaired_wheel = repaired_wheels[0]
     output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
     assert (
-        'testpackage-0.0.1-cp35-cp35m-manylinux1_x86_64.whl is consistent'
+        'testpackage-0.0.1-py3-none-manylinux1_x86_64.whl is consistent'
         ' with the following platform tag: "manylinux1_x86_64"'
     ) in output.replace('\n', ' ')
 
@@ -193,5 +193,40 @@ def test_build_wheel_with_binary_executable(docker_container):
     # on a modern linux image.
     docker_exec(python_id, 'pip install /io/' + repaired_wheel)
     output = docker_exec(
-        python_id, 'python -c "from testpackage import runit; print(runit(1.5))"').strip()
+        python_id, ['python', '-c', 'from testpackage import runit; print(runit(1.5))']).strip()
     assert output.strip() == '2.25'
+
+
+def test_build_repair_pure_wheel(docker_container):
+    manylinux_id, python_id, io_folder = docker_container
+
+    if op.exists(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL)):
+        # If six has already been built and put in cache, let's reuse this.
+        shutil.copy2(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL),
+                     op.join(io_folder, ORIGINAL_SIX_WHEEL))
+    else:
+        docker_exec(manylinux_id,
+                    'pip wheel -w /io --no-binary=:all: six==1.11.0')
+        shutil.copy2(op.join(io_folder, ORIGINAL_SIX_WHEEL),
+                     op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL))
+
+    filenames = os.listdir(io_folder)
+    assert filenames == [ORIGINAL_SIX_WHEEL]
+    orig_wheel = filenames[0]
+    assert 'manylinux' not in orig_wheel
+
+    # Repair the wheel using the manylinux1 container
+    docker_exec(manylinux_id, 'auditwheel repair -w /io /io/' + orig_wheel)
+    filenames = os.listdir(io_folder)
+    assert len(filenames) == 1  # no new wheels
+    assert filenames == [ORIGINAL_SIX_WHEEL]
+
+    output = docker_exec(manylinux_id, 'auditwheel show /io/' + filenames[0])
+    assert ''.join([
+        ORIGINAL_SIX_WHEEL,
+        ' is consistent with the following platform tag: ',
+        '"manylinux1_x86_64".  ',
+        'The wheel references no external versioned symbols from system- ',
+        'provided shared libraries.  ',
+        'The wheel requires no external shared libraries! :)',
+    ]) in output.replace('\n', ' ')

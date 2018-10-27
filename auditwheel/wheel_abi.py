@@ -1,3 +1,4 @@
+import itertools
 import json
 import logging
 import functools
@@ -25,6 +26,7 @@ WheelAbIInfo = namedtuple('WheelAbIInfo',
 @functools.lru_cache()
 def get_wheel_elfdata(wheel_fn: str):
     full_elftree = {}
+    nonpy_elftree = {}
     full_external_refs = {}
     versioned_symbols = defaultdict(lambda: set())  # type: Dict[str, Set[str]]
     uses_ucs2_symbols = False
@@ -43,19 +45,44 @@ def get_wheel_elfdata(wheel_fn: str):
 
             log.info('processing: %s', fn)
             elftree = lddtree(fn)
-            full_elftree[fn] = elftree
-            if is_py_ext:
-                uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
+
             for key, value in elf_find_versioned_symbols(elf):
+                log.debug('key %s, value %s', key, value)
                 versioned_symbols[key].add(value)
 
+            # If the ELF is a Python extention, we definitely need to include
+            # its external dependencies.
             if is_py_ext:
+                full_elftree[fn] = elftree
+                uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
                 if py_ver == 2:
                     uses_ucs2_symbols |= any(
                         True for _ in elf_find_ucs2_symbols(elf))
-            full_external_refs[fn] = lddtree_external_references(elftree,
-                                                                 ctx.path)
+                full_external_refs[fn] = lddtree_external_references(elftree,
+                                                                     ctx.path)
+            else:
+                # If the ELF is not a Python extension, it might be included in
+                # the wheel already because auditwheel repair vendored it, so
+                # we will check whether we should include its internal
+                # references later.
+                nonpy_elftree[fn] = elftree
 
+        # Get a list of all external libraries needed by ELFs in the wheel.
+        needed_libs = {
+            lib
+            for elf in itertools.chain(full_elftree.values(),
+                                       nonpy_elftree.values())
+            for lib in elf['needed']
+        }
+
+        for fn in nonpy_elftree.keys():
+            # If a non-pyextension ELF file is not needed by something else
+            # inside the wheel, then it was not checked by the logic above and
+            # we should walk its elftree.
+            if basename(fn) not in needed_libs:
+                full_elftree[fn] = nonpy_elftree[fn]
+                full_external_refs[fn] = lddtree_external_references(nonpy_elftree[fn],
+                                                                     ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
 

@@ -18,7 +18,7 @@ notifications:
   email: false
 
 before_install:
-  - pip install --upgrade pip wheel
+  - pip install --upgrade pip
 
 install:
   - pip install -r test-requirements.txt
@@ -26,13 +26,7 @@ install:
 
 
 script:
-  - |
-    if [[ "$WHEELHOUSE" == "1" ]]; then
-        bash tests/test-wheelhouses.sh
-    else
-        py.test -s
-        auditwheel lddtree $(python -c 'import sys; print(sys.executable)')
-    fi
+  - tests/travis.sh
 
 deploy:
   provider: pypi
