@@ -8,12 +8,16 @@ from os.path import join as pjoin
 from subprocess import check_call, check_output, CalledProcessError
 from distutils.spawn import find_executable
 from typing import Optional
+import logging
 
 from .policy import get_replace_platforms
 from .wheeltools import InWheelCtx, add_platforms
 from .wheel_abi import get_wheel_elfdata
 from .elfutils import elf_read_rpaths, is_subdir, elf_read_dt_needed
 from .hashfile import hashfile
+
+
+logger = logging.getLogger
 
 
 @functools.lru_cache()
@@ -124,7 +128,7 @@ def copylib(src_path, dest_dir):
     if os.path.exists(dest_path):
         return new_soname, dest_path
 
-    print('Grafting: %s -> %s' % (src_path, dest_path))
+    logger.info('Grafting: %s -> %s', src_path, dest_paths)
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
 
@@ -142,5 +146,5 @@ def copylib(src_path, dest_dir):
 
 def patchelf_set_rpath(fn, libdir):
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
-    print('Setting RPATH: %s to "%s"' % (fn, rpath))
+    logger.info('Setting RPATH: %s to "%s"', fn, rpath)
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])

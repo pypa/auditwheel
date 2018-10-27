@@ -1,7 +1,9 @@
 from os.path import isfile, exists, abspath, basename
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
+import logging
 
+logger = logging.getLogger(__name__)
 
 def configure_parser(sub_parsers):
     policy_names = [p['name'] for p in load_policies()]
@@ -48,7 +50,7 @@ def execute(args, p):
     if find_executable('patchelf') is None:
         p.error('cannot find the \'patchelf\' tool, which is required')
 
-    print('Repairing %s' % basename(args.WHEEL_FILE))
+    logger.info('Repairing %s', basename(args.WHEEL_FILE))
 
     if not exists(args.WHEEL_DIR):
         os.makedirs(args.WHEEL_DIR)
@@ -77,4 +79,4 @@ def execute(args, p):
                              update_tags=args.UPDATE_TAGS)
 
     if out_wheel is not None:
-        print('\nFixed-up wheel written to %s' % out_wheel)
+        logger.info('\nFixed-up wheel written to %s', out_wheel)
