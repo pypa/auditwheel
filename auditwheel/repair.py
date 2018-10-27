@@ -41,6 +41,11 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
                  update_tags: bool) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
+
+    # Do not repair a pure wheel, i.e. has no external refs
+    if not external_refs_by_fn:
+        return
+
     soname_map = {}  # type: Dict[str, str]
     if not isabs(out_dir):
         out_dir = abspath(out_dir)

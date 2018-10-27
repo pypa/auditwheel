@@ -185,11 +185,10 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
         platform tags to remove to the wheel filename and WHEEL tags, e.g.
         ``('linux_x86_64',)`` when ``('manylinux_x86_64')`` is added
     """
+    definitely_not_purelib = False
+
     info_fname = pjoin(_dist_info_dir(wheel_ctx.path), 'WHEEL')
     info = read_pkg_info(info_fname)
-    if info['Root-Is-Purelib'] == 'true':
-        print('No need to add platforms to pure wheel - Skipping {}'.format(wheel_ctx.in_wheel))
-        return
 
     # Check what tags we have
     if wheel_ctx.out_wheel is not None:
@@ -203,11 +202,16 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     fparts = parsed_fname.groupdict()
     original_fname_tags = fparts['plat'].split('.')
     print('Previous filename tags:', ', '.join(original_fname_tags))
-    fname_tags = [tag for tag in original_fname_tags
-                  if tag not in remove_platforms]
-    for platform in platforms:
-        if platform not in fname_tags:
-            fname_tags.append(platform)
+    fname_tags = {tag for tag in original_fname_tags
+                  if tag not in remove_platforms}
+    fname_tags |= set(platforms)
+
+    # Can't be 'any' and another platform
+    if 'any' in fname_tags and len(fname_tags) > 1:
+        fname_tags.remove('any')
+        remove_platforms.append('any')
+        definitely_not_purelib = True
+
     if fname_tags != original_fname_tags:
         print('New filename tags:', ', '.join(fname_tags))
     else:
@@ -232,11 +236,15 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
                      for tup in product(pyc_apis, remove_platforms)]
     updated_tags = [tag for tag in in_info_tags if tag not in unwanted_tags]
     updated_tags += new_tags
-    needs_write = updated_tags != in_info_tags
-    if needs_write:
+    if updated_tags != in_info_tags:
         del info['Tag']
         for tag in updated_tags:
             info.add_header('Tag', tag)
+
+        if definitely_not_purelib:
+            info['Root-Is-Purelib'] = 'False'
+            print('Changed wheel type to Platlib')
+
         print('New WHEEL info tags:', ', '.join(info.get_all('Tag')))
         write_pkg_info(info_fname, info)
     else:
