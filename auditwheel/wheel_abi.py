@@ -61,13 +61,15 @@ def get_wheel_elfdata(wheel_fn: str):
             else:
                 nonpy_elftree[fn] = elftree
 
-        needed_libs = [elf['needed'] for elf
-                       in itertools.chain(full_elftree.values(),
-                                          nonpy_elftree.values())]
-        uniq_needs = set(sum(needed_libs, []))  # concatenate needed libs together, get uniq
+        needed_libs = {
+            lib
+            for elf in itertools.chain(full_elftree.values(),
+                                       nonpy_elftree.values())
+            for lib in elf['needed']
+        }
 
         for fn in nonpy_elftree.keys():
-            if basename(fn) not in uniq_needs:
+            if basename(fn) not in needed_libs:
                 full_elftree[fn] = nonpy_elftree[fn]
                 full_external_refs[fn] = lddtree_external_references(nonpy_elftree[fn],
                                                                      ctx.path)
