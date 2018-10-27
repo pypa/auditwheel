@@ -16,6 +16,7 @@ PATH = ('/opt/python/cp35-cp35m/bin:/opt/rh/devtoolset-2/root/usr/bin:'
         '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')
 WHEEL_CACHE_FOLDER = op.expanduser('~/.cache/auditwheel_tests')
 ORIGINAL_NUMPY_WHEEL = 'numpy-1.11.0-cp35-cp35m-linux_x86_64.whl'
+ORIGINAL_SIX_WHEEL = 'six-1.11.0-py2.py3-none-any.whl'
 
 
 def find_src_folder():
@@ -195,3 +196,34 @@ def test_build_wheel_with_binary_executable(docker_container):
     output = docker_exec(
         python_id, ['python', '-c', 'from testpackage import runit; print(runit(1.5))']).strip()
     assert output.strip() == '2.25'
+
+
+def test_build_repair_pure_wheel(docker_container):
+    manylinux_id, python_id, io_folder = docker_container
+
+    if op.exists(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL)):
+        # If six has already been built and put in cache, let's reuse this.
+        shutil.copy2(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL),
+                     op.join(io_folder, ORIGINAL_SIX_WHEEL))
+    else:
+        docker_exec(manylinux_id,
+                    'pip wheel -w /io --no-binary=:all: six==1.11.0')
+        shutil.copy2(op.join(io_folder, ORIGINAL_SIX_WHEEL),
+                     op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL))
+
+    filenames = os.listdir(io_folder)
+    assert filenames == [ORIGINAL_SIX_WHEEL]
+    orig_wheel = filenames[0]
+    assert 'manylinux' not in orig_wheel
+
+    # Repair the wheel using the manylinux1 container
+    docker_exec(manylinux_id, 'auditwheel repair -w /io /io/' + orig_wheel)
+    filenames = os.listdir(io_folder)
+    assert len(filenames) == 1  # no new wheels
+    assert filenames == [ORIGINAL_SIX_WHEEL]
+
+    output = docker_exec(manylinux_id, 'auditwheel show /io/' + filenames[0])
+    assert (
+        ORIGINAL_SIX_WHEEL +
+        ' is consistent with the following platform tag: "manylinux1_x86_64"'
+    ) in output.replace('\n', ' ')
