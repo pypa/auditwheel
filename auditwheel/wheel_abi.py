@@ -50,6 +50,8 @@ def get_wheel_elfdata(wheel_fn: str):
                 log.debug('key %s, value %s', key, value)
                 versioned_symbols[key].add(value)
 
+            # If the ELF is a Python extention, we definitely need to include
+            # its external dependencies.
             if is_py_ext:
                 full_elftree[fn] = elftree
                 uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
@@ -59,8 +61,13 @@ def get_wheel_elfdata(wheel_fn: str):
                 full_external_refs[fn] = lddtree_external_references(elftree,
                                                                      ctx.path)
             else:
+                # If the ELF is not a Python extension, it might be included in
+                # the wheel already because auditwheel repair vendored it, so
+                # we will check whether we should include its internal
+                # references later.
                 nonpy_elftree[fn] = elftree
 
+        # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
             lib
             for elf in itertools.chain(full_elftree.values(),
@@ -69,6 +76,9 @@ def get_wheel_elfdata(wheel_fn: str):
         }
 
         for fn in nonpy_elftree.keys():
+            # If a non-pyextension ELF file is not needed by something else
+            # inside the wheel, then it was not checked by the logic above and
+            # we should walk its elftree.
             if basename(fn) not in needed_libs:
                 full_elftree[fn] = nonpy_elftree[fn]
                 full_external_refs[fn] = lddtree_external_references(nonpy_elftree[fn],
