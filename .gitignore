@@ -63,3 +63,7 @@ target/
 *.zip
 wheelhoust-*
 tests/testpackage/testpackage/testprogram
+
+
+# IDE related
+.vscode/

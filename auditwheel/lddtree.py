@@ -14,16 +14,15 @@ files on disk), and we parse the dependency structure as a tree rather than
 
 import os
 import glob
-import json
 import errno
 import logging
 import functools
-from typing import Iterator, Tuple, List, Dict, Optional, Any
+from typing import List, Dict, Optional
 
 from elftools.elf.elffile import ELFFile  # type: ignore
 
 log = logging.getLogger(__name__)
-__all__ = ['lddtree']
+__all__ = ["lddtree"]
 
 
 def normpath(path: str) -> str:
@@ -34,10 +33,10 @@ def normpath(path: str) -> str:
     //..// -> //
     //..//..// -> ///
     """
-    return os.path.normpath(path).replace('//', '/')
+    return os.path.normpath(path).replace("//", "/")
 
 
-def readlink(path: str, root: str, prefixed: bool=False) -> str:
+def readlink(path: str, root: str, prefixed: bool = False) -> str:
     """Like os.readlink(), but relative to a ``root``
 
     This does not currently handle the pathological case:
@@ -60,7 +59,7 @@ def readlink(path: str, root: str, prefixed: bool=False) -> str:
     -------
     A fully resolved symlink path
     """
-    root = root.rstrip('/')
+    root = root.rstrip("/")
     if prefixed:
         path = path[len(root):]
 
@@ -76,7 +75,7 @@ def dedupe(items: List[str]) -> List[str]:
     return [seen.setdefault(x, x) for x in items if x not in seen]
 
 
-def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
+def parse_ld_paths(str_ldpaths, root="", path=None) -> List[str]:
     """Parse the colon-delimited list of paths and apply ldso rules to each
 
     Note the special handling as dictated by the ldso:
@@ -98,13 +97,12 @@ def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
         list of processed paths
     """
     ldpaths = []  # type: List[str]
-    for ldpath in str_ldpaths.split(':'):
-        if ldpath == '':
+    for ldpath in str_ldpaths.split(":"):
+        if ldpath == "":
             # The ldso treats "" paths as $PWD.
             ldpath = os.getcwd()
-        elif '$ORIGIN' in ldpath:
-            ldpath = ldpath.replace('$ORIGIN',
-                                    os.path.dirname(os.path.abspath(path)))
+        elif "$ORIGIN" in ldpath:
+            ldpath = ldpath.replace("$ORIGIN", os.path.dirname(os.path.abspath(path)))
         else:
             ldpath = root + ldpath
         ldpaths.append(normpath(ldpath))
@@ -112,9 +110,7 @@ def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
 
 
 @functools.lru_cache()
-def parse_ld_so_conf(ldso_conf: str,
-                     root: str='/',
-                     _first: bool=True) -> List[str]:
+def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> List[str]:
     """Load all the paths from a given ldso config file
 
     This should handle comments, whitespace, and "include" statements.
@@ -134,25 +130,23 @@ def parse_ld_so_conf(ldso_conf: str,
     """
     paths = []  # type: List[str]
 
-    dbg_pfx = '' if _first else '  '
+    dbg_pfx = "" if _first else "  "
     try:
-        log.debug('%sparse_ld_so_conf(%s)', dbg_pfx, ldso_conf)
+        log.debug("%sparse_ld_so_conf(%s)", dbg_pfx, ldso_conf)
         with open(ldso_conf) as f:
             for line in f.readlines():
-                line = line.split('#', 1)[0].strip()
+                line = line.split("#", 1)[0].strip()
                 if not line:
                     continue
-                if line.startswith('include '):
+                if line.startswith("include "):
                     line = line[8:]
-                    if line[0] == '/':
-                        line = root + line.lstrip('/')
+                    if line[0] == "/":
+                        line = root + line.lstrip("/")
                     else:
-                        line = os.path.dirname(ldso_conf) + '/' + line
-                    log.debug('%s  glob: %s', dbg_pfx, line)
+                        line = os.path.dirname(ldso_conf) + "/" + line
+                    log.debug("%s  glob: %s", dbg_pfx, line)
                     for path in glob.glob(line):
-                        paths += parse_ld_so_conf(path,
-                                                  root=root,
-                                                  _first=False)
+                        paths += parse_ld_so_conf(path, root=root, _first=False)
                 else:
                     paths += [normpath(root + line)]
     except IOError as e:
@@ -168,7 +162,7 @@ def parse_ld_so_conf(ldso_conf: str,
 
 
 @functools.lru_cache()
-def load_ld_paths(root: str='/', prefix: str='') -> Dict[str, List[str]]:
+def load_ld_paths(root: str = "/", prefix: str = "") -> Dict[str, List[str]]:
     """Load linker paths from common locations
 
     This parses the ld.so.conf and LD_LIBRARY_PATH env var.
@@ -184,25 +178,24 @@ def load_ld_paths(root: str='/', prefix: str='') -> Dict[str, List[str]]:
     -------
     dict containing library paths to search
     """
-    ldpaths = {'conf': [], 'env': [], 'interp': [], }
+    ldpaths = {"conf": [], "env": [], "interp": []}
 
     # Load up $LD_LIBRARY_PATH.
-    ldpaths['env'] = []
-    env_ldpath = os.environ.get('LD_LIBRARY_PATH')
+    ldpaths["env"] = []
+    env_ldpath = os.environ.get("LD_LIBRARY_PATH")
     if env_ldpath is not None:
-        if root != '/':
-            log.warn('ignoring LD_LIBRARY_PATH due to ROOT usage')
+        if root != "/":
+            log.warn("ignoring LD_LIBRARY_PATH due to ROOT usage")
         else:
             # XXX: If this contains $ORIGIN, we probably have to parse this
             # on a per-ELF basis so it can get turned into the right thing.
-            ldpaths['env'] = parse_ld_paths(env_ldpath, path='')
+            ldpaths["env"] = parse_ld_paths(env_ldpath, path="")
 
     # Load up /etc/ld.so.conf.
-    ldpaths['conf'] = parse_ld_so_conf(root + prefix + '/etc/ld.so.conf',
-                                       root=root)
+    ldpaths["conf"] = parse_ld_so_conf(root + prefix + "/etc/ld.so.conf", root=root)
     # the trusted directories are not necessarily in ld.so.conf
-    ldpaths['conf'].extend(['/lib', '/lib64/', '/usr/lib', '/usr/lib64'])
-    log.info('linker ldpaths: %s', ldpaths)
+    ldpaths["conf"].extend(["/lib", "/lib64/", "/usr/lib", "/usr/lib64"])
+    log.info("linker ldpaths: %s", ldpaths)
     return ldpaths
 
 
@@ -221,20 +214,19 @@ def compatible_elfs(elf1, elf2):
     -------
     True if compatible, False otherwise
     """
-    osabis = frozenset([e.header['e_ident']['EI_OSABI'] for e in (elf1, elf2)])
-    compat_sets = (frozenset('ELFOSABI_%s' % x
-                             for x in ('NONE',
-                                       'SYSV',
-                                       'GNU',
-                                       'LINUX', )), )
-    return ((len(osabis) == 1 or
-             any(osabis.issubset(x)
-                 for x in compat_sets)) and elf1.elfclass == elf2.elfclass and
-            elf1.little_endian == elf2.little_endian and
-            elf1.header['e_machine'] == elf2.header['e_machine'])
+    osabis = frozenset([e.header["e_ident"]["EI_OSABI"] for e in (elf1, elf2)])
+    compat_sets = (
+        frozenset("ELFOSABI_%s" % x for x in ("NONE", "SYSV", "GNU", "LINUX")),
+    )
+    return (
+        (len(osabis) == 1 or any(osabis.issubset(x) for x in compat_sets))
+        and elf1.elfclass == elf2.elfclass
+        and elf1.little_endian == elf2.little_endian
+        and elf1.header["e_machine"] == elf2.header["e_machine"]
+    )
 
 
-def find_lib(elf, lib, ldpaths, root='/'):
+def find_lib(elf, lib, ldpaths, root="/"):
     """Try to locate a ``lib`` that is compatible to ``elf`` in the given ``ldpaths``
 
     Parameters
@@ -257,13 +249,13 @@ def find_lib(elf, lib, ldpaths, root='/'):
     for ldpath in ldpaths:
         path = os.path.join(ldpath, lib)
         target = readlink(path, root, prefixed=True)
-        #if path != target:
+        # if path != target:
         #    log.debug('    checking: %s -> %s', path, target)
-        #else:
+        # else:
         #    log.debug('    checking: %s', path)
 
         if os.path.exists(target):
-            with open(target, 'rb') as f:
+            with open(target, "rb") as f:
                 libelf = ELFFile(f)
                 if compatible_elfs(elf, libelf):
                     return (target, path)
@@ -271,13 +263,15 @@ def find_lib(elf, lib, ldpaths, root='/'):
     return (None, None)
 
 
-def lddtree(path: str,
-            root: str='/',
-            prefix: str='',
-            ldpaths: Optional[Dict[str, List[str]]]=None,
-            display: Optional[str]=None,
-            _first: bool=True,
-            _all_libs: Dict={}) -> Dict:
+def lddtree(
+    path: str,
+    root: str = "/",
+    prefix: str = "",
+    ldpaths: Optional[Dict[str, List[str]]] = None,
+    display: Optional[str] = None,
+    _first: bool = True,
+    _all_libs: Dict = {},
+) -> Dict:
     """Parse the ELF dependency tree of the specified file
 
     Parameters
@@ -322,43 +316,42 @@ def lddtree(path: str,
         _all_libs = {}
         ldpaths = load_ld_paths().copy()
     ret = {
-        'interp': None,
-        'path': path if display is None else display,
-        'realpath': path,
-        'needed': [],
-        'rpath': [],
-        'runpath': [],
-        'libs': _all_libs,
+        "interp": None,
+        "path": path if display is None else display,
+        "realpath": path,
+        "needed": [],
+        "rpath": [],
+        "runpath": [],
+        "libs": _all_libs,
     }  # type: Dict[str, Any]
 
-    log.debug('lddtree(%s)' % path)
+    log.debug("lddtree(%s)" % path)
 
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         elf = ELFFile(f)
 
         # If this is the first ELF, extract the interpreter.
         if _first:
             for segment in elf.iter_segments():
-                if segment.header.p_type != 'PT_INTERP':
+                if segment.header.p_type != "PT_INTERP":
                     continue
 
                 interp = segment.get_interp_name()
-                log.debug('  interp           = %s', interp)
-                ret['interp'] = normpath(root + interp)
-                ret['libs'][os.path.basename(interp)] = {
-                    'path': ret['interp'],
-                    'realpath': readlink(ret['interp'],
-                                         root,
-                                         prefixed=True),
-                    'needed': [],
+                log.debug("  interp           = %s", interp)
+                ret["interp"] = normpath(root + interp)
+                ret["libs"][os.path.basename(interp)] = {
+                    "path": ret["interp"],
+                    "realpath": readlink(ret["interp"], root, prefixed=True),
+                    "needed": [],
                 }
                 # XXX: Should read it and scan for /lib paths.
-                ldpaths['interp'] = [
+                ldpaths["interp"] = [
                     normpath(root + os.path.dirname(interp)),
-                    normpath(root + prefix + '/usr' + os.path.dirname(
-                        interp).lstrip(prefix)),
+                    normpath(
+                        root + prefix + "/usr" + os.path.dirname(interp).lstrip(prefix)
+                    ),
                 ]
-                log.debug('  ldpaths[interp]  = %s', ldpaths['interp'])
+                log.debug("  ldpaths[interp]  = %s", ldpaths["interp"])
                 break
 
         # Parse the ELF's dynamic tags.
@@ -366,21 +359,15 @@ def lddtree(path: str,
         rpaths = []  # type: List[str]
         runpaths = []  # type: List[str]
         for segment in elf.iter_segments():
-            if segment.header.p_type != 'PT_DYNAMIC':
+            if segment.header.p_type != "PT_DYNAMIC":
                 continue
 
             for t in segment.iter_tags():
-                if t.entry.d_tag == 'DT_RPATH':
-                    rpaths = parse_ld_paths(
-                        t.rpath,
-                        root=root,
-                        path=path)
-                elif t.entry.d_tag == 'DT_RUNPATH':
-                    runpaths = parse_ld_paths(
-                        t.runpath,
-                        root=root,
-                        path=path)
-                elif t.entry.d_tag == 'DT_NEEDED':
+                if t.entry.d_tag == "DT_RPATH":
+                    rpaths = parse_ld_paths(t.rpath, root=root, path=path)
+                elif t.entry.d_tag == "DT_RUNPATH":
+                    runpaths = parse_ld_paths(t.runpath, root=root, path=path)
+                elif t.entry.d_tag == "DT_NEEDED":
                     libs.append(t.needed)
             if runpaths:
                 # If both RPATH and RUNPATH are set, only the latter is used.
@@ -392,13 +379,13 @@ def lddtree(path: str,
         if _first:
             # Propagate the rpaths used by the main ELF since those will be
             # used at runtime to locate things.
-            ldpaths['rpath'] = rpaths
-            ldpaths['runpath'] = runpaths
-            log.debug('  ldpaths[rpath]   = %s', rpaths)
-            log.debug('  ldpaths[runpath] = %s', runpaths)
-        ret['rpath'] = rpaths
-        ret['runpath'] = runpaths
-        ret['needed'] = libs
+            ldpaths["rpath"] = rpaths
+            ldpaths["runpath"] = runpaths
+            log.debug("  ldpaths[rpath]   = %s", rpaths)
+            log.debug("  ldpaths[runpath] = %s", runpaths)
+        ret["rpath"] = rpaths
+        ret["runpath"] = runpaths
+        ret["needed"] = libs
 
         # Search for the libs this ELF uses.
         all_ldpaths = None  # type: Optional[List[str]]
@@ -406,24 +393,28 @@ def lddtree(path: str,
             if lib in _all_libs:
                 continue
             if all_ldpaths is None:
-                all_ldpaths = ldpaths['rpath'] + rpaths + runpaths + \
-                              ldpaths['env'] + ldpaths['runpath'] + ldpaths['conf'] + \
-                              ldpaths['interp']
+                all_ldpaths = (
+                    ldpaths["rpath"]
+                    + rpaths
+                    + runpaths
+                    + ldpaths["env"]
+                    + ldpaths["runpath"]
+                    + ldpaths["conf"]
+                    + ldpaths["interp"]
+                )
             realpath, fullpath = find_lib(elf, lib, all_ldpaths, root)
-            _all_libs[lib] = {
-                'realpath': realpath,
-                'path': fullpath,
-                'needed': [],
-            }
+            _all_libs[lib] = {"realpath": realpath, "path": fullpath, "needed": []}
             if fullpath:
-                lret = lddtree(realpath,
-                               root,
-                               prefix,
-                               ldpaths,
-                               display=fullpath,
-                               _first=False,
-                               _all_libs=_all_libs)
-                _all_libs[lib]['needed'] = lret['needed']
+                lret = lddtree(
+                    realpath,
+                    root,
+                    prefix,
+                    ldpaths,
+                    display=fullpath,
+                    _first=False,
+                    _all_libs=_all_libs,
+                )
+                _all_libs[lib]["needed"] = lret["needed"]
 
         del elf
 

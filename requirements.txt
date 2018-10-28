@@ -2,3 +2,4 @@ setuptools
 wheel == 0.31.1
 typing >=3.5.0.1
 pyelftools >=0.24
+pbr

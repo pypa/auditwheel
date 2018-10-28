@@ -1,5 +1,5 @@
-''' Contexts for *with* statement providing temporary directories
-'''
+""" Contexts for *with* statement providing temporary directories
+"""
 from __future__ import division, print_function, absolute_import
 import os
 import shutil
@@ -42,7 +42,7 @@ class TemporaryDirectory(object):
 
 
 class InTemporaryDirectory(TemporaryDirectory):
-    ''' Create, return, and change directory to a temporary directory
+    """ Create, return, and change directory to a temporary directory
 
     Examples
     --------
@@ -56,7 +56,7 @@ class InTemporaryDirectory(TemporaryDirectory):
     False
     >>> os.getcwd() == my_cwd
     True
-    '''
+    """
 
     def __enter__(self):
         self._pwd = os.getcwd()

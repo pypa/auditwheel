@@ -1,16 +1,13 @@
 import re
-import os
-import json
 import logging
-from typing import Tuple, Dict, List, Set, Any
 
-from elftools.elf.elffile import ELFFile  # type: ignore
+from typing import Dict, Set
 
 from ..elfutils import is_subdir
-from . import POLICY_PRIORITY_HIGHEST, load_policies
+from . import load_policies
 
 log = logging.getLogger(__name__)
-LIBPYTHON_RE = re.compile('^libpython\d\.\dm?.so(.\d)*$')
+LIBPYTHON_RE = re.compile(r"^libpython\d\.\dm?.so(.\d)*$")
 
 
 def lddtree_external_references(lddtree: Dict, wheel_path: str):
@@ -20,7 +17,7 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
 
     def filter_libs(libs, whitelist):
         for lib in libs:
-            if 'ld-linux' in lib:
+            if "ld-linux" in lib:
                 # always exclude ld-linux.so
                 continue
             if LIBPYTHON_RE.match(lib):
@@ -38,7 +35,7 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
         while libs:
             lib = libs.pop()
             reqs.add(lib)
-            for dep in filter_libs(lddtree['libs'][lib]['needed'], whitelist):
+            for dep in filter_libs(lddtree["libs"][lib]["needed"], whitelist):
                 if dep not in reqs:
                     libs.add(dep)
         return reqs
@@ -47,25 +44,25 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
     for p in policies:
         needed_external_libs = []  # type: List[str]
 
-        if not (p['name'] == 'linux' and p['priority'] == 0):
+        if not (p["name"] == "linux" and p["priority"] == 0):
             # special-case the generic linux platform here, because it
             # doesn't have a whitelist. or, you could say its
             # whitelist is the complete set of all libraries. so nothing
             # is considered "external" that needs to be copied in.
-            whitelist = set(p['lib_whitelist'])
+            whitelist = set(p["lib_whitelist"])
             needed_external_libs = get_req_external(
-                set(filter_libs(lddtree['needed'], whitelist)),
-                whitelist)  # type: List[str]
+                set(filter_libs(lddtree["needed"], whitelist)), whitelist
+            )  # type: List[str]
 
         pol_ext_deps = {}
         for lib in needed_external_libs:
-            if is_subdir(lddtree['libs'][lib]['realpath'], wheel_path):
+            if is_subdir(lddtree["libs"][lib]["realpath"], wheel_path):
                 # we didn't filter libs that resolved via RPATH out
                 # earlier because we wanted to make sure to pick up
                 # our elf's indirect dependencies. But now we want to
                 # filter these ones out, since they're not "external".
-                log.debug('RPATH FTW: %s', lib)
+                log.debug("RPATH FTW: %s", lib)
                 continue
-            pol_ext_deps[lib] = lddtree['libs'][lib]['realpath']
-        ret[p['name']] = {'libs': pol_ext_deps, 'priority': p['priority']}
+            pol_ext_deps[lib] = lddtree["libs"][lib]["realpath"]
+        ret[p["name"]] = {"libs": pol_ext_deps, "priority": p["priority"]}
     return ret

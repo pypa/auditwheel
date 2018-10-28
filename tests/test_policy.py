@@ -1,8 +1,11 @@
 from jsonschema import validate
-from auditwheel.policy import (load_policies, _load_policy_schema,
-                               versioned_symbols_policy,
-                               POLICY_PRIORITY_HIGHEST,
-                               POLICY_PRIORITY_LOWEST)
+from auditwheel.policy import (
+    load_policies,
+    _load_policy_schema,
+    versioned_symbols_policy,
+    POLICY_PRIORITY_HIGHEST,
+    POLICY_PRIORITY_LOWEST,
+)
 
 
 def test_policy():

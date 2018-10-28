@@ -1,7 +1,7 @@
 import os
 import shutil
 from glob import glob
-from os.path import exists, isfile, isdir
+from os.path import exists, isdir
 from os.path import join as pjoin
 import zipfile
 import subprocess
@@ -39,12 +39,12 @@ def zip2dir(zip_fname, out_dir):
     """
     # Use unzip command rather than zipfile module to preserve permissions
     # http://bugs.python.org/issue15795
-    subprocess.check_output(['unzip', '-o', '-d', out_dir, zip_fname])
+    subprocess.check_output(["unzip", "-o", "-d", out_dir, zip_fname])
 
     try:
         # but sometimes preserving permssions is really bad, and makes it
         # we don't have the permissions to read any of the files
-        with open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0]) as f:
+        with open(glob(pjoin(out_dir, "*.dist-info/RECORD"))[0]) as f:
             pass
     except PermissionError:
         shutil.rmtree(out_dir)
@@ -66,7 +66,7 @@ def dir2zip(in_dir, zip_fname):
     zip_fname : str
         Filename of zip archive to write
     """
-    z = zipfile.ZipFile(zip_fname, 'w', compression=zipfile.ZIP_DEFLATED)
+    z = zipfile.ZipFile(zip_fname, "w", compression=zipfile.ZIP_DEFLATED)
     for root, dirs, files in os.walk(in_dir):
         for file in files:
             fname = os.path.join(root, file)
@@ -78,7 +78,7 @@ def dir2zip(in_dir, zip_fname):
 def tarbz2todir(tarbz2_fname, out_dir):
     """Extract `tarbz2_fname` into output directory `out_dir`
     """
-    subprocess.check_output(['tar', 'xjf', tarbz2_fname, '-C', out_dir])
+    subprocess.check_output(["tar", "xjf", tarbz2_fname, "-C", out_dir])
 
 
 def find_package_dirs(root_path):
@@ -97,7 +97,7 @@ def find_package_dirs(root_path):
     """
     package_sdirs = set()
     for entry in os.listdir(root_path):
-        fname = entry if root_path == '.' else pjoin(root_path, entry)
-        if isdir(fname) and exists(pjoin(fname, '__init__.py')):
+        fname = entry if root_path == "." else pjoin(root_path, entry)
+        if isdir(fname) and exists(pjoin(fname, "__init__.py")):
             package_sdirs.add(fname)
     return package_sdirs
