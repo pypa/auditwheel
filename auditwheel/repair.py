@@ -133,7 +133,7 @@ def copylib(src_path, dest_dir):
     if os.path.exists(dest_path):
         return new_soname, dest_path
 
-    logger.info('Grafting: %s -> %s', src_path, dest_paths)
+    logger.info('Grafting: %s -> %s', src_path, dest_path)
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
 
