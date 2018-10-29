@@ -17,7 +17,7 @@ from .elfutils import elf_read_rpaths, is_subdir, elf_read_dt_needed
 from .hashfile import hashfile
 
 
-logger = logging.getLogger
+logger = logging.getLogger(__name__)
 
 
 @functools.lru_cache()
