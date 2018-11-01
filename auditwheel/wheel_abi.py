@@ -100,7 +100,7 @@ def analyze_wheel_abi(wheel_fn: str):
     elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2, uses_PyFPE_jbuf= \
             get_wheel_elfdata(wheel_fn)
 
-    for fn, elftree in elftree_by_fn.items():
+    for fn in elftree_by_fn.keys():
         update(external_refs, external_refs_by_fn[fn])
 
     log.info(json.dumps(external_refs, indent=4))
@@ -116,7 +116,6 @@ def analyze_wheel_abi(wheel_fn: str):
         ucs_policy = POLICY_PRIORITY_LOWEST
     else:
         ucs_policy = POLICY_PRIORITY_HIGHEST
-
 
     if uses_PyFPE_jbuf:
         pyfpe_policy = POLICY_PRIORITY_LOWEST

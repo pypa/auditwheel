@@ -184,10 +184,9 @@ def load_ld_paths(root: str='/', prefix: str='') -> Dict[str, List[str]]:
     -------
     dict containing library paths to search
     """
-    ldpaths = {'conf': [], 'env': [], 'interp': [], }
+    ldpaths = {'conf': [], 'env': [], 'interp': []}
 
     # Load up $LD_LIBRARY_PATH.
-    ldpaths['env'] = []
     env_ldpath = os.environ.get('LD_LIBRARY_PATH')
     if env_ldpath is not None:
         if root != '/':
