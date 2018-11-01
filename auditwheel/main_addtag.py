@@ -1,6 +1,4 @@
 from os.path import basename, exists, join, abspath
-from .policy import (load_policies, get_policy_name, get_priority_by_name,
-                     POLICY_PRIORITY_HIGHEST)
 import logging
 
 

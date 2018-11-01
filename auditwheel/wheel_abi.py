@@ -5,7 +5,7 @@ import functools
 import os
 from os.path import basename
 from typing import Dict, Set
-from collections import defaultdict, Mapping, Sequence, namedtuple
+from collections import defaultdict, Mapping, namedtuple
 
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import lddtree

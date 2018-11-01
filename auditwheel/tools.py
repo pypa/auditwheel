@@ -1,7 +1,7 @@
 import os
 import shutil
 from glob import glob
-from os.path import exists, isfile, isdir
+from os.path import exists, isdir
 from os.path import join as pjoin
 import zipfile
 import subprocess
