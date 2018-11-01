@@ -65,7 +65,7 @@ def rewrite_record(bdist_dir):
 
     def skip(path):
         """Wheel hashes every possible file."""
-        return (path == record_relpath)
+        return path == record_relpath
 
     with open_for_csv(record_path, 'w+') as record_file:
         writer = csv.writer(record_file)
