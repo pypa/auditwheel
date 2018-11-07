@@ -1,7 +1,7 @@
 import os
 import shutil
 from glob import glob
-from os.path import exists, isfile, isdir
+from os.path import exists, isdir
 from os.path import join as pjoin
 import zipfile
 import subprocess
@@ -44,8 +44,7 @@ def zip2dir(zip_fname, out_dir):
     try:
         # but sometimes preserving permssions is really bad, and makes it
         # we don't have the permissions to read any of the files
-        with open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0]) as f:
-            pass
+        open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0])
     except PermissionError:
         shutil.rmtree(out_dir)
         with zipfile.ZipFile(zip_fname) as zf:

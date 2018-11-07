@@ -4,6 +4,10 @@ import platform as _platform_module
 from typing import Optional
 from os.path import join, dirname, abspath
 
+
+from .external_references import lddtree_external_references
+from .versioned_symbols import versioned_symbols_policy
+
 _sys_map = {'linux2': 'linux',
             'linux': 'linux',
             'darwin': 'osx',
@@ -41,6 +45,7 @@ def get_arch_name():
         return _platform_module.machine()
     else:
         return {64: 'x86_64', 32: 'i686'}[bits]
+
 
 _ARCH_NAME = get_arch_name()
 
@@ -97,9 +102,6 @@ def get_replace_platforms(name: str):
     """
     return _PLATFORM_REPLACEMENT_MAP.get(name, [])
 
-
-from .external_references import lddtree_external_references
-from .versioned_symbols import versioned_symbols_policy
 
 __all__ = ['lddtree_external_references', 'versioned_symbols_policy',
            'load_policies', 'POLICY_PRIORITY_HIGHEST',

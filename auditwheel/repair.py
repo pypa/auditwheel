@@ -29,7 +29,7 @@ def verify_patchelf():
     except CalledProcessError:
         raise ValueError('Could not call `patchelf` binary')
 
-    m = re.match('patchelf\s+(\d+(.\d+)?)', version)
+    m = re.match(r'patchelf\s+(\d+(.\d+)?)', version)
     if m and tuple(int(x) for x in m.group(1).split('.')) >= (0, 9):
         return
     raise ValueError(('patchelf %s found. auditwheel repair requires '
@@ -96,7 +96,8 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
             needed = elf_read_dt_needed(path)
             for n in needed:
                 if n in soname_map:
-                    check_call(['patchelf', '--replace-needed', n, soname_map[n][0], path])
+                    check_call(['patchelf', '--replace-needed', n, soname_map[n][0],
+                                path])
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, [abi],
@@ -105,7 +106,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
 
 
 def copylib(src_path, dest_dir):
-    """Graft a shared library from the system into the wheel and update the relevant links.
+    """Graft a shared library from the system into the wheel and update the relevant links
 
     1) Copy the file from src_path to dest_dir/
     2) Rename the shared object from soname to soname.<unique>

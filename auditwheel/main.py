@@ -45,10 +45,5 @@ def main():
         p.print_help()
         return
 
-    try:
-        rval = args.func(args, p)
-    except:
-        # TODO(rmcgibbo): nice message
-        raise
-
+    rval = args.func(args, p)
     return rval

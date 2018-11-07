@@ -13,7 +13,6 @@ def printp(text):
 
 def execute(args, p):
     import json
-    from functools import reduce
     from collections import OrderedDict
     from os.path import isfile, basename
     from .policy import (load_policies, get_priority_by_name,
@@ -35,7 +34,8 @@ def execute(args, p):
     if get_priority_by_name(winfo.pyfpe_tag) < POLICY_PRIORITY_HIGHEST:
         printp(('This wheel uses the PyFPE_jbuf function, which is not '
                 'compatible with the manylinux1 tag. (see '
-                'https://www.python.org/dev/peps/pep-0513/#fpectl-builds-vs-no-fpectl-builds)'))
+                'https://www.python.org/dev/peps/pep-0513/'
+                '#fpectl-builds-vs-no-fpectl-builds)'))
         if args.verbose < 1:
             return
 

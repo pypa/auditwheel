@@ -3,9 +3,9 @@ import json
 import logging
 import functools
 import os
+
 from os.path import basename
-from typing import Dict, Set
-from collections import defaultdict, Mapping, Sequence, namedtuple
+from collections import defaultdict, Mapping, namedtuple
 
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import lddtree
@@ -36,11 +36,14 @@ def get_wheel_elfdata(wheel_fn: str):
         for fn, elf in elf_file_filter(ctx.iter_files()):
             is_py_ext, py_ver = elf_is_python_extension(fn, elf)
 
-            # Check for invalid binary wheel format: no shared library should be found in purelib
+            # Check for invalid binary wheel format: no shared library should be found
+            # in purelib
             so_path_split = fn.split(os.sep)
             if 'purelib' in so_path_split:
-                raise RuntimeError(('Invalid binary wheel, found shared library "%s" in purelib folder.\n'
-                                    'The wheel has to be platlib compliant in order to be repaired by auditwheel.') %
+                raise RuntimeError(('Invalid binary wheel, found shared library "%s" '
+                                    'in purelib folder.\n'
+                                    'The wheel has to be platlib compliant in order '
+                                    'to be repaired by auditwheel.') %
                                    so_path_split[-1])
 
             log.info('processing: %s', fn)
@@ -86,8 +89,13 @@ def get_wheel_elfdata(wheel_fn: str):
 
     log.debug(json.dumps(full_elftree, indent=4))
 
-    return (full_elftree, full_external_refs, versioned_symbols,
-            uses_ucs2_symbols, uses_PyFPE_jbuf)
+    returnDict = dict()
+    returnDict['full_elftree'] = full_elftree
+    returnDict['full_external_refs'] = full_external_refs
+    returnDict['versioned_symbols'] = versioned_symbols
+    returnDict['uses_ucs2_symbols'] = uses_ucs2_symbols
+    returnDict['uses_PyFPE_jbuf'] = uses_PyFPE_jbuf
+    return returnDict
 
 
 def analyze_wheel_abi(wheel_fn: str):
@@ -97,8 +105,12 @@ def analyze_wheel_abi(wheel_fn: str):
         for p in load_policies()
     }
 
-    elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2, uses_PyFPE_jbuf= \
-            get_wheel_elfdata(wheel_fn)
+    wheel_elfdata = get_wheel_elfdata(wheel_fn)
+    elftree_by_fn = wheel_elfdata['full_elftree']
+    external_refs_by_fn = wheel_elfdata['full_external_refs']
+    versioned_symbols = wheel_elfdata['versioned_symbols']
+    has_ucs2 = wheel_elfdata['uses_ucs2_symbols']
+    uses_PyFPE_jbuf = wheel_elfdata['uses_PyFPE_jbuf']
 
     for fn, elftree in elftree_by_fn.items():
         update(external_refs, external_refs_by_fn[fn])
@@ -117,7 +129,6 @@ def analyze_wheel_abi(wheel_fn: str):
     else:
         ucs_policy = POLICY_PRIORITY_HIGHEST
 
-
     if uses_PyFPE_jbuf:
         pyfpe_policy = POLICY_PRIORITY_LOWEST
     else:
@@ -127,7 +138,8 @@ def analyze_wheel_abi(wheel_fn: str):
     sym_tag = get_policy_name(symbol_policy)
     ucs_tag = get_policy_name(ucs_policy)
     pyfpe_tag = get_policy_name(pyfpe_policy)
-    overall_tag = get_policy_name(min(symbol_policy, ref_policy, ucs_policy, pyfpe_policy))
+    overall_tag = get_policy_name(min(symbol_policy, ref_policy, ucs_policy,
+                                      pyfpe_policy))
 
     return WheelAbIInfo(overall_tag, external_refs, ref_tag, versioned_symbols,
                         sym_tag, ucs_tag, pyfpe_tag)

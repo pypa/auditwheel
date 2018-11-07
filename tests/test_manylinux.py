@@ -170,7 +170,10 @@ def test_build_wheel_with_binary_executable(docker_container):
     manylinux_id, python_id, io_folder = docker_container
     docker_exec(manylinux_id, 'yum install -y gsl-devel')
 
-    docker_exec(manylinux_id, ['bash', '-c', 'cd /auditwheel_src/tests/testpackage && python setup.py bdist_wheel -d /io'])
+    docker_exec(manylinux_id, ['bash', '-c',
+                               'cd /auditwheel_src/tests/testpackage',
+                               'python setup.py bdist_wheel -d /io']
+                )
 
     filenames = os.listdir(io_folder)
     assert filenames == ['testpackage-0.0.1-py3-none-any.whl']
@@ -194,7 +197,8 @@ def test_build_wheel_with_binary_executable(docker_container):
     # on a modern linux image.
     docker_exec(python_id, 'pip install /io/' + repaired_wheel)
     output = docker_exec(
-        python_id, ['python', '-c', 'from testpackage import runit; print(runit(1.5))']).strip()
+        python_id, ['python', '-c',
+                    'from testpackage import runit; print(runit(1.5))']).strip()
     assert output.strip() == '2.25'
 
 

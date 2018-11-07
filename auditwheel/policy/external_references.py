@@ -1,16 +1,13 @@
 import re
-import os
-import json
 import logging
-from typing import Tuple, Dict, List, Set, Any
 
-from elftools.elf.elffile import ELFFile  # type: ignore
+from typing import Dict, Set
 
 from ..elfutils import is_subdir
-from . import POLICY_PRIORITY_HIGHEST, load_policies
+from . import load_policies
 
 log = logging.getLogger(__name__)
-LIBPYTHON_RE = re.compile('^libpython\d\.\dm?.so(.\d)*$')
+LIBPYTHON_RE = re.compile(r'^libpython\d\.\dm?.so(.\d)*$')
 
 
 def lddtree_external_references(lddtree: Dict, wheel_path: str):

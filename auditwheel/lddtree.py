@@ -14,11 +14,10 @@ files on disk), and we parse the dependency structure as a tree rather than
 
 import os
 import glob
-import json
 import errno
 import logging
 import functools
-from typing import Iterator, Tuple, List, Dict, Optional, Any
+from typing import List, Dict, Optional
 
 from elftools.elf.elffile import ELFFile  # type: ignore
 
@@ -37,7 +36,7 @@ def normpath(path: str) -> str:
     return os.path.normpath(path).replace('//', '/')
 
 
-def readlink(path: str, root: str, prefixed: bool=False) -> str:
+def readlink(path: str, root: str, prefixed: bool = False) -> str:
     """Like os.readlink(), but relative to a ``root``
 
     This does not currently handle the pathological case:
@@ -113,8 +112,8 @@ def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
 
 @functools.lru_cache()
 def parse_ld_so_conf(ldso_conf: str,
-                     root: str='/',
-                     _first: bool=True) -> List[str]:
+                     root: str = '/',
+                     _first: bool = True) -> List[str]:
     """Load all the paths from a given ldso config file
 
     This should handle comments, whitespace, and "include" statements.
@@ -168,7 +167,7 @@ def parse_ld_so_conf(ldso_conf: str,
 
 
 @functools.lru_cache()
-def load_ld_paths(root: str='/', prefix: str='') -> Dict[str, List[str]]:
+def load_ld_paths(root: str = '/', prefix: str = '') -> Dict[str, List[str]]:
     """Load linker paths from common locations
 
     This parses the ld.so.conf and LD_LIBRARY_PATH env var.
@@ -257,10 +256,6 @@ def find_lib(elf, lib, ldpaths, root='/'):
     for ldpath in ldpaths:
         path = os.path.join(ldpath, lib)
         target = readlink(path, root, prefixed=True)
-        #if path != target:
-        #    log.debug('    checking: %s -> %s', path, target)
-        #else:
-        #    log.debug('    checking: %s', path)
 
         if os.path.exists(target):
             with open(target, 'rb') as f:
@@ -272,12 +267,12 @@ def find_lib(elf, lib, ldpaths, root='/'):
 
 
 def lddtree(path: str,
-            root: str='/',
-            prefix: str='',
-            ldpaths: Optional[Dict[str, List[str]]]=None,
-            display: Optional[str]=None,
-            _first: bool=True,
-            _all_libs: Dict={}) -> Dict:
+            root: str = '/',
+            prefix: str = '',
+            ldpaths: Optional[Dict[str, List[str]]] = None,
+            display: Optional[str] = None,
+            _first: bool = True,
+            _all_libs: Dict = {}) -> Dict:
     """Parse the ELF dependency tree of the specified file
 
     Parameters
