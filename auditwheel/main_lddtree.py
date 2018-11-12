@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 def configure_subparser(sub_parsers):
     help = 'Analyze a single ELF file (similar to ``ldd``).'
     p = sub_parsers.add_parser('lddtree', help=help, description=help)
@@ -9,4 +13,4 @@ def execute(args, p):
     import json
     from .lddtree import lddtree
 
-    print(json.dumps(lddtree(args.file), indent=4))
+    logger.info(json.dumps(lddtree(args.file), indent=4))
