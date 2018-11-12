@@ -11,7 +11,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
+TEST=25
 ENCODING = 'utf-8'
 MANYLINUX_IMAGE_ID = 'quay.io/pypa/manylinux1_x86_64'
 DOCKER_CONTAINER_NAME = 'auditwheel-test-manylinux'
@@ -37,16 +37,16 @@ def docker_start(image, volumes={}, env_variables={}):
     """
     # Make sure to use the latest public version of the docker image
     cmd = ['docker', 'pull', image]
-    logger.info("$ " + " ".join(cmd))
+    logger.log(TEST, "$ " + " ".join(cmd))
     output = check_output(cmd).decode(ENCODING).strip()
-    logger.info(output)
+    logger.log(TEST, output)
     cmd = ['docker', 'run', '-d']
     for guest_path, host_path in sorted(volumes.items()):
         cmd.extend(['-v', '%s:%s' % (host_path, guest_path)])
     for name, value in sorted(env_variables.items()):
         cmd.extend(['-e', '%s=%s' % (name, value)])
     cmd.extend([image, 'sleep', '10000'])
-    logger.info("$ " + " ".join(cmd))
+    logger.log(TEST, "$ " + " ".join(cmd))
     return check_output(cmd).decode(ENCODING).strip()
 
 
@@ -55,9 +55,9 @@ def docker_exec(container_id, cmd):
     if isinstance(cmd, str):
         cmd = cmd.split()
     cmd = ['docker', 'exec', container_id] + cmd
-    logger.info("$ " + " ".join(cmd))
+    logger.log(TEST, "$ " + " ".join(cmd))
     output = check_output(cmd).decode(ENCODING)
-    logger.info(output)
+    logger.log(TEST, output)
     return output
 
 
