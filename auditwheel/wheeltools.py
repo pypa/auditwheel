@@ -220,7 +220,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     else:
         logger.info('No filename tags change needed.')
 
-    wheel_base, ext = splitext(wheel_fname)
+    _, ext = splitext(wheel_fname)
     fparts['plat'] = '.'.join(fname_tags)
     fparts['ext'] = ext
     out_wheel_fname = "{namever}-{pyver}-{abi}-{plat}{ext}".format(**fparts)
