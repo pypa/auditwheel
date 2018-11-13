@@ -1,4 +1,4 @@
-pytest
+pytest>=3.4
 jsonschema
 numpy
 pypatchelf
