@@ -1,3 +1,9 @@
+try:
+    from collections.abc import OrderedDict
+except ImportError:
+    from collections import OrderedDict
+
+
 def configure_parser(sub_parsers):
     help = "Audit a wheel for external shared library dependencies."
     p = sub_parsers.add_parser('show', help=help, description=help)
@@ -14,7 +20,6 @@ def printp(text):
 def execute(args, p):
     import json
     from functools import reduce
-    from collections import OrderedDict
     from os.path import isfile, basename
     from .policy import (load_policies, get_priority_by_name,
                          POLICY_PRIORITY_LOWEST, POLICY_PRIORITY_HIGHEST,
