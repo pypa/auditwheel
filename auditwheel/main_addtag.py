@@ -1,6 +1,10 @@
 from os.path import basename, exists, join, abspath
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def configure_parser(sub_parsers):
@@ -30,12 +34,12 @@ def execute(args, p):
     parsed_fname = WHEEL_INFO_RE(basename(args.WHEEL_FILE))
     in_fname_tags = parsed_fname.groupdict()['plat'].split('.')
 
-    print('%s recieves the following tag: "%s".' % (basename(args.WHEEL_FILE),
-                                                    wheel_abi.overall_tag))
-    print('Use ``auditwheel show`` for more details')
+    logger.info('%s recieves the following tag: "%s".',
+                 basename(args.WHEEL_FILE), wheel_abi.overall_tag)
+    logger.info('Use ``auditwheel show`` for more details')
 
     if wheel_abi.overall_tag in in_fname_tags:
-        print('No tags to be added. Exiting.')
+        logger.info('No tags to be added. Exiting.')
         return 1
 
     # todo: move more of this logic to separate file
@@ -46,12 +50,12 @@ def execute(args, p):
         try:
             out_wheel = add_platforms(ctx, [wheel_abi.overall_tag])
         except WheelToolsError as e:
-            print('\n%s.' % str(e), file=sys.stderr)
+            logger.exception('\n%s.', repr(e))
             return 1
 
         if out_wheel:
             # tell context manager to write wheel on exit with
             # the proper output directory
             ctx.out_wheel = join(args.WHEEL_DIR, basename(out_wheel))
-            print('\nUpdated wheel written to %s' % out_wheel)
+            logger.info('\nUpdated wheel written to %s', out_wheel)
     return 0

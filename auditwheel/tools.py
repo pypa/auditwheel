@@ -66,13 +66,12 @@ def dir2zip(in_dir, zip_fname):
     zip_fname : str
         Filename of zip archive to write
     """
-    z = zipfile.ZipFile(zip_fname, 'w', compression=zipfile.ZIP_DEFLATED)
-    for root, dirs, files in os.walk(in_dir):
-        for file in files:
-            fname = os.path.join(root, file)
-            out_fname = os.path.relpath(fname, in_dir)
-            z.write(os.path.join(root, file), out_fname)
-    z.close()
+    with zipfile.ZipFile(zip_fname, 'w', compression=zipfile.ZIP_DEFLATED) as z:
+        for root, dirs, files in os.walk(in_dir):
+            for file in files:
+                fname = os.path.join(root, file)
+                out_fname = os.path.relpath(fname, in_dir)
+                z.write(os.path.join(root, file), out_fname)
 
 
 def tarbz2todir(tarbz2_fname, out_dir):

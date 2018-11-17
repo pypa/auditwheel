@@ -10,6 +10,7 @@ import glob
 import hashlib
 import csv
 from itertools import product
+import logging
 
 from wheel.util import urlsafe_b64encode, open_for_csv, native  # type: ignore
 from wheel.pkginfo import read_pkg_info, write_pkg_info  # type: ignore
@@ -17,6 +18,9 @@ from wheel.install import WHEEL_INFO_RE  # type: ignore
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip
+
+
+logger = logging.getLogger(__name__)
 
 
 class WheelToolsError(Exception):
@@ -65,7 +69,7 @@ def rewrite_record(bdist_dir):
 
     def skip(path):
         """Wheel hashes every possible file."""
-        return (path == record_relpath)
+        return path == record_relpath
 
     with open_for_csv(record_path, 'w+') as record_file:
         writer = csv.writer(record_file)
@@ -185,11 +189,10 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
         platform tags to remove to the wheel filename and WHEEL tags, e.g.
         ``('linux_x86_64',)`` when ``('manylinux_x86_64')`` is added
     """
+    definitely_not_purelib = False
+
     info_fname = pjoin(_dist_info_dir(wheel_ctx.path), 'WHEEL')
     info = read_pkg_info(info_fname)
-    if info['Root-Is-Purelib'] == 'true':
-        raise WheelToolsError('Cannot add platforms to pure wheel')
-
     # Check what tags we have
     if wheel_ctx.out_wheel is not None:
         out_dir = dirname(wheel_ctx.out_wheel)
@@ -201,25 +204,30 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     parsed_fname = WHEEL_INFO_RE(wheel_fname)
     fparts = parsed_fname.groupdict()
     original_fname_tags = fparts['plat'].split('.')
-    print('Previous filename tags:', ', '.join(original_fname_tags))
-    fname_tags = [tag for tag in original_fname_tags
-                  if tag not in remove_platforms]
-    for platform in platforms:
-        if platform not in fname_tags:
-            fname_tags.append(platform)
-    if fname_tags != original_fname_tags:
-        print('New filename tags:', ', '.join(fname_tags))
-    else:
-        print('No filename tags change needed.')
+    logger.info('Previous filename tags:', ', '.join(original_fname_tags))
+    fname_tags = {tag for tag in original_fname_tags
+                  if tag not in remove_platforms}
+    fname_tags |= set(platforms)
 
-    wheel_base, ext = splitext(wheel_fname)
+    # Can't be 'any' and another platform
+    if 'any' in fname_tags and len(fname_tags) > 1:
+        fname_tags.remove('any')
+        remove_platforms.append('any')
+        definitely_not_purelib = True
+
+    if fname_tags != original_fname_tags:
+        logger.info('New filename tags:', ', '.join(fname_tags))
+    else:
+        logger.info('No filename tags change needed.')
+
+    _, ext = splitext(wheel_fname)
     fparts['plat'] = '.'.join(fname_tags)
     fparts['ext'] = ext
     out_wheel_fname = "{namever}-{pyver}-{abi}-{plat}{ext}".format(**fparts)
     out_wheel = pjoin(out_dir, out_wheel_fname)
 
     in_info_tags = [tag for name, tag in info.items() if name == 'Tag']
-    print('Previous WHEEL info tags:', ', '.join(in_info_tags))
+    logger.info('Previous WHEEL info tags:', ', '.join(in_info_tags))
     # Python version, C-API version combinations
     pyc_apis = ['-'.join(tag.split('-')[:2]) for tag in in_info_tags]
     # unique Python version, C-API version combinations
@@ -231,13 +239,17 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
                      for tup in product(pyc_apis, remove_platforms)]
     updated_tags = [tag for tag in in_info_tags if tag not in unwanted_tags]
     updated_tags += new_tags
-    needs_write = updated_tags != in_info_tags
-    if needs_write:
+    if updated_tags != in_info_tags:
         del info['Tag']
         for tag in updated_tags:
             info.add_header('Tag', tag)
-        print('New WHEEL info tags:', ', '.join(info.get_all('Tag')))
+
+        if definitely_not_purelib:
+            info['Root-Is-Purelib'] = 'False'
+            logger.info('Changed wheel type to Platlib')
+
+        logger.info('New WHEEL info tags:', ', '.join(info.get_all('Tag')))
         write_pkg_info(info_fname, info)
     else:
-        print('No WHEEL info change needed.')
+        logger.info('No WHEEL info change needed.')
     return out_wheel

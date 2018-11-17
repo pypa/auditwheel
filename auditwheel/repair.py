@@ -8,12 +8,16 @@ from os.path import join as pjoin
 from subprocess import check_call, check_output, CalledProcessError
 from distutils.spawn import find_executable
 from typing import Optional
+import logging
 
 from .policy import get_replace_platforms
 from .wheeltools import InWheelCtx, add_platforms
 from .wheel_abi import get_wheel_elfdata
 from .elfutils import elf_read_rpaths, is_subdir, elf_read_dt_needed
 from .hashfile import hashfile
+
+
+logger = logging.getLogger(__name__)
 
 
 @functools.lru_cache()
@@ -41,6 +45,11 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
                  update_tags: bool) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
+
+    # Do not repair a pure wheel, i.e. has no external refs
+    if not external_refs_by_fn:
+        return
+
     soname_map = {}  # type: Dict[str, str]
     if not isabs(out_dir):
         out_dir = abspath(out_dir)
@@ -113,7 +122,8 @@ def copylib(src_path, dest_dir):
     with open(src_path, 'rb') as f:
         shorthash = hashfile(f)[:8]
 
-    base, ext = os.path.basename(src_path).split('.', 1)
+    src_name = os.path.basename(src_path)
+    base, ext = src_name.split('.', 1)
     if not base.endswith('-%s' % shorthash):
         new_soname = '%s-%s.%s' % (base, shorthash, ext)
     else:
@@ -123,7 +133,7 @@ def copylib(src_path, dest_dir):
     if os.path.exists(dest_path):
         return new_soname, dest_path
 
-    print('Grafting: %s -> %s' % (src_path, dest_path))
+    logger.info('Grafting: %s -> %s', src_path, dest_path)
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
 
@@ -141,5 +151,5 @@ def copylib(src_path, dest_dir):
 
 def patchelf_set_rpath(fn, libdir):
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
-    print('Setting RPATH: %s to "%s"' % (fn, rpath))
+    logger.info('Setting RPATH: %s to "%s"', fn, rpath)
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])

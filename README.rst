@@ -3,6 +3,8 @@ auditwheel
 
 .. image:: https://travis-ci.org/pypa/auditwheel.svg?branch=master
     :target: https://travis-ci.org/pypa/auditwheel
+.. image:: https://badge.fury.io/py/auditwheel.svg
+    :target: https://pypi.org/project/auditwheel
 
 Auditing and relabeling `PEP 513 manylinux1 <https://www.python.org/dev/peps/pep-0513/>`_ Linux wheels.
 
@@ -28,7 +30,7 @@ Installation
 
   pip3 install auditwheel
 
-It requires Python 3.3+, and runs on Linux. It requires that the shell command
+It requires Python 3.4+, and runs on Linux. It requires that the shell command
 ``unzip`` be available in the ``PATH``. Only systems that use
 `ELF <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based
 linkage are supported (this should be essentially every Linux).
