@@ -201,7 +201,7 @@ def load_ld_paths(root: str='/', prefix: str='') -> Dict[str, List[str]]:
                                        root=root)
     # the trusted directories are not necessarily in ld.so.conf
     ldpaths['conf'].extend(['/lib', '/lib64/', '/usr/lib', '/usr/lib64'])
-    log.info('linker ldpaths: %s', ldpaths)
+    log.debug('linker ldpaths: %s', ldpaths)
     return ldpaths
 
 

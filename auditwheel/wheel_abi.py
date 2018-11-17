@@ -43,7 +43,7 @@ def get_wheel_elfdata(wheel_fn: str):
                                     'The wheel has to be platlib compliant in order to be repaired by auditwheel.') %
                                    so_path_split[-1])
 
-            log.info('processing: %s', fn)
+            log.debug('processing: %s', fn)
             elftree = lddtree(fn)
 
             for key, value in elf_find_versioned_symbols(elf):
@@ -103,7 +103,6 @@ def analyze_wheel_abi(wheel_fn: str):
     for fn in elftree_by_fn.keys():
         update(external_refs, external_refs_by_fn[fn])
 
-    log.info(json.dumps(external_refs, indent=4))
     log.debug('external reference info')
     log.debug(json.dumps(external_refs, indent=4))
 

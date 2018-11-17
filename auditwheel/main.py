@@ -34,12 +34,10 @@ def main():
     args = p.parse_args()
 
     logging.disable(logging.NOTSET)
-    if args.verbose >= 2:
+    if args.verbose >= 1:
         logging.basicConfig(level=logging.DEBUG)
-    elif args.verbose == 1:
-        logging.basicConfig(level=logging.INFO)
     else:
-        logging.basicConfig(level=logging.WARN)
+        logging.basicConfig(level=logging.INFO)
 
     if not hasattr(args, 'func'):
         p.print_help()
