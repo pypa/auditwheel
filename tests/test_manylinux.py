@@ -241,8 +241,11 @@ def test_build_repair_pure_wheel(docker_container):
     orig_wheel = filenames[0]
     assert 'manylinux' not in orig_wheel
 
-    # Repair the wheel using the manylinux1 container
-    docker_exec(manylinux_id, 'auditwheel repair -w /io /io/' + orig_wheel)
+    # Repair the wheel using the manylinux container
+    repair_command = (
+        'auditwheel repair --plat {policy}_x86_64 -w /io /io/{orig_wheel}'
+    ).format(policy=policy, orig_wheel=orig_wheel)
+    docker_exec(manylinux_id, repair_command)
     filenames = os.listdir(io_folder)
     assert len(filenames) == 1  # no new wheels
     assert filenames == [ORIGINAL_SIX_WHEEL]
