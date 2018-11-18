@@ -27,17 +27,3 @@ install:
 
 script:
   - tests/travis.sh
-
-deploy:
-  provider: pypi
-  user: rmcgibbo
-  password:
-    secure: LOXMfae5B5cuY/FUQfGXAKFwScObvqPKCPF1prKFXhlGP+CjZZzCG7PmNwWKiVFWBYvHIzCCviKQ0FFtqLcxE79sCE6E6VXwUngSw39m5iOxubQaOi3GSTdzPCR/BFSE2iQR1/aBgmxui4NUY5lWjFhqtNSZo7YRacUYAViqSZop1manE7zO3FOhSA07ep7re2SM4vhIWDKwDLMToXfjSYWKtz4Yx0wEnNqNUDllKeOGSxQv1urEP5wd89o9xl6neGks4VuRfk9cqIkc23mKPN8T4xMmZnriMFnEFYI5sdApcr5+qBZWJpJL0o3Vo3iDmvUf3KqOIcXH3fMl1C9bdoE0PK0QRAircuwkuNYg3iOjkE6OLGaOuGjtYMhaWikiWCFGqtX8eMLHeoKEsAv2bvxYe14a9KE4lHOK9ooxlCuflG6I9CeS0Z8qlTSs+C0W2NLeqT2JFw1D4EFS5i/pJq1C5eMWUhTGkQFKme1cyX78+mWFNupQPQIYeMHihZxd9BJDTYP2jZz5JsZkWpV1/5OOB65hvEwRDLY37GbNmajnrL6auzSMJTx5brj5+pm3jtaQ47sBdrZ1bpmytjA/S6HYVCLbkn83aqqJLny1pidoRXatg5sg68Y0k/zcmGiQI4Bk6J8nQAUXO6/htPi9Wgm/1b10jh+7or/TRUihOhY=
-  on:
-    tags: true
-    repo: pypa/auditwheel
-
-cache:
-  directories:
-    - wheelhouse-rmcgibbo/
-    - .cache/auditwheel_tests/
