@@ -23,6 +23,8 @@ Released Nov. 18, 2018
     - Remove unused variables and imports ([#121](https://github.com/pypa/auditwheel/pull/121), [#117](https://github.com/pypa/auditwheel/pull/117))
     - Use Python 3 class syntax ([#119](https://github.com/pypa/auditwheel/pull/119))
     - Fix log.warn deprecation warning ([#120](https://github.com/pypa/auditwheel/pull/120))
+- Fix Travis flakiness by disabling caches and remove broken auto-deployments
+  ([#128](https://github.com/pypa/auditwheel/pull/128))
 
 ## 1.10
 
