@@ -79,4 +79,16 @@ def execute(args, p):
                              update_tags=args.UPDATE_TAGS)
 
     if out_wheel is not None:
+        analyzed_tag = analyze_wheel_abi(out_wheel).overall_tag
+        if reqd_tag < get_priority_by_name(analyzed_tag):
+            logger.info(('Wheel is eligible for a higher priority tag. '
+                         'You requested %s but I have found this wheel is '
+                         'eligible for %s.'),
+                        args.PLAT, analyzed_tag)
+            out_wheel = repair_wheel(args.WHEEL_FILE,
+                                     abi=analyzed_tag,
+                                     lib_sdir=args.LIB_SDIR,
+                                     out_dir=args.WHEEL_DIR,
+                                     update_tags=args.UPDATE_TAGS)
+
         logger.info('\nFixed-up wheel written to %s', out_wheel)

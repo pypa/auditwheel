@@ -21,7 +21,9 @@ bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 
 _PLATFORM_REPLACEMENT_MAP = {
     'manylinux1_x86_64': ['linux_x86_64'],
+    'manylinux2010_x86_64': ['linux_x86_64'],
     'manylinux1_i686': ['linux_i686'],
+    'manylinux2010_i686': ['linux_i686'],
 }
 
 # XXX: this could be weakened. The show command _could_ run on OS X or

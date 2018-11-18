@@ -13,7 +13,13 @@ logger = logging.getLogger(__name__)
 
 
 ENCODING = 'utf-8'
-MANYLINUX_IMAGE_ID = 'quay.io/pypa/manylinux1_x86_64'
+MANYLINUX1_IMAGE_ID = 'quay.io/pypa/manylinux1_x86_64'
+#TODO: use the pypa manylinux2010 image on release
+MANYLINUX2010_IMAGE_ID = 'zombiefeynman/manylinux2010_x86_64'
+MANYLINUX_IMAGES = {
+    'manylinux1': MANYLINUX1_IMAGE_ID,
+    'manylinux2010': MANYLINUX2010_IMAGE_ID,
+}
 DOCKER_CONTAINER_NAME = 'auditwheel-test-manylinux'
 PYTHON_IMAGE_ID = 'python:3.5'
 PATH = ('/opt/python/cp35-cp35m/bin:/opt/rh/devtoolset-2/root/usr/bin:'
@@ -61,8 +67,8 @@ def docker_exec(container_id, cmd):
     return output
 
 
-@pytest.yield_fixture
-def docker_container():
+@pytest.fixture(params=MANYLINUX_IMAGES.keys())
+def docker_container(request):
     if find_executable("docker") is None:
         pytest.skip('docker is required')
     if not op.exists(WHEEL_CACHE_FOLDER):
@@ -72,6 +78,7 @@ def docker_container():
         pytest.skip('Can only be run from the source folder')
     io_folder = tempfile.mkdtemp(prefix='tmp_auditwheel_test_manylinux_',
                                  dir=src_folder)
+    policy = request.param
     manylinux_id, python_id = None, None
     try:
         # Launch a docker container with volumes and pre-configured Python
@@ -80,7 +87,7 @@ def docker_container():
         # This container will be used to build and repair manylinux compatible
         # wheels
         manylinux_id = docker_start(
-            MANYLINUX_IMAGE_ID,
+            MANYLINUX_IMAGES[policy],
             volumes={'/io': io_folder, '/auditwheel_src': src_folder},
             env_variables={'PATH': PATH})
         # Install the development version of auditwheel from source:
@@ -93,7 +100,7 @@ def docker_container():
             PYTHON_IMAGE_ID,
             volumes={'/io': io_folder, '/auditwheel_src': src_folder})
         docker_exec(python_id, 'pip install -U pip')
-        yield manylinux_id, python_id, io_folder
+        yield policy, manylinux_id, python_id, io_folder
     finally:
         for container_id in [manylinux_id, python_id]:
             if container_id is None:
@@ -111,7 +118,7 @@ def test_build_repair_numpy(docker_container):
 
     # First build numpy from source as a naive linux wheel that is tied
     # to system libraries (atlas, libgfortran...)
-    manylinux_id, python_id, io_folder = docker_container
+    policy, manylinux_id, python_id, io_folder = docker_container
     docker_exec(manylinux_id, 'yum install -y atlas atlas-devel')
 
     if op.exists(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_NUMPY_WHEEL)):
@@ -132,10 +139,20 @@ def test_build_repair_numpy(docker_container):
     orig_wheel = filenames[0]
     assert 'manylinux' not in orig_wheel
 
-    # Repair the wheel using the manylinux1 container
-    docker_exec(manylinux_id, 'auditwheel repair -w /io /io/' + orig_wheel)
+    # Repair the wheel using the manylinux container
+    repair_command = (
+        'auditwheel repair --plat {policy}_x86_64 -w /io /io/{orig_wheel}'
+    ).format(policy=policy, orig_wheel=orig_wheel)
+    docker_exec(manylinux_id, repair_command)
     filenames = os.listdir(io_folder)
-    assert len(filenames) == 2
+
+    if policy == 'manylinux1':
+        expected_files = 2
+    elif policy == 'manylinux2010':
+        expected_files = 3  # We end up repairing the wheel twice to manylinux1
+
+    assert len(filenames) == expected_files
+    # Regardless of build environment, wheel only needs manylinux1 symbols
     repaired_wheels = [fn for fn in filenames if 'manylinux1' in fn]
     assert repaired_wheels == ['numpy-1.11.0-cp35-cp35m-manylinux1_x86_64.whl']
     repaired_wheel = repaired_wheels[0]
@@ -166,7 +183,7 @@ def test_build_repair_numpy(docker_container):
 def test_build_wheel_with_binary_executable(docker_container):
     # Test building a wheel that contains a binary executable (e.g., a program)
 
-    manylinux_id, python_id, io_folder = docker_container
+    policy, manylinux_id, python_id, io_folder = docker_container
     docker_exec(manylinux_id, 'yum install -y gsl-devel')
 
     docker_exec(manylinux_id, ['bash', '-c', 'cd /auditwheel_src/tests/testpackage && python setup.py bdist_wheel -d /io'])
@@ -176,21 +193,30 @@ def test_build_wheel_with_binary_executable(docker_container):
     orig_wheel = filenames[0]
     assert 'manylinux' not in orig_wheel
 
-    # Repair the wheel using the manylinux1 container
-    docker_exec(manylinux_id, 'auditwheel repair -w /io /io/' + orig_wheel)
+    # Repair the wheel using the appropriate manylinux container
+    repair_command = (
+        'auditwheel repair --plat {policy}_x86_64 -w /io /io/{orig_wheel}'
+    ).format(policy=policy, orig_wheel=orig_wheel)
+    docker_exec(manylinux_id, repair_command)
     filenames = os.listdir(io_folder)
     assert len(filenames) == 2
-    repaired_wheels = [fn for fn in filenames if 'manylinux1' in fn]
-    assert repaired_wheels == ['testpackage-0.0.1-py3-none-manylinux1_x86_64.whl']
+    repaired_wheels = [fn for fn in filenames if policy in fn]
+    # Wheel picks up newer symbols when built in manylinux2010
+    expected_wheel_name = 'testpackage-0.0.1-py3-none-%s_x86_64.whl' % policy
+    assert repaired_wheels == [expected_wheel_name]
     repaired_wheel = repaired_wheels[0]
     output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
     assert (
-        'testpackage-0.0.1-py3-none-manylinux1_x86_64.whl is consistent'
-        ' with the following platform tag: "manylinux1_x86_64"'
-    ) in output.replace('\n', ' ')
+        'testpackage-0.0.1-py3-none-{policy}_x86_64.whl is consistent'
+        ' with the following platform tag: "{policy}_x86_64"'
+    ).format(policy=policy) in output.replace('\n', ' ')
 
-    # Check that the repaired numpy wheel can be installed and executed
-    # on a modern linux image.
+    # TODO: Remove once pip supports manylinux2010
+    docker_exec(
+        python_id,
+        "pip install git+https://github.com/wtolson/pip.git@manylinux2010",
+    )
+
     docker_exec(python_id, 'pip install /io/' + repaired_wheel)
     output = docker_exec(
         python_id, ['python', '-c', 'from testpackage import runit; print(runit(1.5))']).strip()
@@ -198,7 +224,7 @@ def test_build_wheel_with_binary_executable(docker_container):
 
 
 def test_build_repair_pure_wheel(docker_container):
-    manylinux_id, python_id, io_folder = docker_container
+    policy, manylinux_id, python_id, io_folder = docker_container
 
     if op.exists(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL)):
         # If six has already been built and put in cache, let's reuse this.
@@ -215,8 +241,11 @@ def test_build_repair_pure_wheel(docker_container):
     orig_wheel = filenames[0]
     assert 'manylinux' not in orig_wheel
 
-    # Repair the wheel using the manylinux1 container
-    docker_exec(manylinux_id, 'auditwheel repair -w /io /io/' + orig_wheel)
+    # Repair the wheel using the manylinux container
+    repair_command = (
+        'auditwheel repair --plat {policy}_x86_64 -w /io /io/{orig_wheel}'
+    ).format(policy=policy, orig_wheel=orig_wheel)
+    docker_exec(manylinux_id, repair_command)
     filenames = os.listdir(io_folder)
     assert len(filenames) == 1  # no new wheels
     assert filenames == [ORIGINAL_SIX_WHEEL]

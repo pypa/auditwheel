@@ -133,7 +133,7 @@ def copylib(src_path, dest_dir):
     if os.path.exists(dest_path):
         return new_soname, dest_path
 
-    logger.info('Grafting: %s -> %s', src_path, dest_path)
+    logger.debug('Grafting: %s -> %s', src_path, dest_path)
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
 
@@ -151,5 +151,5 @@ def copylib(src_path, dest_dir):
 
 def patchelf_set_rpath(fn, libdir):
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
-    logger.info('Setting RPATH: %s to "%s"', fn, rpath)
+    logger.debug('Setting RPATH: %s to "%s"', fn, rpath)
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])

@@ -204,7 +204,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     parsed_fname = WHEEL_INFO_RE(wheel_fname)
     fparts = parsed_fname.groupdict()
     original_fname_tags = fparts['plat'].split('.')
-    logger.info('Previous filename tags:', ', '.join(original_fname_tags))
+    logger.info('Previous filename tags: %s', ', '.join(original_fname_tags))
     fname_tags = {tag for tag in original_fname_tags
                   if tag not in remove_platforms}
     fname_tags |= set(platforms)
@@ -216,7 +216,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
         definitely_not_purelib = True
 
     if fname_tags != original_fname_tags:
-        logger.info('New filename tags:', ', '.join(fname_tags))
+        logger.info('New filename tags: %s', ', '.join(fname_tags))
     else:
         logger.info('No filename tags change needed.')
 
@@ -227,7 +227,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
     out_wheel = pjoin(out_dir, out_wheel_fname)
 
     in_info_tags = [tag for name, tag in info.items() if name == 'Tag']
-    logger.info('Previous WHEEL info tags:', ', '.join(in_info_tags))
+    logger.info('Previous WHEEL info tags: %s', ', '.join(in_info_tags))
     # Python version, C-API version combinations
     pyc_apis = ['-'.join(tag.split('-')[:2]) for tag in in_info_tags]
     # unique Python version, C-API version combinations
@@ -248,7 +248,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
             info['Root-Is-Purelib'] = 'False'
             logger.info('Changed wheel type to Platlib')
 
-        logger.info('New WHEEL info tags:', ', '.join(info.get_all('Tag')))
+        logger.info('New WHEEL info tags: %s', ', '.join(info.get_all('Tag')))
         write_pkg_info(info_fname, info)
     else:
         logger.info('No WHEEL info change needed.')
