@@ -1,11 +1,12 @@
 language: python
+dist: xenial
 matrix:
   include:
-  - python: "3.4"
   - python: "3.5"
   - python: "3.5"
     env: WHEELHOUSE=1
   - python: "3.6"
+  - python: "3.7"
   allow_failures:
   - python: "3.5"
     env: WHEELHOUSE=1

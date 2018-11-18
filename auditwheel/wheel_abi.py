@@ -5,7 +5,6 @@ import functools
 import os
 from os.path import basename
 from typing import Dict, Set
-from collections import defaultdict, Mapping, namedtuple
 
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import lddtree
@@ -15,6 +14,13 @@ from .elfutils import (elf_file_filter, elf_find_versioned_symbols,
 from .policy import (lddtree_external_references, versioned_symbols_policy,
                      get_policy_name, POLICY_PRIORITY_LOWEST,
                      POLICY_PRIORITY_HIGHEST, load_policies)
+
+try:
+    from collections.abc import defaultdict, Mapping, Sequence, namedtuple
+except ImportError:
+    # Pre-Python 3.7 compatibility
+    from collections import defaultdict, Mapping, Sequence, namedtuple
+
 
 log = logging.getLogger(__name__)
 WheelAbIInfo = namedtuple('WheelAbIInfo',
