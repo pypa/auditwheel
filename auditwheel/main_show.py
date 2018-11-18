@@ -63,7 +63,7 @@ def execute(args, p):
                 'In order to achieve a more compatible tag, you would '
                 'need to recompile a new wheel from source on a system '
                 'with earlier versions of these libraries, such as '
-                'CentOS 5.') % winfo.sym_tag)
+                'a recent manylinux image.') % winfo.sym_tag)
         if args.verbose < 1:
             return
 
