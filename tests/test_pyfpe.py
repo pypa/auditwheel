@@ -1,5 +1,4 @@
 from auditwheel.wheel_abi import analyze_wheel_abi
-from auditwheel.policy import POLICY_PRIORITY_LOWEST
 
 
 def test_analyze_wheel_abi():

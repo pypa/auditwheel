@@ -14,11 +14,10 @@ files on disk), and we parse the dependency structure as a tree rather than
 
 import os
 import glob
-import json
 import errno
 import logging
 import functools
-from typing import Iterator, Tuple, List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any
 
 from elftools.elf.elffile import ELFFile  # type: ignore
 
@@ -157,7 +156,7 @@ def parse_ld_so_conf(ldso_conf: str,
                     paths += [normpath(root + line)]
     except IOError as e:
         if e.errno != errno.ENOENT:
-            log.warn(e)
+            log.warning(e)
 
     if _first:
         # XXX: Load paths from ldso itself.
@@ -190,7 +189,7 @@ def load_ld_paths(root: str='/', prefix: str='') -> Dict[str, List[str]]:
     env_ldpath = os.environ.get('LD_LIBRARY_PATH')
     if env_ldpath is not None:
         if root != '/':
-            log.warn('ignoring LD_LIBRARY_PATH due to ROOT usage')
+            log.warning('ignoring LD_LIBRARY_PATH due to ROOT usage')
         else:
             # XXX: If this contains $ORIGIN, we probably have to parse this
             # on a per-ELF basis so it can get turned into the right thing.
@@ -201,7 +200,7 @@ def load_ld_paths(root: str='/', prefix: str='') -> Dict[str, List[str]]:
                                        root=root)
     # the trusted directories are not necessarily in ld.so.conf
     ldpaths['conf'].extend(['/lib', '/lib64/', '/usr/lib', '/usr/lib64'])
-    log.info('linker ldpaths: %s', ldpaths)
+    log.debug('linker ldpaths: %s', ldpaths)
     return ldpaths
 
 
