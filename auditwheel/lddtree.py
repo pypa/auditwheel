@@ -14,11 +14,10 @@ files on disk), and we parse the dependency structure as a tree rather than
 
 import os
 import glob
-import json
 import errno
 import logging
 import functools
-from typing import Iterator, Tuple, List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any
 
 from elftools.elf.elffile import ELFFile  # type: ignore
 

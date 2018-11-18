@@ -1,6 +1,5 @@
 import logging
-from functools import reduce
-from typing import Dict, Iterable, Set
+from typing import Dict, Set
 
 from . import load_policies
 
