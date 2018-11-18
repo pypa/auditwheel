@@ -8,7 +8,9 @@ Released Nov. 18, 2018
 
 ### User-facing changes
 
-- [FEATURE] manylinux2010 policy support.
+- [FEATURE] manylinux2010 policy support
+  ([#92](https://github.com/pypa/auditwheel/pull/92),
+  [#130](https://github.com/pypa/auditwheel/pull/130))
     - Closes the auditwheel portion of "manylinux2010 rollout" ([pypa/manylinux#179](https://github.com/pypa/manylinux/issues/179))
 - [FEATURE] Drop Python 3.4 support and add Python 3.7 support
   ([#127](https://github.com/pypa/auditwheel/pull/127))
