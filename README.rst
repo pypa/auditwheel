@@ -6,19 +6,24 @@ auditwheel
 .. image:: https://badge.fury.io/py/auditwheel.svg
     :target: https://pypi.org/project/auditwheel
 
-Auditing and relabeling `PEP 513 manylinux1 <https://www.python.org/dev/peps/pep-0513/>`_ Linux wheels.
+Auditing and relabeling of `PEP 513 manylinux1
+<https://www.python.org/dev/peps/pep-0513/>`_ and `PEP 571 manylinux2010
+<https://www.python.org/dev/peps/pep-0571/>`_ Linux wheels.
 
 Overview
 --------
 
 ``auditwheel`` is a command line tool to facilitate the creation of Python
-`wheel packages <http://pythonwheels.com/>`_ for Linux containing
-pre-compiled binary extensions are compatible with a wide variety of Linux distributions, consistent with the `PEP 513 manylinux1 <https://www.python.org/dev/peps/pep-0513/>`_ platform tag.
+`wheel packages <http://pythonwheels.com/>`_ for Linux containing pre-compiled
+binary extensions are compatible with a wide variety of Linux distributions,
+consistent with the `PEP 513 manylinux1
+<https://www.python.org/dev/peps/pep-0513/>`_ and `PEP 571 manylinux2010
+<https://www.python.org/dev/peps/pep-0571/>`_ platform tags.
 
 ``auditwheel show``: shows external shared libraries that the wheel depends on
-(beyond the libraries included in the ``manylinux1`` policy), and
+(beyond the libraries included in the ``manylinux`` policies), and
 checks the extension modules for the use of versioned symbols that exceed
-the ``manylinux_`` ABI.
+the ``manylinux`` ABI.
 
 ``auditwheel repair``: copies these external shared libraries into the wheel itself, and automatically modifies the appropriate ``RPATH`` entries such that these libraries will be picked up at runtime. This accomplishes a similar result as if the libraries had been statically linked without requiring changes to the build system. Packagers are advised that bundling, like static linking, may implicate copyright concerns.
 
@@ -31,13 +36,14 @@ Installation
   pip3 install auditwheel
 
 It requires Python 3.5+, and runs on Linux. It requires that the shell command
-``unzip`` be available in the ``PATH``. Only systems that use
-`ELF <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based
-linkage are supported (this should be essentially every Linux).
+``unzip`` be available in the ``PATH``. Only systems that use `ELF
+<https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based linkage
+are supported (this should be essentially every Linux).
 
-But in general, building ``manylinux1`` wheels requires running on a CentOS5
-machine, so we recommend using the pre-built manylinux `Docker image
-<https://quay.io/repository/pypa/manylinux1_x86_64>`_. ::
+In general, building ``manylinux1`` wheels requires running on a CentOS5
+machine, and building ``manylinux2010`` wheels requires running on a CentOS6
+machine, so we recommend using the pre-built manylinux `Docker images
+<https://quay.io/repository/pypa/manylinux1_x86_64>`_, e.g. ::
 
   $ docker run -i -t -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 /bin/bash
 
