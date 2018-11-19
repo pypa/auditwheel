@@ -25,11 +25,15 @@ consistent with the `PEP 513 manylinux1
 checks the extension modules for the use of versioned symbols that exceed
 the ``manylinux`` ABI.
 
-``auditwheel repair``: copies these external shared libraries into the wheel itself, and automatically modifies the appropriate ``RPATH`` entries such that these libraries will be picked up at runtime. This accomplishes a similar result as if the libraries had been statically linked without requiring changes to the build system. Packagers are advised that bundling, like static linking, may implicate copyright concerns.
+``auditwheel repair``: copies these external shared libraries into the wheel itself,
+and automatically modifies the appropriate ``RPATH`` entries such that these libraries
+will be picked up at runtime. This accomplishes a similar result as if the libraries had
+been statically linked without requiring changes to the build system. Packagers are
+advised that bundling, like static linking, may implicate copyright concerns.
 
 
 Installation
--------------
+------------
 
 ``auditwheel`` can be installed using pip: ::
 
@@ -92,8 +96,8 @@ Limitations
 
 1. ``auditwheel`` uses the `DT_NEEDED <https://en.wikipedia.org/wiki/Direct_binding>`_
    information (like ``ldd``) from the Python extension modules to determine
-   which system system libraries they depend on. Code that that dynamically
-   loads libraries at at runtime using ``ctypes`` / ``cffi`` (from Python) or
+   which system system libraries they depend on. Code that dynamically
+   loads libraries at runtime using ``ctypes`` / ``cffi`` (from Python) or
    ``dlopen`` (from C/C++) doesn't contain this information in a way that can
    be statically determined, so dependencies that are loaded via those
    mechanisms will be missed.
@@ -112,7 +116,7 @@ Limitations
 Code of Conduct
 ---------------
 
-Everyone interacting in the auditwheel project's codebases, issue trackers,
+Everyone interacting in the ``auditwheel`` project's codebases, issue trackers,
 chat rooms, and mailing lists is expected to follow the
 `PyPA Code of Conduct`_.
 
