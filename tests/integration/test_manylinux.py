@@ -348,8 +348,9 @@ def test_build_repair_pure_wheel(any_manylinux_container, io_folder):
     ]) in output.replace('\n', ' ')
 
 
+@pytest.mark.parametrize('dtag', ['rpath', 'runpath'])
 def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, docker_python,
-                                                     io_folder):
+                                                     io_folder, dtag):
     # Test building a wheel that contains an extension depending on a library with RPATH set
 
     policy, manylinux_ctr = any_manylinux_container
@@ -362,11 +363,16 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
             (
                 'cd /auditwheel_src/tests/integration/testrpath '
                 '&& rm -rf build '
-                '&& python setup.py bdist_wheel -d /io'
-            ),
+                '&& DTAG={} python setup.py bdist_wheel -d /io'
+            ).format(dtag),
         ]
     )
-
+    if dtag == 'runpath':
+        with open(op.join(op.dirname(__file__), 'testrpath', 'a', 'liba.so'), 'rb') as f:
+            elf = ELFFile(f)
+            dynamic = elf.get_section_by_name('.dynamic')
+            tags = {t.entry.d_tag for t in dynamic.iter_tags()}
+            assert 'DT_RUNPATH' in tags
     filenames = os.listdir(io_folder)
     assert filenames == ['testrpath-0.0.1-cp35-cp35m-linux_x86_64.whl']
     orig_wheel = filenames[0]
@@ -406,7 +412,13 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
                     dynamic = elf.get_section_by_name('.dynamic')
+                    rpath = runpath = None
+                    for t in dynamic.iter_tags():
+                        if t.entry.d_tag == 'DT_RPATH':
+                            rpath = t
+                        elif t.entry.d_tag == 'DT_RUNPATH':
+                            runpath = t
+                    assert runpath is None
                     if '.libs/liba' in name:
-                        rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == 'DT_RPATH']
-                        assert len(rpath_tags) == 1
-                        assert rpath_tags[0].rpath == '$ORIGIN/.'
+                        assert rpath is not None
+                        assert rpath.rpath == '$ORIGIN/.'

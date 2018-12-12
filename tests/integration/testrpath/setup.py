@@ -1,12 +1,19 @@
 from setuptools import setup, Extension
+import os
 import subprocess
 
 cmd = 'gcc -fPIC -shared -o b/libb.so b/b.c'
 subprocess.check_call(cmd.split())
 cmd = (
     'gcc -fPIC -shared -o a/liba.so '
-    '-Wl,--disable-new-dtags -Wl,-rpath=$ORIGIN/../b '
+    '-Wl,{dtags_flag} -Wl,-rpath=$ORIGIN/../b '
     '-Ib -Lb -lb a/a.c'
+).format(
+    dtags_flag=(
+        '--enable-new-dtags'
+        if os.getenv('DTAG') == 'runpath'
+        else '--disable-new-dtags'
+    )
 )
 subprocess.check_call(cmd.split())
 
