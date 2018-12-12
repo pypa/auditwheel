@@ -152,4 +152,5 @@ def copylib(src_path, dest_dir):
 def patchelf_set_rpath(fn, libdir):
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
     logger.debug('Setting RPATH: %s to "%s"', fn, rpath)
+    check_call(['patchelf', '--remove-rpath', fn])
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])
