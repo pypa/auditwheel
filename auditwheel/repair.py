@@ -150,6 +150,10 @@ def copylib(src_path, dest_dir):
 
 
 def patchelf_set_rpath(fn, libdir):
+    old_rpath = check_output(['patchelf', '--print-rpath', fn]
+                             ).decode('utf-8').strip()
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
+    if old_rpath != '':
+        rpath = ':'.join([old_rpath, rpath])
     logger.debug('Setting RPATH: %s to "%s"', fn, rpath)
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])
