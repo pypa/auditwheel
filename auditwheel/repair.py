@@ -67,6 +67,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
             # more than one pkg, which is why we detect the pkg root
             # for each fn.
             pkg_root = fn.split(os.sep)[0]
+            logger.debug('Inspecting: %s', fn)
 
             if pkg_root == fn:
                 # this file is an extension that's not contained in a
@@ -87,10 +88,12 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
 
                 new_soname, new_path = copylib(src_path, dest_dir)
                 soname_map[soname] = (new_soname, new_path)
+                logger.debug('├─ Replacing: %s -> %s', soname, new_soname)
                 check_call(['patchelf', '--replace-needed', soname, new_soname, fn])
 
             if len(ext_libs) > 0:
                 patchelf_set_rpath(fn, dest_dir)
+            logger.debug('└─ Done.')
 
         # we grafted in a bunch of libraries and modifed their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
@@ -151,5 +154,5 @@ def copylib(src_path, dest_dir):
 
 def patchelf_set_rpath(fn, libdir):
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
-    logger.debug('Setting RPATH: %s to "%s"', fn, rpath)
+    logger.debug('├─ Setting RPATH: %s to "%s"', fn, rpath)
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])
