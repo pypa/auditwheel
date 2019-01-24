@@ -2,6 +2,15 @@
 
 ## HEAD
 
+## 2.0
+
+Released Jan. 23, 2019
+
+- After approximately 2 months of testing, no new regressions were detected in
+  the 2.0 release candidate.
+- Note that this release contains the implementation of [PEP
+  571](https://www.python.org/dev/peps/pep-0571/), e.g. manylinux2010 support.
+
 ## 2.0rc1
 
 Released Nov. 18, 2018
