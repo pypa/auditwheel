@@ -28,25 +28,8 @@ def build_hello_wheel(docker_container):
     return orig_wheel
 
 
-def test_detect_external_dependency_in_wheel(docker_container):
-    # tests https://github.com/pypa/auditwheel/issues/136
+def repair_hello_wheel(orig_wheel, docker_container):
     policy, manylinux_id, python_id, io_folder = docker_container
-    orig_wheel = build_hello_wheel(docker_container)
-
-    output = docker_exec(manylinux_id, 'auditwheel show /io/' + orig_wheel)
-    assert (
-        'In order to achieve the tag platform tag "manylinux1_x86_64" the'
-        'following shared library dependencies will need to be eliminated:'
-        'libz.so.1'
-        'lib_zlibexample.cpython-35m-x86_64-linux-gnu.so'
-    ) in output.replace('\n', '')
-
-
-def test_repair_hello_wheel(docker_container):
-    policy, manylinux_id, python_id, io_folder = docker_container
-    orig_wheel = build_hello_wheel(docker_container)
-    # attempting repair of the hello wheel
-
     # Repair the wheel using the manylinux container
     repair_command = (
         'auditwheel repair --plat {policy}_x86_64 -w /io /io/{orig_wheel}'
@@ -55,9 +38,20 @@ def test_repair_hello_wheel(docker_container):
     filenames = os.listdir(io_folder)
 
     # Regardless of build environment, wheel only needs manylinux1 symbols
-    repaired_wheels = [fn for fn in filenames if 'manylinux1' in fn]
-    assert repaired_wheels == ['hello-0.1.0-cp35-cp35m-manylinux1_x86_64.whl']
+    repaired_wheels = [fn for fn in filenames if policy in fn]
+    assert repaired_wheels == ['hello-0.1.0-cp35-cp35m-{policy}_x86_64.whl'.format(policy=policy)]
     repaired_wheel = repaired_wheels[0]
+
+    return repaired_wheel
+
+
+def test_repair_reccurent_dependency(docker_container):
+    # tests https://github.com/pypa/auditwheel/issues/136
+    policy, manylinux_id, python_id, io_folder = docker_container
+    orig_wheel = build_hello_wheel(docker_container)
+
+    # attempting repair of the hello wheel
+    repaired_wheel = repair_hello_wheel(orig_wheel, docker_container)
 
     output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
     assert (
@@ -65,7 +59,16 @@ def test_repair_hello_wheel(docker_container):
         'following platform tag: "manylinux1_x86_64"'
     ) in output.replace('\n', '')
 
-    # Test whether wheel is functioning.
+
+def test_correct_rpath_hello_wheel(docker_container):
+    # this tests https://github.com/pypa/auditwheel/issues/137
+    policy, manylinux_id, python_id, io_folder = docker_container
+    orig_wheel = build_hello_wheel(docker_container)
+
+    # attempting repair of the hello wheel
+    repaired_wheel = repair_hello_wheel(orig_wheel, docker_container)
+
+    # Test whether repaired wheel is functioning.
 
     # TODO: Remove once pip supports manylinux2010
     docker_exec(
@@ -75,7 +78,7 @@ def test_repair_hello_wheel(docker_container):
 
     test_commands = [
         'pip install -U /io/' + repaired_wheel,
-        '''python -c "from hello import z_compress, z_uncompress; assert z_uncompress(z_compress('test')) == 'test'"''',
+        'python -c "from hello import z_compress, z_uncompress; assert z_uncompress(z_compress(\'test\')) == \'test\'"',
     ]
     for cmd in test_commands:
         docker_exec(python_id, cmd)
