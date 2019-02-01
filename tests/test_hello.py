@@ -12,6 +12,8 @@ HELLO_WHEEL = 'hello-0.1.0-cp35-cp35m-linux_x86_64.whl'
 def build_hello_wheel(docker_container):
     policy, manylinux_id, python_id, io_folder = docker_container
 
+    docker_exec(manylinux_id, 'yum install -y zlib-devel')
+
     if op.exists(op.join(WHEEL_CACHE_FOLDER, HELLO_WHEEL)):
         # If hello has already been built and put in cache, let's reuse this.
         shutil.copy2(op.join(WHEEL_CACHE_FOLDER, HELLO_WHEEL),
