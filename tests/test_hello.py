@@ -54,10 +54,12 @@ def test_repair_reccurent_dependency(docker_container):
     repaired_wheel = repair_hello_wheel(orig_wheel, docker_container)
 
     output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
+    # because this wheel is eligible to the manylinux1 tag, it will
+    # actually prioritize manylinux1 instead of manylinux2010
     assert (
-        'hello-0.1.0-cp35-cp35m-manylinux1_x86_64.whl is consistent with the'
+        'hello-0.1.0-cp35-cp35m-{policy}_x86_64.whl is consistent with the'
         'following platform tag: "manylinux1_x86_64"'
-    ) in output.replace('\n', '')
+    ).format(policy=policy) in output.replace('\n', '')
 
 
 def test_correct_rpath_hello_wheel(docker_container):
@@ -78,7 +80,7 @@ def test_correct_rpath_hello_wheel(docker_container):
 
     test_commands = [
         'pip install -U /io/' + repaired_wheel,
-        'python -c "from hello import z_compress, z_uncompress; assert z_uncompress(z_compress(\'test\')) == \'test\'"',
+        'python /auditwheel_src/tests/pr134/hello_module/tests/manual_test.py',
     ]
     for cmd in test_commands:
         docker_exec(python_id, cmd)
