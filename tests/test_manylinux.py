@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 ENCODING = 'utf-8'
 MANYLINUX1_IMAGE_ID = 'quay.io/pypa/manylinux1_x86_64'
-#TODO: use the pypa manylinux2010 image on release
-MANYLINUX2010_IMAGE_ID = 'zombiefeynman/manylinux2010_x86_64'
+MANYLINUX2010_IMAGE_ID = 'quay.io/pypa/manylinux2010_x86_64'
 MANYLINUX_IMAGES = {
     'manylinux1': MANYLINUX1_IMAGE_ID,
     'manylinux2010': MANYLINUX2010_IMAGE_ID,
@@ -210,12 +209,6 @@ def test_build_wheel_with_binary_executable(docker_container):
         'testpackage-0.0.1-py3-none-{policy}_x86_64.whl is consistent'
         ' with the following platform tag: "{policy}_x86_64"'
     ).format(policy=policy) in output.replace('\n', ' ')
-
-    # TODO: Remove once pip supports manylinux2010
-    docker_exec(
-        python_id,
-        "pip install git+https://github.com/wtolson/pip.git@manylinux2010",
-    )
 
     docker_exec(python_id, 'pip install /io/' + repaired_wheel)
     output = docker_exec(
