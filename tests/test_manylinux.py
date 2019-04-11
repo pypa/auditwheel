@@ -14,16 +14,29 @@ logger = logging.getLogger(__name__)
 
 ENCODING = 'utf-8'
 MANYLINUX1_IMAGE_ID = 'quay.io/pypa/manylinux1_x86_64'
-#TODO: use the pypa manylinux2010 image on release
-MANYLINUX2010_IMAGE_ID = 'zombiefeynman/manylinux2010_x86_64'
+MANYLINUX2010_IMAGE_ID = 'quay.io/pypa/manylinux2010_x86_64'
 MANYLINUX_IMAGES = {
     'manylinux1': MANYLINUX1_IMAGE_ID,
     'manylinux2010': MANYLINUX2010_IMAGE_ID,
 }
 DOCKER_CONTAINER_NAME = 'auditwheel-test-manylinux'
 PYTHON_IMAGE_ID = 'python:3.5'
-PATH = ('/opt/python/cp35-cp35m/bin:/opt/rh/devtoolset-2/root/usr/bin:'
-        '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')
+DEVTOOLSET = {
+    'manylinux1': 'devtoolset-2',
+    'manylinux2010': 'devtoolset-8',
+}
+PATH_DIRS = [
+    '/opt/python/cp35-cp35m/bin',
+    '/opt/rh/{devtoolset}/root/usr/bin',
+    '/usr/local/sbin',
+    '/usr/local/bin',
+    '/usr/sbin',
+    '/usr/bin',
+    '/sbin',
+    '/bin',
+]
+PATH = {k: ':'.join(PATH_DIRS).format(devtoolset=v)
+        for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser('~/.cache/auditwheel_tests')
 ORIGINAL_NUMPY_WHEEL = 'numpy-1.11.0-cp35-cp35m-linux_x86_64.whl'
 ORIGINAL_SIX_WHEEL = 'six-1.11.0-py2.py3-none-any.whl'
@@ -71,14 +84,16 @@ def docker_exec(container_id, cmd):
 def docker_container(request):
     if find_executable("docker") is None:
         pytest.skip('docker is required')
-    if not op.exists(WHEEL_CACHE_FOLDER):
-        os.makedirs(WHEEL_CACHE_FOLDER)
+
+    policy = request.param
+    if not op.exists(op.join(WHEEL_CACHE_FOLDER, policy)):
+        os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy))
     src_folder = find_src_folder()
     if src_folder is None:
         pytest.skip('Can only be run from the source folder')
     io_folder = tempfile.mkdtemp(prefix='tmp_auditwheel_test_manylinux_',
                                  dir=src_folder)
-    policy = request.param
+
     manylinux_id, python_id = None, None
     try:
         # Launch a docker container with volumes and pre-configured Python
@@ -89,7 +104,7 @@ def docker_container(request):
         manylinux_id = docker_start(
             MANYLINUX_IMAGES[policy],
             volumes={'/io': io_folder, '/auditwheel_src': src_folder},
-            env_variables={'PATH': PATH})
+            env_variables={'PATH': PATH[policy]})
         # Install the development version of auditwheel from source:
         docker_exec(manylinux_id, 'pip install -U pip setuptools')
         docker_exec(manylinux_id, 'pip install -U /auditwheel_src')
@@ -121,9 +136,9 @@ def test_build_repair_numpy(docker_container):
     policy, manylinux_id, python_id, io_folder = docker_container
     docker_exec(manylinux_id, 'yum install -y atlas atlas-devel')
 
-    if op.exists(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_NUMPY_WHEEL)):
+    if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
         # If numpy has already been built and put in cache, let's reuse this.
-        shutil.copy2(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_NUMPY_WHEEL),
+        shutil.copy2(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL),
                      op.join(io_folder, ORIGINAL_NUMPY_WHEEL))
     else:
         # otherwise build the original linux_x86_64 numpy wheel from source
@@ -133,7 +148,7 @@ def test_build_repair_numpy(docker_container):
         docker_exec(manylinux_id,
                     'pip wheel -w /io --no-binary=:all: numpy==1.11.0')
         shutil.copy2(op.join(io_folder, ORIGINAL_NUMPY_WHEEL),
-                     op.join(WHEEL_CACHE_FOLDER, ORIGINAL_NUMPY_WHEEL))
+                     op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL))
     filenames = os.listdir(io_folder)
     assert filenames == [ORIGINAL_NUMPY_WHEEL]
     orig_wheel = filenames[0]
@@ -146,21 +161,15 @@ def test_build_repair_numpy(docker_container):
     docker_exec(manylinux_id, repair_command)
     filenames = os.listdir(io_folder)
 
-    if policy == 'manylinux1':
-        expected_files = 2
-    elif policy == 'manylinux2010':
-        expected_files = 3  # We end up repairing the wheel twice to manylinux1
-
-    assert len(filenames) == expected_files
-    # Regardless of build environment, wheel only needs manylinux1 symbols
-    repaired_wheels = [fn for fn in filenames if 'manylinux1' in fn]
-    assert repaired_wheels == ['numpy-1.11.0-cp35-cp35m-manylinux1_x86_64.whl']
+    assert len(filenames) == 2
+    repaired_wheels = [fn for fn in filenames if 'manylinux' in fn]
+    assert repaired_wheels == ['numpy-1.11.0-cp35-cp35m-{}_x86_64.whl'.format(policy)]
     repaired_wheel = repaired_wheels[0]
     output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
     assert (
-        'numpy-1.11.0-cp35-cp35m-manylinux1_x86_64.whl is consistent'
-        ' with the following platform tag: "manylinux1_x86_64"'
-    ) in output.replace('\n', ' ')
+        'numpy-1.11.0-cp35-cp35m-{policy}_x86_64.whl is consistent'
+        ' with the following platform tag: "{policy}_x86_64"'
+    ).format(policy=policy) in output.replace('\n', ' ')
 
     # Check that the repaired numpy wheel can be installed and executed
     # on a modern linux image.
@@ -211,12 +220,6 @@ def test_build_wheel_with_binary_executable(docker_container):
         ' with the following platform tag: "{policy}_x86_64"'
     ).format(policy=policy) in output.replace('\n', ' ')
 
-    # TODO: Remove once pip supports manylinux2010
-    docker_exec(
-        python_id,
-        "pip install git+https://github.com/wtolson/pip.git@manylinux2010",
-    )
-
     docker_exec(python_id, 'pip install /io/' + repaired_wheel)
     output = docker_exec(
         python_id, ['python', '-c', 'from testpackage import runit; print(runit(1.5))']).strip()
@@ -226,15 +229,15 @@ def test_build_wheel_with_binary_executable(docker_container):
 def test_build_repair_pure_wheel(docker_container):
     policy, manylinux_id, python_id, io_folder = docker_container
 
-    if op.exists(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL)):
+    if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL)):
         # If six has already been built and put in cache, let's reuse this.
-        shutil.copy2(op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL),
+        shutil.copy2(op.join(WHEEL_CACHE_FOLDER, policy,  ORIGINAL_SIX_WHEEL),
                      op.join(io_folder, ORIGINAL_SIX_WHEEL))
     else:
         docker_exec(manylinux_id,
                     'pip wheel -w /io --no-binary=:all: six==1.11.0')
         shutil.copy2(op.join(io_folder, ORIGINAL_SIX_WHEEL),
-                     op.join(WHEEL_CACHE_FOLDER, ORIGINAL_SIX_WHEEL))
+                     op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL))
 
     filenames = os.listdir(io_folder)
     assert filenames == [ORIGINAL_SIX_WHEEL]
