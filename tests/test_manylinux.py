@@ -21,8 +21,22 @@ MANYLINUX_IMAGES = {
 }
 DOCKER_CONTAINER_NAME = 'auditwheel-test-manylinux'
 PYTHON_IMAGE_ID = 'python:3.5'
-PATH = ('/opt/python/cp35-cp35m/bin:/opt/rh/devtoolset-2/root/usr/bin:'
-        '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin')
+DEVTOOLSET = {
+    'manylinux1': 'devtoolset-2',
+    'manylinux2010': 'devtoolset-8',
+}
+PATH_DIRS = [
+    '/opt/python/cp35-cp35m/bin',
+    '/opt/rh/{devtoolset}/root/usr/bin',
+    '/usr/local/sbin',
+    '/usr/local/bin',
+    '/usr/sbin',
+    '/usr/bin',
+    '/sbin',
+    '/bin',
+]
+PATH = {k: ':'.join(PATH_DIRS).format(devtoolset=v)
+        for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser('~/.cache/auditwheel_tests')
 ORIGINAL_NUMPY_WHEEL = 'numpy-1.11.0-cp35-cp35m-linux_x86_64.whl'
 ORIGINAL_SIX_WHEEL = 'six-1.11.0-py2.py3-none-any.whl'
@@ -88,7 +102,7 @@ def docker_container(request):
         manylinux_id = docker_start(
             MANYLINUX_IMAGES[policy],
             volumes={'/io': io_folder, '/auditwheel_src': src_folder},
-            env_variables={'PATH': PATH})
+            env_variables={'PATH': PATH[policy]})
         # Install the development version of auditwheel from source:
         docker_exec(manylinux_id, 'pip install -U pip setuptools')
         docker_exec(manylinux_id, 'pip install -U /auditwheel_src')
