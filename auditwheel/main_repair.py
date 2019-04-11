@@ -96,7 +96,7 @@ def execute(args, p):
             msg = ('Produced a wheel %r, but it is no longer compatible '
                    'with the %s tag, possibly because grafted libraries '
                    'require more recent symbols.' %
-                   (out_wheel, reqd_tag))
+                   (out_wheel, args.PLAT))
             sys.exit(msg)
 
         logger.info('\nFixed-up wheel written to %s', out_wheel)
