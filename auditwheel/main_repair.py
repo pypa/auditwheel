@@ -2,6 +2,7 @@ from os.path import isfile, exists, abspath, basename
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -90,5 +91,12 @@ def execute(args, p):
                                      lib_sdir=args.LIB_SDIR,
                                      out_dir=args.WHEEL_DIR,
                                      update_tags=args.UPDATE_TAGS)
+
+        elif reqd_tag < get_priority_by_name(analyzed_tag):
+            msg = ('Produced a wheel %r, but it is no longer compatible '
+                   'with the %s tag, possibly because grafted libraries '
+                   'require more recent symbols.' %
+                   (out_wheel, reqd_tag))
+            sys.exit(msg)
 
         logger.info('\nFixed-up wheel written to %s', out_wheel)
