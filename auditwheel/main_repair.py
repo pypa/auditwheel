@@ -92,7 +92,7 @@ def execute(args, p):
                                      out_dir=args.WHEEL_DIR,
                                      update_tags=args.UPDATE_TAGS)
 
-        elif reqd_tag < get_priority_by_name(analyzed_tag):
+        elif reqd_tag > get_priority_by_name(analyzed_tag):
             msg = ('Produced a wheel %r, but it is no longer compatible '
                    'with the %s tag, possibly because grafted libraries '
                    'require more recent symbols.' %
