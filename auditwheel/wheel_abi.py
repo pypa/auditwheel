@@ -3,6 +3,7 @@ import json
 import logging
 import functools
 import os
+from copy import deepcopy
 from os.path import basename
 from typing import Dict, Set
 
@@ -116,7 +117,65 @@ def analyze_wheel_abi(wheel_fn: str):
     log.debug('external reference info')
     log.debug(json.dumps(external_refs, indent=4))
 
+    # get versioned symbols from external_refs
+    # {realpath: libname} e.g.
+    # {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
+    external_ref_no_linux = {}
+    # go through all policies
+    for e in external_refs.values():
+        # linux tag (priority 0) has no white-list, do not analyze it
+        if e['priority'] == 0:
+            continue
+        # go through all libs, retrieving their soname and realpath
+        for libname, realpath in e['libs'].items():
+            # we can't analyze the lib if we don't know where it's located
+            if realpath is None:
+                continue
+            if realpath not in external_ref_no_linux.keys():
+                external_ref_no_linux[realpath] = libname
+    # {libname: {depname: set([symbol_version])}} e.g.
+    # {'external_ref.so.1': {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}}
+    external_refs_symbol_policy = {}
+    for path, elf in elf_file_filter(external_ref_no_linux.keys()):
+        # {depname: set(symbol_version)}, e.g.
+        # {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
+        elf_versioned_symbols = defaultdict(lambda: set())
+        for key, value in elf_find_versioned_symbols(elf):
+            log.debug('path %s, key %s, value %s', path, key, value)
+            elf_versioned_symbols[key].add(value)
+        external_refs_symbol_policy[external_ref_no_linux[path]] = \
+            elf_versioned_symbols
+
     symbol_policy = versioned_symbols_policy(versioned_symbols)
+
+    # since white-list is different per policy,
+    # let's examine versioned_symbol per policy when including external refs
+    # list of tuples of the form (policy_priority, versioned_symbols), e.g.
+    # [(100, {'libc.so.6', set(['GLIBC_2.5'])})]
+    symbol_policies = []
+    # go through all policies
+    for e in external_refs.values():
+        # skip the linux policy or ones we already know are not possible
+        if e['priority'] > symbol_policy or e['priority'] == 0:
+            continue
+        policy_symbols = deepcopy(versioned_symbols)
+        for l in e['libs'].keys():  # go through all libnames
+            if l not in external_refs_symbol_policy:
+                continue
+            ext_symbols = external_refs_symbol_policy[l]
+            for k in iter(ext_symbols):
+                policy_symbols[k].update(ext_symbols[k])
+        symbol_policies.append(
+            (versioned_symbols_policy(policy_symbols), policy_symbols))
+
+    # let's keep the highest priority policy and
+    # corresponding versioned_symbols
+    symbol_policy, versioned_symbols = max(
+        symbol_policies,
+        key=lambda x: x[0],
+        default=(symbol_policy, versioned_symbols)
+    )
+
     ref_policy = max(
         (e['priority'] for e in external_refs.values() if len(e['libs']) == 0),
         default=POLICY_PRIORITY_LOWEST)
