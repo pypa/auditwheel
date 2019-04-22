@@ -1,3 +1,4 @@
+import argparse
 import os
 import shutil
 from glob import glob
@@ -101,3 +102,34 @@ def find_package_dirs(root_path):
         if isdir(fname) and exists(pjoin(fname, '__init__.py')):
             package_sdirs.add(fname)
     return package_sdirs
+
+
+class EnvironmentDefault(argparse.Action):
+    """Get values from environment variable."""
+
+    def __init__(self, env, required=True, default=None, **kwargs):
+        self.env_default = os.environ.get(env)
+        self.env = env
+        if self.env_default:
+            default = self.env_default
+        if default:
+            required = False
+        if self.env_default and 'choices' in kwargs:
+            choices = kwargs['choices']
+            if not self.env_default in choices:
+                self.option_strings = kwargs['option_strings']
+                args = {'value': self.env_default,
+                        'choices': ', '.join(map(repr, choices)),
+                        'env': self.env
+                }
+                msg = 'invalid choice: %(value)r from environment variable %(env)r (choose from %(choices)s)'
+                raise argparse.ArgumentError(self, msg % args)
+
+        super(EnvironmentDefault, self).__init__(
+            default=default,
+            required=required,
+            **kwargs
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
