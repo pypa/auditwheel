@@ -1,5 +1,6 @@
 from subprocess import check_call, check_output, CalledProcessError
 import pytest
+import io
 import os
 import os.path as op
 import tempfile
@@ -7,7 +8,9 @@ import shutil
 import warnings
 from distutils.spawn import find_executable
 import logging
+import zipfile
 
+import elftools.elf.elffile
 
 logger = logging.getLogger(__name__)
 
@@ -259,3 +262,97 @@ def test_build_repair_pure_wheel(docker_container):
         'provided shared libraries.  ',
         'The wheel requires no external shared libraries! :)',
     ]) in output.replace('\n', ' ')
+
+
+def test_build_repair_wheel_with_runpath(docker_container):
+    policy, manylinux_id, python_id, io_folder = docker_container
+    docker_exec(
+        manylinux_id,
+        [
+            'bash',
+            '-c',
+            'cd /auditwheel_src/tests/runpath'
+            '&& make '
+            '&& pip wheel . -w /io',
+        ],
+    )
+
+    with open(
+        os.path.join(
+            os.path.dirname(__file__), 'runpath', 'lib-src', 'a', 'liba.so'
+        ),
+        'rb',
+    ) as f:
+        elf = elftools.elf.elffile.ELFFile(f)
+        dynamic = elf.get_section_by_name('.dynamic')
+        tags = {t.entry.d_tag for t in dynamic.iter_tags()}
+        assert 'DT_RUNPATH' in tags
+
+    filenames = os.listdir(io_folder)
+    assert filenames == ['example_runpath-1.0-cp35-cp35m-linux_x86_64.whl']
+    orig_wheel = filenames[0]
+    assert 'manylinux' not in orig_wheel
+
+    # Repair the wheel using the appropriate manylinux container
+    repair_command = (
+        'auditwheel repair --plat {policy}_x86_64 -w /io /io/{orig_wheel}'
+    ).format(policy=policy, orig_wheel=orig_wheel)
+    docker_exec(
+        manylinux_id,
+        [
+            'bash',
+            '-c',
+            'LD_LIBRARY_PATH=/auditwheel_src/tests/runpath/lib-src/a '
+            + repair_command,
+        ],
+    )
+    filenames = os.listdir(io_folder)
+
+    if policy == 'manylinux1':
+        expected_files = 2
+    elif policy == 'manylinux2010':
+        expected_files = 3  # We end up repairing the wheel twice to manylinux1
+
+    assert len(filenames) == expected_files
+
+    repaired_wheels = [fn for fn in filenames if policy in fn]
+    expected_wheel_name = (
+        'example_runpath-1.0-cp35-cp35m-{}_x86_64.whl'
+    ).format(policy)
+    assert repaired_wheels == [expected_wheel_name]
+    repaired_wheel = repaired_wheels[0]
+    output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
+    assert (
+        '{wheel} is consistent'
+        ' with the following platform tag: "manylinux1_x86_64"'
+    ).format(wheel=repaired_wheel) in output.replace('\n', ' ')
+
+    # TODO: Remove once pip supports manylinux2010
+    docker_exec(
+        python_id,
+        "pip install git+https://github.com/wtolson/pip.git@manylinux2010",
+    )
+
+    docker_exec(python_id, 'pip install /io/' + repaired_wheel)
+    output = docker_exec(
+        python_id,
+        [
+            'python',
+            '-c',
+            (
+                'from example_runpath.example import example_a; '
+                'print(example_a())'
+            ),
+        ],
+    ).strip()
+    assert output.strip() == '11'
+    with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as w:
+        for name in w.namelist():
+            if 'example_runpath/.libs/lib' in name:
+                with w.open(name) as f:
+                    elf = elftools.elf.elffile.ELFFile(io.BytesIO(f.read()))
+                    dynamic = elf.get_section_by_name('.dynamic')
+                    tags = {t.entry.d_tag for t in dynamic.iter_tags()}
+                    assert 'DT_RUNPATH' not in tags
+                    if '.libs/liba' in name:
+                        assert 'DT_RPATH' in tags

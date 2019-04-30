@@ -1,4 +1,5 @@
 pytest>=3.4
 jsonschema
 numpy
+pyelftools
 pypatchelf
