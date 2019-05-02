@@ -44,7 +44,7 @@ def zip2dir(zip_fname, out_dir):
     try:
         # but sometimes preserving permssions is really bad, and makes it
         # we don't have the permissions to read any of the files
-        with open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0]) as f:
+        with open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0]):
             pass
     except PermissionError:
         shutil.rmtree(out_dir)
@@ -66,7 +66,8 @@ def dir2zip(in_dir, zip_fname):
     zip_fname : str
         Filename of zip archive to write
     """
-    with zipfile.ZipFile(zip_fname, 'w', compression=zipfile.ZIP_DEFLATED) as z:
+    with zipfile.ZipFile(zip_fname, 'w',
+                         compression=zipfile.ZIP_DEFLATED) as z:
         for root, dirs, files in os.walk(in_dir):
             for file in files:
                 fname = os.path.join(root, file)

@@ -7,7 +7,7 @@ from elftools.common.exceptions import ELFError  # type: ignore
 from typing import Iterator, Tuple, Optional, Dict, List
 
 
-def elf_read_dt_needed(fn : str) -> List[str]:
+def elf_read_dt_needed(fn: str) -> List[str]:
     needed = []
     with open(fn, 'rb') as f:
         elf = ELFFile(f)

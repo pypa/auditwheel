@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def configure_parser(sub_parsers):
     policy_names = [p['name'] for p in load_policies()]
     highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)

@@ -39,7 +39,7 @@ def execute(args, p):
     if get_priority_by_name(winfo.pyfpe_tag) < POLICY_PRIORITY_HIGHEST:
         printp(('This wheel uses the PyFPE_jbuf function, which is not '
                 'compatible with the manylinux1 tag. (see '
-                'https://www.python.org/dev/peps/pep-0513/#fpectl-builds-vs-no-fpectl-builds)'))
+                'https://www.python.org/dev/peps/pep-0513/#fpectl-builds-vs-no-fpectl-builds)'))  # noqa
         if args.verbose < 1:
             return
 
@@ -80,4 +80,5 @@ def execute(args, p):
             printp(('In order to achieve the tag platform tag "%s" '
                     'the following shared library dependencies '
                     'will need to be eliminated:') % p['name'])
-            printp(', '.join(sorted(winfo.external_refs[p['name']]['libs'].keys())))
+            printp(', '.join(
+                sorted(winfo.external_refs[p['name']]['libs'].keys())))

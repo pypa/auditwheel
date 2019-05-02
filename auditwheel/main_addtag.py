@@ -22,7 +22,6 @@ def configure_parser(sub_parsers):
 
 def execute(args, p):
     import os
-    import sys
     from wheel.install import WHEEL_INFO_RE  # type: ignore
     from .wheeltools import InWheelCtx, add_platforms, WheelToolsError
     from .wheel_abi import analyze_wheel_abi
@@ -33,7 +32,7 @@ def execute(args, p):
     in_fname_tags = parsed_fname.groupdict()['plat'].split('.')
 
     logger.info('%s recieves the following tag: "%s".',
-                 basename(args.WHEEL_FILE), wheel_abi.overall_tag)
+                basename(args.WHEEL_FILE), wheel_abi.overall_tag)
     logger.info('Use ``auditwheel show`` for more details')
 
     if wheel_abi.overall_tag in in_fname_tags:
