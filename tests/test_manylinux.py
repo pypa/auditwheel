@@ -195,7 +195,7 @@ def test_build_wheel_with_binary_executable(docker_container):
     policy, manylinux_id, python_id, io_folder = docker_container
     docker_exec(manylinux_id, 'yum install -y gsl-devel')
 
-    docker_exec(manylinux_id, ['bash', '-c', 'cd /auditwheel_src/tests/testpackage && python setup.py bdist_wheel -d /io'])
+    docker_exec(manylinux_id, ['bash', '-c', 'cd /auditwheel_src/tests/testpackage && python -m pip wheel --no-deps -w /io .'])
 
     filenames = os.listdir(io_folder)
     assert filenames == ['testpackage-0.0.1-py3-none-any.whl']
