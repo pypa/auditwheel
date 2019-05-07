@@ -6,7 +6,7 @@ from ..elfutils import is_subdir
 from . import load_policies
 
 log = logging.getLogger(__name__)
-LIBPYTHON_RE = re.compile('^libpython\d\.\dm?.so(.\d)*$')
+LIBPYTHON_RE = re.compile(r'^libpython\d\.\dm?.so(.\d)*$')
 
 
 def lddtree_external_references(lddtree: Dict, wheel_path: str):

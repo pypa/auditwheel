@@ -16,10 +16,10 @@ from .policy import (lddtree_external_references, versioned_symbols_policy,
                      POLICY_PRIORITY_HIGHEST, load_policies)
 
 try:
-    from collections.abc import defaultdict, Mapping, Sequence, namedtuple
+    from collections.abc import defaultdict, Mapping, namedtuple
 except ImportError:
     # Pre-Python 3.7 compatibility
-    from collections import defaultdict, Mapping, Sequence, namedtuple
+    from collections import defaultdict, Mapping, namedtuple
 
 
 log = logging.getLogger(__name__)
@@ -42,12 +42,16 @@ def get_wheel_elfdata(wheel_fn: str):
         for fn, elf in elf_file_filter(ctx.iter_files()):
             is_py_ext, py_ver = elf_is_python_extension(fn, elf)
 
-            # Check for invalid binary wheel format: no shared library should be found in purelib
+            # Check for invalid binary wheel format: no shared library should
+            # be found in purelib
             so_path_split = fn.split(os.sep)
             if 'purelib' in so_path_split:
-                raise RuntimeError(('Invalid binary wheel, found shared library "%s" in purelib folder.\n'
-                                    'The wheel has to be platlib compliant in order to be repaired by auditwheel.') %
-                                   so_path_split[-1])
+                raise RuntimeError(
+                    ('Invalid binary wheel, found shared library "%s" in '
+                     'purelib folder.\n'
+                     'The wheel has to be platlib compliant in order to be '
+                     'repaired by auditwheel.') %
+                    so_path_split[-1])
 
             log.debug('processing: %s', fn)
             elftree = lddtree(fn)
@@ -87,8 +91,8 @@ def get_wheel_elfdata(wheel_fn: str):
             # we should walk its elftree.
             if basename(fn) not in needed_libs:
                 full_elftree[fn] = nonpy_elftree[fn]
-                full_external_refs[fn] = lddtree_external_references(nonpy_elftree[fn],
-                                                                     ctx.path)
+                full_external_refs[fn] = lddtree_external_references(
+                    nonpy_elftree[fn], ctx.path)
 
     log.debug(json.dumps(full_elftree, indent=4))
 
@@ -103,8 +107,8 @@ def analyze_wheel_abi(wheel_fn: str):
         for p in load_policies()
     }
 
-    elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2, uses_PyFPE_jbuf= \
-            get_wheel_elfdata(wheel_fn)
+    (elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2,
+     uses_PyFPE_jbuf) = get_wheel_elfdata(wheel_fn)
 
     for fn in elftree_by_fn.keys():
         update(external_refs, external_refs_by_fn[fn])
@@ -131,7 +135,8 @@ def analyze_wheel_abi(wheel_fn: str):
     sym_tag = get_policy_name(symbol_policy)
     ucs_tag = get_policy_name(ucs_policy)
     pyfpe_tag = get_policy_name(pyfpe_policy)
-    overall_tag = get_policy_name(min(symbol_policy, ref_policy, ucs_policy, pyfpe_policy))
+    overall_tag = get_policy_name(min(symbol_policy, ref_policy, ucs_policy,
+                                      pyfpe_policy))
 
     return WheelAbIInfo(overall_tag, external_refs, ref_tag, versioned_symbols,
                         sym_tag, ucs_tag, pyfpe_tag)

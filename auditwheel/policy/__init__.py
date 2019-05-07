@@ -5,6 +5,7 @@ from typing import Optional
 from os.path import join, dirname, abspath
 import logging
 
+
 logger = logging.getLogger(__name__)
 
 _sys_map = {'linux2': 'linux',
@@ -29,15 +30,17 @@ _PLATFORM_REPLACEMENT_MAP = {
 # XXX: this could be weakened. The show command _could_ run on OS X or
 # Windows probably, but there's not much reason to inspect foreign package
 # that won't run on the platform.
-if platform != 'linux':
-    logger.critical('Error: This tool only supports Linux')
-    sys.exit(1)
+# if platform != 'linux':
+#     logger.critical('Error: This tool only supports Linux')
+#     sys.exit(1)
+
 
 def get_arch_name():
     if _platform_module.machine() in non_x86_linux_machines:
         return _platform_module.machine()
     else:
         return {64: 'x86_64', 32: 'i686'}[bits]
+
 
 _ARCH_NAME = get_arch_name()
 
@@ -95,8 +98,9 @@ def get_replace_platforms(name: str):
     return _PLATFORM_REPLACEMENT_MAP.get(name, [])
 
 
-from .external_references import lddtree_external_references
-from .versioned_symbols import versioned_symbols_policy
+# These have to be imported here to avoid a circular import.
+from .external_references import lddtree_external_references  # noqa
+from .versioned_symbols import versioned_symbols_policy  # noqa
 
 __all__ = ['lddtree_external_references', 'versioned_symbols_policy',
            'load_policies', 'POLICY_PRIORITY_HIGHEST',
