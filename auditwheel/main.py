@@ -11,6 +11,10 @@ from . import main_repair
 
 
 def main():
+    if sys.platform != 'linux':
+        print('Error: This tool only supports Linux')
+        return 1
+
     dist = pkg_resources.get_distribution('auditwheel')
     version = 'auditwheel %s installed at %s (python %s)' % (
         dist.version, dist.location, sys.version[:3])
