@@ -27,13 +27,6 @@ _PLATFORM_REPLACEMENT_MAP = {
     'manylinux2010_i686': ['linux_i686'],
 }
 
-# XXX: this could be weakened. The show command _could_ run on OS X or
-# Windows probably, but there's not much reason to inspect foreign package
-# that won't run on the platform.
-# if platform != 'linux':
-#     logger.critical('Error: This tool only supports Linux')
-#     sys.exit(1)
-
 
 def get_arch_name():
     if _platform_module.machine() in non_x86_linux_machines:
