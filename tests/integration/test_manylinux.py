@@ -43,7 +43,7 @@ ORIGINAL_SIX_WHEEL = 'six-1.11.0-py2.py3-none-any.whl'
 
 
 def find_src_folder():
-    candidate = op.abspath(op.join(op.dirname(__file__), '..'))
+    candidate = op.abspath(op.join(op.dirname(__file__), '../..'))
     contents = os.listdir(candidate)
     if 'setup.py' in contents and 'auditwheel' in contents:
         return candidate
@@ -175,14 +175,15 @@ def test_build_repair_numpy(docker_container):
     # on a modern linux image.
     docker_exec(python_id, 'pip install /io/' + repaired_wheel)
     output = docker_exec(
-        python_id, 'python /auditwheel_src/tests/quick_check_numpy.py').strip()
+        python_id,
+        'python /auditwheel_src/tests/integration/quick_check_numpy.py').strip()
     assert output.strip() == 'ok'
 
     # Check that numpy f2py works with a more recent version of gfortran
     docker_exec(python_id, 'apt-get update -yqq')
     docker_exec(python_id, 'apt-get install -y gfortran')
     docker_exec(python_id, 'python -m numpy.f2py'
-                           '       -c /auditwheel_src/tests/foo.f90 -m foo')
+                           ' -c /auditwheel_src/tests/integration/foo.f90 -m foo')
 
     # Check that the 2 fortran runtimes are well isolated and can be loaded
     # at once in the same Python program:
@@ -195,7 +196,7 @@ def test_build_wheel_with_binary_executable(docker_container):
     policy, manylinux_id, python_id, io_folder = docker_container
     docker_exec(manylinux_id, 'yum install -y gsl-devel')
 
-    docker_exec(manylinux_id, ['bash', '-c', 'cd /auditwheel_src/tests/testpackage && python -m pip wheel --no-deps -w /io .'])
+    docker_exec(manylinux_id, ['bash', '-c', 'cd /auditwheel_src/tests/integration/testpackage && python -m pip wheel --no-deps -w /io .'])
 
     filenames = os.listdir(io_folder)
     assert filenames == ['testpackage-0.0.1-py3-none-any.whl']

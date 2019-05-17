@@ -8,13 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_sys_map = {'linux2': 'linux',
-            'linux': 'linux',
-            'darwin': 'osx',
-            'win32': 'win',
-            'openbsd5': 'openbsd'}
 non_x86_linux_machines = {'armv6l', 'armv7l', 'ppc64le'}
-platform = _sys_map.get(sys.platform, 'unknown')
 linkage = _platform_module.architecture()[1]
 
 # https://docs.python.org/3/library/platform.html#platform.architecture
