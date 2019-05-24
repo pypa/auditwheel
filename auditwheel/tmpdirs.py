@@ -9,7 +9,7 @@ class TemporaryDirectory:
     """Create and return a temporary directory.  This has the same
     behavior as mkdtemp but can be used as a context manager.
 
-    Upon exiting the context, the directory and everthing contained
+    Upon exiting the context, the directory and everything contained
     in it are removed.
 
     Examples

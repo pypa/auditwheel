@@ -28,7 +28,7 @@ class WheelToolsError(Exception):
 
 
 def _dist_info_dir(bdist_dir):
-    """Get the .dist-info directort from an unpacked wheel
+    """Get the .dist-info directory from an unpacked wheel
 
     Parameters
     ----------

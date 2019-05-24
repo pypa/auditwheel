@@ -60,7 +60,7 @@ def get_wheel_elfdata(wheel_fn: str):
                 log.debug('key %s, value %s', key, value)
                 versioned_symbols[key].add(value)
 
-            # If the ELF is a Python extention, we definitely need to include
+            # If the ELF is a Python extension, we definitely need to include
             # its external dependencies.
             if is_py_ext:
                 full_elftree[fn] = elftree

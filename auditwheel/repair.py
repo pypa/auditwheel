@@ -93,7 +93,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
             if len(ext_libs) > 0:
                 patchelf_set_rpath(fn, dest_dir)
 
-        # we grafted in a bunch of libraries and modifed their sonames, but
+        # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
         # we need to update those records so each now knows about the new
         # name of the other.
