@@ -31,7 +31,7 @@ def execute(args, p):
     parsed_fname = WHEEL_INFO_RE(basename(args.WHEEL_FILE))
     in_fname_tags = parsed_fname.groupdict()['plat'].split('.')
 
-    logger.info('%s recieves the following tag: "%s".',
+    logger.info('%s receives the following tag: "%s".',
                 basename(args.WHEEL_FILE), wheel_abi.overall_tag)
     logger.info('Use ``auditwheel show`` for more details')
 
