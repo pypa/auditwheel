@@ -1,6 +1,7 @@
 from os.path import isfile, exists, abspath, basename
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
+from .tools import EnvironmentDefault
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,8 @@ def configure_parser(sub_parsers):
     p.add_argument('WHEEL_FILE', help='Path to wheel file.')
     p.add_argument(
         '--plat',
+        action=EnvironmentDefault,
+        env='AUDITWHEEL_PLAT',
         dest='PLAT',
         help='Desired target platform. (default: "%s")' % highest_policy,
         choices=policy_names,
