@@ -3,6 +3,7 @@ import json
 import logging
 import functools
 import os
+from copy import deepcopy
 from os.path import basename
 from typing import Dict, Set
 
@@ -100,6 +101,72 @@ def get_wheel_elfdata(wheel_fn: str):
             uses_ucs2_symbols, uses_PyFPE_jbuf)
 
 
+def get_external_libs(external_refs):
+    """Get external library dependencies for all policies excluding the default
+    linux policy
+    :param external_refs: external references for all policies
+    :return: {realpath: soname} e.g.
+    {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
+    """
+    result = {}
+    for policy in external_refs.values():
+        # linux tag (priority 0) has no white-list, do not analyze it
+        if policy['priority'] == 0:
+            continue
+        # go through all libs, retrieving their soname and realpath
+        for libname, realpath in policy['libs'].items():
+            if realpath and realpath not in result.keys():
+                result[realpath] = libname
+    return result
+
+
+def get_versioned_symbols(libs):
+    """Get versioned symbols used in libraries
+    :param libs: {realpath: soname} dict to search for versioned symbols e.g.
+    {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
+    :return: {soname: {depname: set([symbol_version])}} e.g.
+    {'external_ref.so.1': {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}}
+    """
+    result = {}
+    for path, elf in elf_file_filter(libs.keys()):
+        # {depname: set(symbol_version)}, e.g.
+        # {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
+        elf_versioned_symbols = defaultdict(lambda: set())
+        for key, value in elf_find_versioned_symbols(elf):
+            log.debug('path %s, key %s, value %s', path, key, value)
+            elf_versioned_symbols[key].add(value)
+        result[libs[path]] = elf_versioned_symbols
+    return result
+
+
+def get_symbol_policies(versioned_symbols, external_versioned_symbols,
+                        external_refs):
+    """Get symbol policies
+    Since white-list is different per policy, this function inspects
+    versioned_symbol per policy when including external refs
+    :param versioned_symbols: versioned symbols for the current wheel
+    :param external_versioned_symbols: versioned symbols for external libs
+    :param external_refs: external references for all policies
+    :return: list of tuples of the form (policy_priority, versioned_symbols),
+    e.g. [(100, {'libc.so.6', set(['GLIBC_2.5'])})]
+    """
+    result = []
+    for policy in external_refs.values():
+        # skip the linux policy
+        if policy['priority'] == 0:
+            continue
+        policy_symbols = deepcopy(versioned_symbols)
+        for soname in policy['libs'].keys():
+            if soname not in external_versioned_symbols:
+                continue
+            ext_symbols = external_versioned_symbols[soname]
+            for k in iter(ext_symbols):
+                policy_symbols[k].update(ext_symbols[k])
+        result.append(
+            (versioned_symbols_policy(policy_symbols), policy_symbols))
+    return result
+
+
 def analyze_wheel_abi(wheel_fn: str):
     external_refs = {
         p['name']: {'libs': {},
@@ -116,7 +183,21 @@ def analyze_wheel_abi(wheel_fn: str):
     log.debug('external reference info')
     log.debug(json.dumps(external_refs, indent=4))
 
+    external_libs = get_external_libs(external_refs)
+    external_versioned_symbols = get_versioned_symbols(external_libs)
+    symbol_policies = get_symbol_policies(versioned_symbols,
+                                          external_versioned_symbols,
+                                          external_refs)
     symbol_policy = versioned_symbols_policy(versioned_symbols)
+
+    # let's keep the highest priority policy and
+    # corresponding versioned_symbols
+    symbol_policy, versioned_symbols = max(
+        symbol_policies,
+        key=lambda x: x[0],
+        default=(symbol_policy, versioned_symbols)
+    )
+
     ref_policy = max(
         (e['priority'] for e in external_refs.values() if len(e['libs']) == 0),
         default=POLICY_PRIORITY_LOWEST)

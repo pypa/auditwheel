@@ -7,6 +7,7 @@ import shutil
 import warnings
 from distutils.spawn import find_executable
 import logging
+from auditwheel.policy import get_priority_by_name
 
 
 logger = logging.getLogger(__name__)
@@ -225,6 +226,89 @@ def test_build_wheel_with_binary_executable(docker_container):
     output = docker_exec(
         python_id, ['python', '-c', 'from testpackage import runit; print(runit(1.5))']).strip()
     assert output.strip() == '2.25'
+
+
+@pytest.mark.parametrize('with_dependency', ['0', '1'])
+def test_build_wheel_with_image_dependencies(with_dependency, docker_container):
+    # try to repair the wheel targeting different policies
+    #
+    # with_dependency == 0
+    #   The python module has no dependencies that should be grafted-in and
+    #   uses versioned symbols not available on policies pre-dating the policy
+    #   matching the image being tested.
+    # with_dependency == 1
+    #   The python module itself does not use versioned symbols but has a
+    #   dependency that should be grafted-in that uses versioned symbols not
+    #   available on policies pre-dating the policy matching the image being
+    #   tested.
+
+    policy, manylinux_id, python_id, io_folder = docker_container
+
+    docker_exec(manylinux_id, [
+        'bash', '-c',
+        'cd /auditwheel_src/tests/integration/testdependencies &&'
+        'WITH_DEPENDENCY={} python setup.py -v build_ext -f bdist_wheel -d '
+        '/io'.format(with_dependency)])
+
+    filenames = os.listdir(io_folder)
+    orig_wheel = filenames[0]
+    assert 'manylinux' not in orig_wheel
+
+    repair_command = \
+        'LD_LIBRARY_PATH=/auditwheel_src/tests/integration/testdependencies '\
+        'auditwheel -v repair --plat {policy}_x86_64 -w /io /io/{orig_wheel}'
+
+    policy_priority = get_priority_by_name(policy + '_x86_64')
+    older_policies = \
+        [p for p in MANYLINUX_IMAGES.keys()
+         if policy_priority < get_priority_by_name(p + '_x86_64')]
+    for target_policy in older_policies:
+        # we shall fail to repair the wheel when targeting an older policy than
+        # the one matching the image
+        with pytest.raises(CalledProcessError):
+            docker_exec(manylinux_id, [
+                'bash',
+                '-c',
+                repair_command.format(policy=target_policy,
+                                      orig_wheel=orig_wheel)])
+
+    # check all works properly when targeting the policy matching the image
+    docker_exec(manylinux_id, [
+        'bash', '-c',
+        repair_command.format(policy=policy, orig_wheel=orig_wheel)])
+    filenames = os.listdir(io_folder)
+    assert len(filenames) == 2
+    repaired_wheels = [fn for fn in filenames if policy in fn]
+    expected_wheel_name = \
+        'testdependencies-0.0.1-cp35-cp35m-%s_x86_64.whl' % policy
+    assert repaired_wheels == [expected_wheel_name]
+    repaired_wheel = repaired_wheels[0]
+    output = docker_exec(manylinux_id, 'auditwheel show /io/' + repaired_wheel)
+    assert (
+        'testdependencies-0.0.1-cp35-cp35m-{policy}_x86_64.whl is consistent'
+        ' with the following platform tag: "{policy}_x86_64"'
+    ).format(policy=policy) in output.replace('\n', ' ')
+
+    # check the original wheel with a dependency was not compliant
+    # and check the one without a dependency was already compliant
+    output = docker_exec(manylinux_id, 'auditwheel show /io/' + orig_wheel)
+    if with_dependency == '1':
+        assert (
+            '{orig_wheel} is consistent with the following platform tag: '
+            '"linux_x86_64"'
+        ).format(orig_wheel=orig_wheel) in output.replace('\n', ' ')
+    else:
+        assert (
+            '{orig_wheel} is consistent with the following platform tag: '
+            '"{policy}_x86_64"'
+        ).format(orig_wheel=orig_wheel, policy=policy) in output.replace('\n', ' ')
+
+    docker_exec(python_id, 'pip install /io/' + repaired_wheel)
+    docker_exec(
+        python_id,
+        ['python', '-c',
+         'from sys import exit; from testdependencies import run; exit(run())']
+    )
 
 
 def test_build_repair_pure_wheel(docker_container):
