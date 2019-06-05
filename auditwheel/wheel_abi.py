@@ -52,7 +52,7 @@ def get_wheel_elfdata(wheel_fn: str):
             if 'purelib' in so_path_split:
                 shared_libraries_in_purelib.append(so_path_split[-1])
 
-            # If at least one shared library exists in purlib, this is going to
+            # If at least one shared library exists in purelib, this is going to
             # fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug('processing: %s', fn)
