@@ -42,6 +42,11 @@ def configure_parser(sub_parsers):
                    help=('Do not update the wheel filename tags and WHEEL info'
                          ' to match the repaired platform tag.'),
                    default=True)
+    p.add_argument('--strip',
+                   dest='STRIP',
+                   action='store_true',
+                   help='Strip symbols in the resulting wheel',
+                   default=False)
     p.set_defaults(func=execute)
 
 
@@ -86,7 +91,8 @@ def execute(args, p):
                              lib_sdir=args.LIB_SDIR,
                              out_dir=args.WHEEL_DIR,
                              update_tags=args.UPDATE_TAGS,
-                             patcher=patcher)
+                             patcher=patcher,
+                             strip=args.STRIP)
 
     if out_wheel is not None:
         analyzed_tag = analyze_wheel_abi(out_wheel).overall_tag

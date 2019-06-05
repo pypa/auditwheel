@@ -8,6 +8,7 @@ import shutil
 from collections import OrderedDict
 from os.path import exists, basename, abspath, isabs, dirname
 from os.path import join as pjoin
+from subprocess import check_call
 from typing import Dict, Optional, Tuple
 
 from auditwheel.patcher import ElfPatcher
@@ -28,7 +29,8 @@ WHEEL_INFO_RE = re.compile(
 
 
 def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
-                 update_tags: bool, patcher: ElfPatcher) -> Optional[str]:
+                 update_tags: bool, patcher: ElfPatcher,
+                 strip: bool = False) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
 
@@ -88,7 +90,19 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, [abi],
                                           get_replace_platforms(abi))
+
+        if strip:
+            libs_to_strip = [path for (_, path) in soname_map.values()]
+            extensions = external_refs_by_fn.keys()
+            strip_symbols(itertools.chain(libs_to_strip, extensions))
+
     return ctx.out_wheel
+
+
+def strip_symbols(libraries):
+    for lib in libraries:
+        logger.info('Stripping symbols from %s', lib)
+        check_call(['strip', '-s', lib])
 
 
 def copylib(src_path, dest_dir, patcher):
