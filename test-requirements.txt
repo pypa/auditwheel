@@ -4,3 +4,4 @@ jsonschema
 numpy
 pypatchelf
 flake8
+pretend
