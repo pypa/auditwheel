@@ -5,3 +5,4 @@ numpy
 pypatchelf
 flake8
 pretend
+docker
