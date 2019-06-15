@@ -137,6 +137,7 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
         # so it's safe to put it in cache.
         docker_exec(manylinux_ctr,
             'pip wheel -w /io --no-binary=:all: numpy==1.11.0')
+        os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
         shutil.copy2(op.join(io_folder, ORIGINAL_NUMPY_WHEEL),
                      op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL))
     filenames = os.listdir(io_folder)
@@ -315,6 +316,7 @@ def test_build_repair_pure_wheel(any_manylinux_container, io_folder):
                      op.join(io_folder, ORIGINAL_SIX_WHEEL))
     else:
         docker_exec(manylinux_ctr, 'pip wheel -w /io --no-binary=:all: six==1.11.0')
+        os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
         shutil.copy2(op.join(io_folder, ORIGINAL_SIX_WHEEL),
                      op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL))
 
