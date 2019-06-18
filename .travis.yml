@@ -26,8 +26,7 @@ before_install:
 install:
   - pip install -r test-requirements.txt
   - pip install tox codecov
-  - pip install .
-
+  - pip install -e .
 
 script:
   - tests/travis.sh
