@@ -145,10 +145,8 @@ def copylib(src_path, dest_dir):
     check_call(['patchelf', '--set-soname', new_soname, dest_path])
 
     for rp in itertools.chain(rpaths['rpaths'], rpaths['runpaths']):
-        if is_subdir(rp, os.path.dirname(src_path)):
-            patchelf_set_rpath(dest_path, pjoin(
-                dirname(dest_path), relpath(rp, dirname(src_path))))
-            break
+        patchelf_set_rpath(dest_path, dest_dir)
+        break
 
     return new_soname, dest_path
 
