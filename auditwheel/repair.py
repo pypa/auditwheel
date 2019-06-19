@@ -144,9 +144,8 @@ def copylib(src_path, dest_dir):
     verify_patchelf()
     check_call(['patchelf', '--set-soname', new_soname, dest_path])
 
-    for rp in itertools.chain(rpaths['rpaths'], rpaths['runpaths']):
+    if any(itertools.chain(rpaths['rpaths'], rpaths['runpaths'])):
         patchelf_set_rpath(dest_path, dest_dir)
-        break
 
     return new_soname, dest_path
 
