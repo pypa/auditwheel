@@ -120,8 +120,8 @@ def copylib(src_path, dest_dir):
     location.
     """
     # Copy the a shared library from the system (src_path) into the wheel
-    # if the library has a RUNPATH/RPATH to it's current location on the
-    # system, we also update that to point to its new location.
+    # if the library has a RUNPATH/RPATH we also update that to point to its
+    # new location.
 
     with open(src_path, 'rb') as f:
         shorthash = hashfile(f)[:8]
