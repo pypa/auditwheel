@@ -2,11 +2,14 @@ from contextlib import contextmanager
 import docker
 from subprocess import CalledProcessError
 import pytest
+import io
 import os
 import os.path as op
 import shutil
 import logging
+import zipfile
 from auditwheel.policy import get_priority_by_name
+from elftools.elf.elffile import ELFFile
 
 
 logger = logging.getLogger(__name__)
@@ -343,3 +346,66 @@ def test_build_repair_pure_wheel(any_manylinux_container, io_folder):
         'provided shared libraries.  ',
         'The wheel requires no external shared libraries! :)',
     ]) in output.replace('\n', ' ')
+
+
+def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, docker_python,
+                                                     io_folder):
+    # Test building a wheel that contains an extension depending on a library with RPATH set
+
+    policy, manylinux_ctr = any_manylinux_container
+
+    docker_exec(
+        manylinux_ctr,
+        [
+            'bash',
+            '-c',
+            (
+                'cd /auditwheel_src/tests/integration/testrpath '
+                '&& rm -rf build '
+                '&& python setup.py bdist_wheel -d /io'
+            ),
+        ]
+    )
+
+    filenames = os.listdir(io_folder)
+    assert filenames == ['testrpath-0.0.1-cp35-cp35m-linux_x86_64.whl']
+    orig_wheel = filenames[0]
+    assert 'manylinux' not in orig_wheel
+
+    # Repair the wheel using the appropriate manylinux container
+    repair_command = (
+        'auditwheel repair --plat {policy}_x86_64 -w /io /io/{orig_wheel}'
+    ).format(policy=policy, orig_wheel=orig_wheel)
+    docker_exec(
+        manylinux_ctr,
+        ['bash', '-c', 'LD_LIBRARY_PATH=/auditwheel_src/tests/integration/testrpath/a ' + repair_command],
+    )
+    filenames = os.listdir(io_folder)
+    repaired_wheels = [fn for fn in filenames if policy in fn]
+    # Wheel picks up newer symbols when built in manylinux2010
+    expected_wheel_name = (
+        'testrpath-0.0.1-cp35-cp35m-{policy}_x86_64.whl'
+    ).format(policy=policy)
+    assert expected_wheel_name in repaired_wheels
+    repaired_wheel = expected_wheel_name
+    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
+    assert (
+        'testrpath-0.0.1-cp35-cp35m-{policy}_x86_64.whl is consistent'
+        ' with the following platform tag: "manylinux1_x86_64"'
+    ).format(policy=policy) in output.replace('\n', ' ')
+
+    docker_exec(docker_python, 'pip install /io/' + repaired_wheel)
+    output = docker_exec(
+        docker_python,
+        ['python', '-c', 'from testrpath import testrpath; print(testrpath.func())']
+    )
+    assert output.strip() == '11'
+    with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as w:
+        for name in w.namelist():
+            if 'testrpath/.libs/lib' in name:
+                with w.open(name) as f:
+                    elf = ELFFile(io.BytesIO(f.read()))
+                    dynamic = elf.get_section_by_name('.dynamic')
+                    tags = {t.entry.d_tag for t in dynamic.iter_tags()}
+                    if '.libs/liba' in name:
+                        assert 'DT_RPATH' in tags
