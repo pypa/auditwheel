@@ -406,6 +406,7 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
                     dynamic = elf.get_section_by_name('.dynamic')
-                    tags = {t.entry.d_tag for t in dynamic.iter_tags()}
                     if '.libs/liba' in name:
-                        assert 'DT_RPATH' in tags
+                        rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == 'DT_RPATH']
+                        assert len(rpath_tags) == 1
+                        assert rpath_tags[0].rpath == '$ORIGIN/.'
