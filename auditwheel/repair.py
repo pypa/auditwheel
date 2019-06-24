@@ -120,8 +120,8 @@ def copylib(src_path, dest_dir):
     location.
     """
     # Copy the a shared library from the system (src_path) into the wheel
-    # if the library has a RUNPATH/RPATH to it's current location on the
-    # system, we also update that to point to its new location.
+    # if the library has a RUNPATH/RPATH we also update that to point to its
+    # new location.
 
     with open(src_path, 'rb') as f:
         shorthash = hashfile(f)[:8]
@@ -144,11 +144,8 @@ def copylib(src_path, dest_dir):
     verify_patchelf()
     check_call(['patchelf', '--set-soname', new_soname, dest_path])
 
-    for rp in itertools.chain(rpaths['rpaths'], rpaths['runpaths']):
-        if is_subdir(rp, os.path.dirname(src_path)):
-            patchelf_set_rpath(dest_path, pjoin(
-                dirname(dest_path), relpath(rp, dirname(src_path))))
-            break
+    if any(itertools.chain(rpaths['rpaths'], rpaths['runpaths'])):
+        patchelf_set_rpath(dest_path, dest_dir)
 
     return new_soname, dest_path
 
