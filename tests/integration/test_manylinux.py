@@ -361,10 +361,9 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
             'bash',
             '-c',
             (
-                'DTAG={} '
                 'cd /auditwheel_src/tests/integration/testrpath '
                 '&& rm -rf build '
-                '&& python setup.py bdist_wheel -d /io'
+                '&& DTAG={} python setup.py bdist_wheel -d /io'
             ).format(dtag),
         ]
     )
