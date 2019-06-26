@@ -349,8 +349,8 @@ def test_build_repair_pure_wheel(any_manylinux_container, io_folder):
 
 
 @pytest.mark.parametrize('dtag', ['rpath', 'runpath'])
-def test_build_wheel_depending_on_library_with_rpath(dtag, any_manylinux_container, docker_python,
-                                                     io_folder):
+def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, docker_python,
+                                                     io_folder, dtag):
     # Test building a wheel that contains an extension depending on a library with RPATH set
 
     policy, manylinux_ctr = any_manylinux_container
