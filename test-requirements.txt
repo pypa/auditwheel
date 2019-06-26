@@ -2,7 +2,6 @@ pytest>=3.4
 pytest-cov
 jsonschema
 numpy
-pyelftools
 pypatchelf
 flake8
 pretend
