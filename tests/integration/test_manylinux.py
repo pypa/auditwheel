@@ -416,13 +416,8 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
                     dynamic = elf.get_section_by_name('.dynamic')
-                    rpath = runpath = None
-                    for t in dynamic.iter_tags():
-                        if t.entry.d_tag == 'DT_RPATH':
-                            rpath = t
-                        elif t.entry.d_tag == 'DT_RUNPATH':
-                            runpath = t
-                    assert runpath is None
+                    assert len([t for t in dynamic.iter_tags() if t.entry.d_tag == 'DT_RUNPATH']) == 0
                     if '.libs/liba' in name:
-                        assert rpath is not None
-                        assert rpath.rpath == '$ORIGIN/.'
+                        rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == 'DT_RPATH']
+                        assert len(rpath_tags) == 1
+                        assert rpath_tags[0].rpath == '$ORIGIN/.'
