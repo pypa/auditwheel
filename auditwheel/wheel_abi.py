@@ -3,6 +3,8 @@ import json
 import logging
 import functools
 import os
+from collections import defaultdict, namedtuple
+from collections.abc import Mapping
 from copy import deepcopy
 from os.path import basename
 from typing import Dict, Set
@@ -15,12 +17,6 @@ from .elfutils import (elf_file_filter, elf_find_versioned_symbols,
 from .policy import (lddtree_external_references, versioned_symbols_policy,
                      get_policy_name, POLICY_PRIORITY_LOWEST,
                      POLICY_PRIORITY_HIGHEST, load_policies)
-
-try:
-    from collections.abc import defaultdict, Mapping, namedtuple
-except ImportError:
-    # Pre-Python 3.7 compatibility
-    from collections import defaultdict, Mapping, namedtuple
 
 
 log = logging.getLogger(__name__)
