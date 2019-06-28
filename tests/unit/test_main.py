@@ -1,7 +1,11 @@
+import pytest
 import sys
 
 from auditwheel.main import main
 
+on_supported_platform = pytest.mark.skipif(
+    sys.platform != 'linux', reason="requires Linux system"
+)
 
 def test_unsupported_platform(monkeypatch):
     # GIVEN
@@ -14,9 +18,9 @@ def test_unsupported_platform(monkeypatch):
     assert retval == 1
 
 
+@on_supported_platform
 def test_help(monkeypatch, capsys):
     # GIVEN
-    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(sys, "argv", ["auditwheel"])
 
     # WHEN
