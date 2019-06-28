@@ -367,12 +367,11 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
             ).format(dtag),
         ]
     )
-    if dtag == 'runpath':
-        with open(op.join(op.dirname(__file__), 'testrpath', 'a', 'liba.so'), 'rb') as f:
-            elf = ELFFile(f)
-            dynamic = elf.get_section_by_name('.dynamic')
-            tags = {t.entry.d_tag for t in dynamic.iter_tags()}
-            assert 'DT_RUNPATH' in tags
+    with open(op.join(op.dirname(__file__), 'testrpath', 'a', 'liba.so'), 'rb') as f:
+        elf = ELFFile(f)
+        dynamic = elf.get_section_by_name('.dynamic')
+        tags = {t.entry.d_tag for t in dynamic.iter_tags()}
+        assert "DT_{}".format(dtag.upper()) in tags
     filenames = os.listdir(io_folder)
     assert filenames == ['testrpath-0.0.1-cp35-cp35m-linux_x86_64.whl']
     orig_wheel = filenames[0]
