@@ -78,6 +78,10 @@ def docker_container_ctx(image, io_dir, env_variables={}):
     if src_folder is None:
         pytest.skip('Can only be run from the source folder')
     vols = {'/io': io_dir, '/auditwheel_src': src_folder}
+    for key in env_variables:
+        if key.startswith('COV_CORE_'):
+            env_variables[key] = env_variables[key].replace(src_folder,
+                                                            '/auditwheel_src')
 
     container = docker_start(image, vols, env_variables)
     try:
@@ -114,10 +118,13 @@ def any_manylinux_container(request, io_folder):
     policy = request.param
     image = MANYLINUX_IMAGES[policy]
     env = {'PATH': PATH[policy]}
+    for key in os.environ:
+        if key.startswith('COV_CORE_'):
+            env[key] = os.environ[key]
 
     with docker_container_ctx(image, io_folder, env) as container:
-        docker_exec(container, 'pip install -U pip setuptools')
-        docker_exec(container, 'pip install -U /auditwheel_src')
+        docker_exec(container, 'pip install -U pip setuptools pytest-cov')
+        docker_exec(container, 'pip install -U -e /auditwheel_src')
         yield policy, container
 
 
