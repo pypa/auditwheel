@@ -116,12 +116,12 @@ def copylib(src_path, dest_dir):
 
     1) Copy the file from src_path to dest_dir/
     2) Rename the shared object from soname to soname.<unique>
-    3) If the library has a RUNPATH/RPATH, update that to point to its new
-    location.
+    3) If the library has a RUNPATH/RPATH, clear it and set RPATH to point to
+    its new location.
     """
     # Copy the a shared library from the system (src_path) into the wheel
-    # if the library has a RUNPATH/RPATH we also update that to point to its
-    # new location.
+    # if the library has a RUNPATH/RPATH we clear it and set RPATH to point to
+    # its new location.
 
     with open(src_path, 'rb') as f:
         shorthash = hashfile(f)[:8]
@@ -153,4 +153,5 @@ def copylib(src_path, dest_dir):
 def patchelf_set_rpath(fn, libdir):
     rpath = pjoin('$ORIGIN', relpath(libdir, dirname(fn)))
     logger.debug('Setting RPATH: %s to "%s"', fn, rpath)
+    check_call(['patchelf', '--remove-rpath', fn])
     check_call(['patchelf', '--force-rpath', '--set-rpath', rpath, fn])
