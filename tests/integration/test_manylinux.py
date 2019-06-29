@@ -25,7 +25,7 @@ MANYLINUX_IMAGES = {
 }
 DOCKER_CONTAINER_NAME = 'auditwheel-test-manylinux'
 PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
-PYTHON_ABI = 'cp{0}-cp{0}m'.format(''.join(PYTHON_MAJ_MIN))
+PYTHON_ABI = 'cp{0}-cp{0}{1}'.format(''.join(PYTHON_MAJ_MIN), 'm' if sys.version_info.minor < 8 else '')
 PYTHON_IMAGE_ID = 'python:' + '.'.join(PYTHON_MAJ_MIN)
 DEVTOOLSET = {
     'manylinux1': 'devtoolset-2',
