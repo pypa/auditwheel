@@ -1,46 +1,10 @@
 ''' Contexts for *with* statement providing temporary directories
 '''
 import os
-import shutil
-from tempfile import template, mkdtemp
+from tempfile import TemporaryDirectory
 
 
-class TemporaryDirectory:
-    """Create and return a temporary directory.  This has the same
-    behavior as mkdtemp but can be used as a context manager.
-
-    Upon exiting the context, the directory and everything contained
-    in it are removed.
-
-    Examples
-    --------
-    >>> import os
-    >>> with TemporaryDirectory() as tmpdir:
-    ...     fname = os.path.join(tmpdir, 'example_file.txt')
-    ...     with open(fname, 'wt') as fobj:
-    ...         _ = fobj.write('a string\\n')
-    >>> os.path.exists(tmpdir)
-    False
-    """
-
-    def __init__(self, suffix="", prefix=template, dir=None):
-        self.name = mkdtemp(suffix, prefix, dir)
-        self._closed = False
-
-    def __enter__(self):
-        return self.name
-
-    def cleanup(self):
-        if not self._closed:
-            shutil.rmtree(self.name)
-            self._closed = True
-
-    def __exit__(self, exc, value, tb):
-        self.cleanup()
-        return False
-
-
-class InTemporaryDirectory(TemporaryDirectory):
+class InTemporaryDirectory(object):
     ''' Create, return, and change directory to a temporary directory
 
     Examples
@@ -57,14 +21,21 @@ class InTemporaryDirectory(TemporaryDirectory):
     True
     '''
 
+    def __init__(self):
+        self._tmpdir = TemporaryDirectory()
+
+    @property
+    def name(self):
+        return self._tmpdir.name
+
     def __enter__(self):
         self._pwd = os.getcwd()
-        os.chdir(self.name)
-        return super().__enter__()
+        os.chdir(self._tmpdir.name)
+        return self._tmpdir.__enter__()
 
     def __exit__(self, exc, value, tb):
         os.chdir(self._pwd)
-        return super().__exit__(exc, value, tb)
+        return self._tmpdir.__exit__(exc, value, tb)
 
 
 class InGivenDirectory:
@@ -102,14 +73,14 @@ class InGivenDirectory:
         """
         if path is None:
             path = os.getcwd()
-        self.path = os.path.abspath(path)
+        self.name = os.path.abspath(path)
 
     def __enter__(self):
         self._pwd = os.path.abspath(os.getcwd())
-        if not os.path.isdir(self.path):
-            os.mkdir(self.path)
-        os.chdir(self.path)
-        return self.path
+        if not os.path.isdir(self.name):
+            os.mkdir(self.name)
+        os.chdir(self.name)
+        return self.name
 
     def __exit__(self, exc, value, tb):
         os.chdir(self._pwd)
