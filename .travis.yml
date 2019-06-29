@@ -7,6 +7,8 @@ matrix:
     env: WHEELHOUSE=1
   - python: "3.6"
   - python: "3.7"
+  - python: "3.7"
+    env: LINTER=1
   allow_failures:
   - python: "3.5"
     env: WHEELHOUSE=1
@@ -19,10 +21,11 @@ notifications:
   email: false
 
 before_install:
-  - pip install --upgrade pip
+  - pip install --upgrade pip setuptools
 
 install:
   - pip install -r test-requirements.txt
+  - pip install tox
   - pip install .
 
 
