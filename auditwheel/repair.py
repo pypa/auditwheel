@@ -13,7 +13,7 @@ import logging
 from .policy import get_replace_platforms
 from .wheeltools import InWheelCtx, add_platforms
 from .wheel_abi import get_wheel_elfdata
-from .elfutils import elf_read_rpaths, is_subdir, elf_read_dt_needed
+from .elfutils import elf_read_rpaths, elf_read_dt_needed
 from .hashfile import hashfile
 
 

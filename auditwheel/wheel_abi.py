@@ -44,12 +44,13 @@ def get_wheel_elfdata(wheel_fn: str):
             # be found in purelib
             so_path_split = fn.split(os.sep)
 
-            # If this is in purelib, add it to the list of shared libraries in purelib
+            # If this is in purelib, add it to the list of shared libraries in
+            # purelib
             if 'purelib' in so_path_split:
                 shared_libraries_in_purelib.append(so_path_split[-1])
 
-            # If at least one shared library exists in purelib, this is going to
-            # fail and there's no need to do further checks
+            # If at least one shared library exists in purelib, this is going
+            # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug('processing: %s', fn)
                 elftree = lddtree(fn)
@@ -60,30 +61,33 @@ def get_wheel_elfdata(wheel_fn: str):
 
                 is_py_ext, py_ver = elf_is_python_extension(fn, elf)
 
-                # If the ELF is a Python extention, we definitely need to include
-                # its external dependencies.
+                # If the ELF is a Python extention, we definitely need to
+                # include its external dependencies.
                 if is_py_ext:
                     full_elftree[fn] = elftree
                     uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
                     if py_ver == 2:
                         uses_ucs2_symbols |= any(
                             True for _ in elf_find_ucs2_symbols(elf))
-                    full_external_refs[fn] = lddtree_external_references(elftree,
-                                                                         ctx.path)
+                    full_external_refs[fn] = lddtree_external_references(
+                        elftree,
+                        ctx.path)
                 else:
-                    # If the ELF is not a Python extension, it might be included in
-                    # the wheel already because auditwheel repair vendored it, so
-                    # we will check whether we should include its internal
-                    # references later.
+                    # If the ELF is not a Python extension, it might be
+                    # included in the wheel already because auditwheel repair
+                    # vendored it, so we will check whether we should include
+                    # its internal references later.
                     nonpy_elftree[fn] = elftree
 
         # If at least one shared library exists in purelib, raise an error
         if shared_libraries_in_purelib:
             raise RuntimeError(
                 (
-                    'Invalid binary wheel, found the following shared library/libraries in purelib folder:\n'
+                    'Invalid binary wheel, found the following shared '
+                    'library/libraries in purelib folder:\n'
                     '\t%s\n'
-                    'The wheel has to be platlib compliant in order to be repaired by auditwheel.'
+                    'The wheel has to be platlib compliant in order to be '
+                    'repaired by auditwheel.'
                 ) % '\n\t'.join(shared_libraries_in_purelib)
             )
 

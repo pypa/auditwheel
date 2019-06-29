@@ -116,13 +116,13 @@ class EnvironmentDefault(argparse.Action):
             required = False
         if self.env_default and 'choices' in kwargs:
             choices = kwargs['choices']
-            if not self.env_default in choices:
+            if self.env_default not in choices:
                 self.option_strings = kwargs['option_strings']
                 args = {'value': self.env_default,
                         'choices': ', '.join(map(repr, choices)),
-                        'env': self.env
-                }
-                msg = 'invalid choice: %(value)r from environment variable %(env)r (choose from %(choices)s)'
+                        'env': self.env}
+                msg = 'invalid choice: %(value)r from environment variable '\
+                      '%(env)r (choose from %(choices)s)'
                 raise argparse.ArgumentError(self, msg % args)
 
         super(EnvironmentDefault, self).__init__(
