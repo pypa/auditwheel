@@ -2,9 +2,7 @@
 
 set -exo pipefail
 
-if [[ "$WHEELHOUSE" == "1" ]]; then
-    bash tests/test-wheelhouses.sh
-elif [[ "$LINTER" == "1" ]]; then
+if [[ "$LINTER" == "1" ]]; then
     tox -e lint
 else
     pytest -s --cov auditwheel --cov-branch
