@@ -59,8 +59,6 @@ def docker_start(image, volumes={}, env_variables={}):
     """
     # Make sure to use the latest public version of the docker image
     client = docker.from_env()
-    logger.info("Pulling docker image %r", image)
-    client.images.pull(image)
 
     dvolumes = {host: {'bind': ctr, 'mode': 'rw'}
                 for (ctr, host) in volumes.items()}
@@ -73,11 +71,14 @@ def docker_start(image, volumes={}, env_variables={}):
 
 
 @contextmanager
-def docker_container_ctx(image, io_dir, env_variables={}):
+def docker_container_ctx(image, io_dir=None, env_variables={}):
     src_folder = find_src_folder()
     if src_folder is None:
         pytest.skip('Can only be run from the source folder')
-    vols = {'/io': io_dir, '/auditwheel_src': src_folder}
+    vols = {'/auditwheel_src': src_folder}
+    if io_dir is not None:
+        vols['/io'] = io_dir
+
     for key in env_variables:
         if key.startswith('COV_CORE_'):
             env_variables[key] = env_variables[key].replace(src_folder,
@@ -95,6 +96,7 @@ def docker_exec(container, cmd):
     ec, output = container.exec_run(cmd)
     output = output.decode(ENCODING)
     if ec != 0:
+        print(output)
         raise CalledProcessError(ec, cmd, output=output)
     return output
 
@@ -105,26 +107,65 @@ def io_folder(tmp_path):
     d.mkdir(exist_ok=True)
     return str(d)
 
+@contextmanager
+def tmp_docker_image(base, commands, setup_env={}):
+    """Make a temporary docker image for tests
+
+    Pulls the *base* image, runs *commands* inside it with *setup_env*, and
+    commits the result as a new image. The image is removed on exiting the
+    context.
+
+    Making temporary images like this avoids each test having to re-run the
+    same container setup steps.
+    """
+    with docker_container_ctx(base, env_variables=setup_env) as con:
+        for cmd in commands:
+            docker_exec(con, cmd)
+        image = con.commit()
+
+    logger.info("Made image %s based on %s", image.short_id, base)
+    try:
+        yield image.short_id
+    finally:
+        client = image.client
+        client.images.remove(image.id)
+
+@pytest.fixture(scope='session')
+def docker_python_img():
+    """The Python base image with up-to-date pip"""
+    with tmp_docker_image(PYTHON_IMAGE_ID, ['pip install -U pip']) as img_id:
+        yield img_id
+
+@pytest.fixture(scope='session', params=MANYLINUX_IMAGES.keys())
+def any_manylinux_img(request):
+    """Each manylinux image, with auditwheel installed.
+
+    Plus up-to-date pip, setuptools and pytest-cov
+    """
+    policy = request.param
+    base = MANYLINUX_IMAGES[policy]
+    env = {'PATH': PATH[policy]}
+    with tmp_docker_image(base, [
+        'pip install -U pip setuptools pytest-cov',
+        'pip install -U -e /auditwheel_src',
+    ], env) as img_id:
+        yield policy, img_id
 
 @pytest.fixture()
-def docker_python(io_folder):
-    with docker_container_ctx(PYTHON_IMAGE_ID, io_folder) as container:
-        docker_exec(container, 'pip install -U pip')
+def docker_python(docker_python_img, io_folder):
+    with docker_container_ctx(docker_python_img, io_folder) as container:
         yield container
 
 
-@pytest.fixture(params=MANYLINUX_IMAGES.keys())
-def any_manylinux_container(request, io_folder):
-    policy = request.param
-    image = MANYLINUX_IMAGES[policy]
+@pytest.fixture()
+def any_manylinux_container(any_manylinux_img, io_folder):
+    policy, manylinux_img = any_manylinux_img
     env = {'PATH': PATH[policy]}
     for key in os.environ:
         if key.startswith('COV_CORE_'):
             env[key] = os.environ[key]
 
-    with docker_container_ctx(image, io_folder, env) as container:
-        docker_exec(container, 'pip install -U pip setuptools pytest-cov')
-        docker_exec(container, 'pip install -U -e /auditwheel_src')
+    with docker_container_ctx(manylinux_img, io_folder, env) as container:
         yield policy, container
 
 

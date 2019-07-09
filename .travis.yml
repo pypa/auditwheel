@@ -30,3 +30,7 @@ install:
 
 script:
   - tests/travis.sh
+
+cache:
+  directories:
+    - $HOME/.cache/auditwheel_tests

@@ -112,6 +112,22 @@ Limitations
    So, to compile widely-compatible binaries, you're best off doing the build
    on an old Linux distribution, such as the manylinux Docker image.
 
+Testing
+-------
+
+The tests can be run with ``tox``, which will automatically install
+test dependencies.
+
+Some of the integration tests also require a running and accessible Docker
+daemon. These tests will pull a number of docker images if they are not already
+available on your system, but it won't update existing images.
+To update these images manually, run::
+
+    docker pull python:3.5
+    docker pull quay.io/pypa/manylinux1_x86_64
+    docker pull quay.io/pypa/manylinux2010_x86_64
+
+You may also remove these images using ``docker rmi``.
 
 Code of Conduct
 ---------------
