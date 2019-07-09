@@ -118,10 +118,6 @@ def tmp_docker_image(base, commands, setup_env={}):
     Making temporary images like this avoids each test having to re-run the
     same container setup steps.
     """
-    client = docker.from_env()
-    logger.info("Pulling docker image %r", base)
-    client.images.pull(base)
-
     with docker_container_ctx(base, env_variables=setup_env) as con:
         for cmd in commands:
             docker_exec(con, cmd)
