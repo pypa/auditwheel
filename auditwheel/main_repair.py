@@ -1,4 +1,6 @@
 from os.path import isfile, exists, abspath, basename
+
+from auditwheel.patcher import Patchelf, Lief
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
 from .tools import EnvironmentDefault
@@ -40,6 +42,10 @@ def configure_parser(sub_parsers):
                    help=('Do not update the wheel filename tags and WHEEL info'
                          ' to match the repaired platform tag.'),
                    default=True)
+    p.add_argument('--elf-patcher',
+                   dest='ELF_PATCHER',
+                   help="ELF executable patcher to use. " \
+                   "Choices: 'patchelf' (default), 'lief'")
     p.set_defaults(func=execute)
 
 
@@ -76,11 +82,17 @@ def execute(args, p):
                (args.WHEEL_FILE, args.PLAT))
         p.error(msg)
 
+    if args.ELF_PATCHER == "lief":
+        patcher = Lief()
+    else:
+        patcher = Patchelf()
+
     out_wheel = repair_wheel(args.WHEEL_FILE,
                              abi=args.PLAT,
                              lib_sdir=args.LIB_SDIR,
                              out_dir=args.WHEEL_DIR,
-                             update_tags=args.UPDATE_TAGS)
+                             update_tags=args.UPDATE_TAGS,
+                             patcher=patcher)
 
     if out_wheel is not None:
         analyzed_tag = analyze_wheel_abi(out_wheel).overall_tag
@@ -93,6 +105,7 @@ def execute(args, p):
                                      abi=analyzed_tag,
                                      lib_sdir=args.LIB_SDIR,
                                      out_dir=args.WHEEL_DIR,
-                                     update_tags=args.UPDATE_TAGS)
+                                     update_tags=args.UPDATE_TAGS,
+                                     patcher=patcher)
 
         logger.info('\nFixed-up wheel written to %s', out_wheel)
