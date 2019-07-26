@@ -2,6 +2,20 @@
 
 ## HEAD
 
+## 2.1
+
+Released Jul. 28, 2019
+
+- Instead of outputting only the first shared library found in `purelib`,
+  include a list of all offending files ([#143](https://github.com/pypa/auditwheel/pull/143))
+- Better policy detection ([#150](https://github.com/pypa/auditwheel/pull/150))
+- Use `AUDITWHEEL_PLAT` environment variable as a default option to --plat
+  ([#151](https://github.com/pypa/auditwheel/pull/150))
+- Workaround for `patchelf` bug not setting `DT_RUNPATH` correctly
+  ([#173](https://github.com/pypa/auditwheel/pull/173))
+- Remove `libcrypt.so.1` from library whitelist
+  ([#182](https://github.com/pypa/auditwheel/pull/182))
+
 ## 2.0
 
 Released Jan. 23, 2019
