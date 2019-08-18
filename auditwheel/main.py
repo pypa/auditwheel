@@ -16,8 +16,8 @@ def main():
         return 1
 
     dist = pkg_resources.get_distribution('auditwheel')
-    version = 'auditwheel %s installed at %s (python %s)' % (
-        dist.version, dist.location, sys.version[:3])
+    version = 'auditwheel {} installed at {} (python {}.{})'.format(
+        dist.version, dist.location, *sys.version_info)
 
     p = argparse.ArgumentParser(description='Cross-distro Python wheels.')
     p.set_defaults(prog=os.path.basename(sys.argv[0]))
