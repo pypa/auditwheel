@@ -219,10 +219,10 @@ def assert_show_output(manylinux_ctr, wheel, expected_tag, strict):
         assert match['tag'] == expected_tag
     else:
         expected_match = TAG_RE.match(expected_tag)
-        assert expected_match
+        assert expected_match, f"No match for tag {expected_tag}"
         expected_glibc = (int(expected_match['major']), int(expected_match['minor']))
         actual_match = TAG_RE.match(match['tag'])
-        assert actual_match
+        assert actual_match, f"No match for tag {match['tag']}"
         actual_glibc = (int(actual_match['major']), int(actual_match['minor']))
         assert expected_match['arch'] == actual_match['arch']
         assert actual_glibc <= expected_glibc
@@ -704,4 +704,36 @@ def test_build_wheel_compat(target_policy, only_plat, any_manylinux_container,
         docker_python,
         ['python', '-c',
          'from sys import exit; from testsimple import run; exit(run())']
+    )
+
+
+def test_nonpy_rpath(any_manylinux_container, docker_python, io_folder):
+    # Tests https://github.com/pypa/auditwheel/issues/136
+    policy, tag, manylinux_ctr = any_manylinux_container
+    docker_exec(
+        manylinux_ctr,
+        ['bash', '-c', 'cd /auditwheel_src/tests/integration/nonpy_rpath '
+                       '&& python -m pip wheel --no-deps -w /io .']
+    )
+
+    orig_wheel, *_ = os.listdir(io_folder)
+    assert orig_wheel.startswith("nonpy_rpath-0.1.0")
+    assert 'manylinux' not in orig_wheel
+
+    # Repair the wheel using the appropriate manylinux container
+    repair_command = \
+        f'auditwheel repair --plat {policy} --only-plat -w /io /io/{orig_wheel}'
+    docker_exec(manylinux_ctr, repair_command)
+    filenames = os.listdir(io_folder)
+    assert len(filenames) == 2
+    repaired_wheel = f'nonpy_rpath-0.1.0-{PYTHON_ABI}-{tag}.whl'
+    assert repaired_wheel in filenames
+    assert_show_output(manylinux_ctr, repaired_wheel, policy, False)
+
+    # Test the resulting wheel outside the manylinux container
+    docker_exec(docker_python, "pip install /io/" + repaired_wheel)
+    docker_exec(
+        docker_python,
+        ["python", "-c",
+         "import nonpy_rpath; assert nonpy_rpath.crypt_something().startswith('*')"]
     )
