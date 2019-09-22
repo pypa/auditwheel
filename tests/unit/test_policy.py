@@ -35,14 +35,22 @@ def test_64bits_arch_name(machine_mock, reported_arch, expected_arch):
 class TestPolicyAccess:
 
     def test_get_by_priority(self):
-        assert get_policy_name(100) == 'manylinux1_x86_64'
-        assert get_policy_name(0) == 'linux_x86_64'
+        _arch = get_arch_name()
+        assert get_policy_name(80) == 'manylinux2014_{}'.format(_arch)
+        if _arch in {'x86_64', 'i686'}:
+            assert get_policy_name(90) == 'manylinux2010_{}'.format(_arch)
+            assert get_policy_name(100) == 'manylinux1_{}'.format(_arch)
+        assert get_policy_name(0) == 'linux_{}'.format(_arch)
 
     def test_get_by_priority_missing(self):
         assert get_policy_name(101) is None
 
     def test_get_by_name(self):
-        assert get_priority_by_name("manylinux1_x86_64") == 100
+        _arch = get_arch_name()
+        assert get_priority_by_name("manylinux2014_{}".format(_arch)) == 80
+        if _arch in {'x86_64', 'i686'}:
+            assert get_priority_by_name("manylinux2010_{}".format(_arch)) == 90
+            assert get_priority_by_name("manylinux1_{}".format(_arch)) == 100
 
     def test_get_by_name_missing(self):
         assert get_priority_by_name("nosuchpolicy") is None
