@@ -41,7 +41,12 @@ def find_library(library):
 
 
 def versionify(version_string):
-    return [int(n) for n in version_string.split('.')]
+    try:
+        result = [int(n) for n in version_string.split('.')]
+        assert len(result) <= 3
+    except ValueError:
+        result = [999999, 999999, 999999, version_string]
+    return result
 
 
 def calculate_symbol_versions(libraries, symbol_versions, arch):
