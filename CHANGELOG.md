@@ -2,6 +2,19 @@
 
 ## HEAD
 
+## 2.1.1
+
+Released Oct. 08, 2019
+
+### User-facing changes
+
+- [BUGFIX] Add missing symbols for manylinux2010_i686 policy ([#141](https://github.com/pypa/auditwheel/pull/141), [#194](https://github.com/pypa/auditwheel/pull/194))
+- [BUGFIX] Fix --version for python 3.10 ([#189](https://github.com/pypa/auditwheel/pull/189))
+
+### Housekeeping
+
+- Simplify policy unit test ([#188](https://github.com/pypa/auditwheel/pull/188))
+
 ## 2.1
 
 Released Jul. 28, 2019
