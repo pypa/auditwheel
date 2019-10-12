@@ -8,9 +8,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-non_x86_linux_machines = {'armv6l', 'armv7l', 'ppc64le'}
-linkage = _platform_module.architecture()[1]
-
 # https://docs.python.org/3/library/platform.html#platform.architecture
 bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 
@@ -25,8 +22,9 @@ _PLATFORM_REPLACEMENT_MAP = {
 
 
 def get_arch_name():
-    if _platform_module.machine() in non_x86_linux_machines:
-        return _platform_module.machine()
+    machine = _platform_module.machine()
+    if machine not in {'x86_64', 'i686'}:
+        return machine
     else:
         return {64: 'x86_64', 32: 'i686'}[bits]
 

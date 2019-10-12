@@ -6,24 +6,30 @@ from auditwheel.policy import get_arch_name, get_policy_name, get_priority_by_na
 
 
 @patch("auditwheel.policy._platform_module.machine")
-@pytest.mark.parametrize("arch", [
-    "armv6l",
-    "armv7l",
-    "ppc64le",
-    "x86_64",
+@patch("auditwheel.policy.bits", 32)
+@pytest.mark.parametrize("reported_arch,expected_arch", [
+    ("armv6l", "armv6l"),
+    ("armv7l", "armv7l"),
+    ("i686", "i686"),
+    ("x86_64", "i686"),
 ])
-def test_arch_name(machine_mock, arch):
-    machine_mock.return_value = arch
+def test_32bits_arch_name(machine_mock, reported_arch, expected_arch):
+    machine_mock.return_value = reported_arch
     machine = get_arch_name()
-    assert machine == arch
+    assert machine == expected_arch
 
 
 @patch("auditwheel.policy._platform_module.machine")
-@patch("auditwheel.policy.bits", 32)
-def test_unknown_arch_name(machine_mock):
-    machine_mock.return_value = "mipsel"
+@patch("auditwheel.policy.bits", 64)
+@pytest.mark.parametrize("reported_arch,expected_arch", [
+    ("aarch64", "aarch64"),
+    ("ppc64le", "ppc64le"),
+    ("x86_64", "x86_64"),
+])
+def test_64bits_arch_name(machine_mock, reported_arch, expected_arch):
+    machine_mock.return_value = reported_arch
     machine = get_arch_name()
-    assert machine == "i686"
+    assert machine == expected_arch
 
 
 class TestPolicyAccess:
