@@ -11,14 +11,21 @@ logger = logging.getLogger(__name__)
 # https://docs.python.org/3/library/platform.html#platform.architecture
 bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 
-_PLATFORM_REPLACEMENT_MAP = {
-    'manylinux1_x86_64': ['linux_x86_64'],
-    'manylinux2010_x86_64': ['linux_x86_64'],
-    'manylinux2014_x86_64': ['linux_x86_64'],
-    'manylinux1_i686': ['linux_i686'],
-    'manylinux2010_i686': ['linux_i686'],
-    'manylinux2014_i686': ['linux_i686'],
-}
+
+_PLATFORM_REPLACEMENT_MAP = {}
+for _policy in {'manylinux1', 'manylinux2010'}:
+    for _arch in {'x86_64', 'i686'}:
+        _key = '{}_{}'.format(_policy, _arch)
+        _value = 'linux_{}'.format(_arch)
+        _PLATFORM_REPLACEMENT_MAP[_key] = [_value]
+
+for _policy in {'manylinux2014'}:
+    for _arch in {
+        'x86_64', 'i686', 'aarch64', 'armv7l', 'ppc64', 'ppc64le', 's390x'
+    }:
+        _key = '{}_{}'.format(_policy, _arch)
+        _value = 'linux_{}'.format(_arch)
+        _PLATFORM_REPLACEMENT_MAP[_key] = [_value]
 
 
 def get_arch_name():
@@ -33,9 +40,13 @@ _ARCH_NAME = get_arch_name()
 
 
 with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
-    _POLICIES = json.load(f)
-    for p in _POLICIES:
-        p['name'] = p['name'] + '_' + _ARCH_NAME
+    _POLICIES = []
+    _policies_temp = json.load(f)
+    for _p in _policies_temp:
+        _name = _p['name'] + '_' + _ARCH_NAME
+        if _name in _PLATFORM_REPLACEMENT_MAP or _name.startswith('linux'):
+            _p['name'] = _name
+            _POLICIES.append(_p)
 
 POLICY_PRIORITY_HIGHEST = max(p['priority'] for p in _POLICIES)
 POLICY_PRIORITY_LOWEST = min(p['priority'] for p in _POLICIES)
