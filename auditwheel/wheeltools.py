@@ -112,17 +112,17 @@ class InWheel(InTemporaryDirectory):
         """
         self.in_wheel = abspath(in_wheel)
         self.out_wheel = None if out_wheel is None else abspath(out_wheel)
-        super(InWheel, self).__init__()
+        super().__init__()
 
     def __enter__(self):
         zip2dir(self.in_wheel, self.name)
-        return super(InWheel, self).__enter__()
+        return super().__enter__()
 
     def __exit__(self, exc, value, tb):
         if self.out_wheel is not None:
             rewrite_record(self.name)
             dir2zip(self.name, self.out_wheel)
-        return super(InWheel, self).__exit__(exc, value, tb)
+        return super().__exit__(exc, value, tb)
 
 
 class InWheelCtx(InWheel):
@@ -152,11 +152,11 @@ class InWheelCtx(InWheel):
             filename of wheel to write after exiting.  If None, don't write and
             discard
         """
-        super(InWheelCtx, self).__init__(in_wheel, out_wheel)
+        super().__init__(in_wheel, out_wheel)
         self.path = None
 
     def __enter__(self):
-        self.path = super(InWheelCtx, self).__enter__()
+        self.path = super().__enter__()
         return self
 
     def iter_files(self):
