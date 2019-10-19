@@ -125,7 +125,7 @@ class EnvironmentDefault(argparse.Action):
                       '%(env)r (choose from %(choices)s)'
                 raise argparse.ArgumentError(self, msg % args)
 
-        super(EnvironmentDefault, self).__init__(
+        super().__init__(
             default=default,
             required=required,
             **kwargs
