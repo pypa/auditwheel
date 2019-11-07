@@ -2,6 +2,18 @@
 
 ## HEAD
 
+## 3.0.0rc1
+
+Released Nov. 7, 2019
+
+### User-facing changes
+- [FEATURE] manylinux2014 policy ([#192](https://github.com/pypa/auditwheel/pull/192), [#202](https://github.com/pypa/auditwheel/pull/202))
+- [FEATURE] Update machine detection ([#201](https://github.com/pypa/auditwheel/pull/201))
+- [FEATURE] Advertise python 3.8 support and run python 3.8 in CI ([#203](https://github.com/pypa/auditwheel/pull/203))
+
+### Housekeeping
+- Run manylinux tests using current python version ([#199](https://github.com/pypa/auditwheel/pull/199))
+
 ## 2.1.1
 
 Released Oct. 08, 2019
