@@ -2,7 +2,7 @@
 
 ## HEAD
 
-## 3.0.0rc1
+## 3.0.0.0rc1
 
 Released Nov. 7, 2019
 
