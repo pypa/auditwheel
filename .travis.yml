@@ -9,6 +9,8 @@ matrix:
   - python: "3.8"
   - language: c
     arch: arm64
+  - language: c
+    arch: ppc64le
   - python: "3.7"
     env: LINTER=1
 
@@ -20,7 +22,7 @@ notifications:
   email: false
 
 before_install:
-  - if [ "$(uname -m)" == "aarch64" ]; then sudo apt-get install -y python3-pip python3-venv && python3 -m venv ./.venv && source ./.venv/bin/activate; fi
+  - if [ "$(uname -m)" != "x86_64" ]; then sudo apt-get install -y python3-pip python3-venv && python3 -m venv ./.venv && source ./.venv/bin/activate; fi
   - pip install --upgrade pip setuptools
 
 install:
