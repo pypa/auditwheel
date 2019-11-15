@@ -11,6 +11,8 @@ matrix:
     arch: arm64
   - language: c
     arch: ppc64le
+  - language: c
+    arch: s390x
   - python: "3.7"
     env: LINTER=1
 
