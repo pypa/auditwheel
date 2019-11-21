@@ -15,8 +15,8 @@ Overview
 --------
 
 ``auditwheel`` is a command line tool to facilitate the creation of Python
-`wheel packages <http://pythonwheels.com/>`_ for Linux containing pre-compiled
-binary extensions are compatible with a wide variety of Linux distributions,
+`wheel packages <http://pythonwheels.com/>`_ for Linux (containing pre-compiled
+binary extensions) that are compatible with a wide variety of Linux distributions,
 consistent with the `PEP 513 manylinux1
 <https://www.python.org/dev/peps/pep-0513/>`_, `PEP 571 manylinux2010
 <https://www.python.org/dev/peps/pep-0571/>`_ and `PEP 599 manylinux2014
@@ -37,9 +37,11 @@ advised that bundling, like static linking, may implicate copyright concerns.
 Installation
 ------------
 
-``auditwheel`` can be installed using pip: ::
+``auditwheel`` can be installed using pip:
 
-  pip3 install auditwheel
+.. code:: bash
+
+  $ pip3 install auditwheel
 
 It requires Python 3.5+, and runs on Linux. It requires that the shell command
 ``unzip`` be available in the ``PATH``. Only systems that use `ELF
@@ -113,7 +115,7 @@ Limitations
    on older system.
 
    So, to compile widely-compatible binaries, you're best off doing the build
-   on an old Linux distribution, such as the manylinux Docker image.
+   on an old Linux distribution, such as a manylinux Docker image.
 
 Testing
 -------
