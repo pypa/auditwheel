@@ -16,8 +16,11 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
 
     def filter_libs(libs, whitelist):
         for lib in libs:
-            if 'ld-linux' in lib:
-                # always exclude ld-linux.so
+            if 'ld-linux' in lib or lib in ['ld64.so.2', 'ld64.so.1']:
+                # always exclude ELF dynamic linker/loader
+                # 'ld64.so.2' on s390x
+                # 'ld64.so.1' on ppc64le
+                # 'ld-linux*' on other platforms
                 continue
             if LIBPYTHON_RE.match(lib):
                 # always exclude libpythonXY

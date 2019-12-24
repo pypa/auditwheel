@@ -45,7 +45,8 @@ def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
 
     if section is not None:
         for verneed, verneed_iter in section.iter_versions():
-            if verneed.name.startswith('ld-linux'):
+            if verneed.name.startswith('ld-linux') or \
+                    verneed.name in ['ld64.so.2', 'ld64.so.1']:
                 continue
             for vernaux in verneed_iter:
                 yield (verneed.name,
