@@ -95,13 +95,16 @@ class TestElfFindVersionedSymbols:
         # THEN
         assert symbols == [("foo-lib", "foo-lib")]
 
-    def test_only_ld_linux(self):
+    @pytest.mark.parametrize('ld_name', ['ld-linux', 'ld64.so.2', 'ld64.so.1'])
+    def test_only_ld_linux(self, ld_name):
         # GIVEN
         elf = Mock()
         verneed = Mock()
-        verneed.configure_mock(name="ld-linux")
+        verneed.configure_mock(name=ld_name)
+        veraux = Mock()
+        veraux.configure_mock(name="foo-lib")
         elf.get_section_by_name.return_value.iter_versions.return_value = (
-            (verneed, []),
+            (verneed, [veraux]),
         )
 
         # WHEN

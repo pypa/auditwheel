@@ -7,6 +7,8 @@
 #endif
 #include <Python.h>
 
+static __thread int tres = 0;
+
 static PyObject *
 run(PyObject *self, PyObject *args)
 {
@@ -24,7 +26,16 @@ run(PyObject *self, PyObject *args)
 #else
     res = 0;
 #endif
-    return PyLong_FromLong(res);
+    return PyLong_FromLong(res + tres);
+}
+
+static PyObject *
+set_tres(PyObject *self, PyObject *args)
+{
+    (void)self;
+    (void)args;
+    tres = 1;
+    return PyLong_FromLong(tres);
 }
 
 /* Module initialization */
@@ -32,6 +43,7 @@ PyMODINIT_FUNC PyInit_testdependencies(void)
 {
     static PyMethodDef module_methods[] = {
         {"run", (PyCFunction)run, METH_NOARGS, "run."},
+        {"set_tres", (PyCFunction)set_tres, METH_NOARGS, "set_tres."},
         {NULL}  /* Sentinel */
     };
     static struct PyModuleDef moduledef = {
