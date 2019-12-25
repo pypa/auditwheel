@@ -181,8 +181,9 @@ def any_manylinux_container(any_manylinux_img, io_folder):
         yield '{}_{}'.format(policy, PLATFORM), container
 
 
+@pytest.mark.parametrize("patcher", ["patchelf", "lief"])
 @pytest.mark.xfail(condition=(PLATFORM == 'aarch64'), reason='numpy build fails on aarch64', strict=True)
-def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
+def test_build_repair_numpy(patcher, any_manylinux_container, docker_python, io_folder):
     # Integration test: repair numpy built from scratch
 
     # First build numpy from source as a naive linux wheel that is tied
@@ -211,8 +212,9 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
 
     # Repair the wheel using the manylinux container
     repair_command = (
-        'auditwheel repair --plat {policy} -w /io /io/{orig_wheel}'
-    ).format(policy=policy, orig_wheel=orig_wheel)
+        'auditwheel repair --elf-patcher {patcher} '
+        '--plat {policy} -w /io /io/{orig_wheel}'
+    ).format(patcher=patcher, policy=policy, orig_wheel=orig_wheel)
     docker_exec(manylinux_ctr, repair_command)
     filenames = os.listdir(io_folder)
 

@@ -92,11 +92,10 @@ class Lief(ElfPatcher):
         try:
             rpath = elf.get(lief.ELF.DYNAMIC_TAGS.RPATH)
             logger.info("Current RPATH: %s", rpath)
-            rpath.name = new_rpath
+            rpath.rpath = new_rpath
         except lief.not_found:
             logger.info("No RPATH found, creating new entry")
-            rpath = lief.ELF.DynamicEntryRpath()
-            rpath.name = new_rpath
+            rpath = lief.ELF.DynamicEntryRpath(new_rpath)
             elf.add(rpath)
 
         logger.info("Setting new RPATH: %s", rpath)

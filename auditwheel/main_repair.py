@@ -44,21 +44,25 @@ def configure_parser(sub_parsers):
                    default=True)
     p.add_argument('--elf-patcher',
                    dest='ELF_PATCHER',
-                   help="ELF executable patcher to use. " \
+                   help="ELF executable patcher to use. "
                    "Choices: 'patchelf' (default), 'lief'")
     p.set_defaults(func=execute)
 
 
 def execute(args, p):
     import os
-    from distutils.spawn import find_executable
     from .repair import repair_wheel
     from .wheel_abi import analyze_wheel_abi
 
+    if args.ELF_PATCHER == "lief":
+        patcher = Lief()
+    elif args.ELF_PATCHER == "patchelf":
+        patcher = Patchelf()
+    else:
+        p.error("Unknown ELF patcher: {}".format(args.ELF_PATCHER))
+
     if not isfile(args.WHEEL_FILE):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
-    if find_executable('patchelf') is None:
-        p.error('cannot find the \'patchelf\' tool, which is required')
 
     logger.info('Repairing %s', basename(args.WHEEL_FILE))
 
@@ -81,11 +85,6 @@ def execute(args, p):
                'the wheel against a wide-unicode build of Python.' %
                (args.WHEEL_FILE, args.PLAT))
         p.error(msg)
-
-    if args.ELF_PATCHER == "lief":
-        patcher = Lief()
-    else:
-        patcher = Patchelf()
 
     out_wheel = repair_wheel(args.WHEEL_FILE,
                              abi=args.PLAT,
