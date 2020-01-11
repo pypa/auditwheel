@@ -2,6 +2,12 @@
 
 ## HEAD
 
+## 3.0.0
+
+Released Jan. 11, 2020
+
+- No user facing changes since 3.0.0.0rc1.
+
 ## 3.0.0.0rc1
 
 Released Nov. 7, 2019
