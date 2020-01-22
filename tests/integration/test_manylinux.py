@@ -145,7 +145,7 @@ def tmp_docker_image(base, commands, setup_env={}):
 @pytest.fixture(scope='session')
 def docker_python_img():
     """The Python base image with up-to-date pip"""
-    with tmp_docker_image(PYTHON_IMAGE_ID, ['pip install -U pip']) as img_id:
+    with tmp_docker_image(PYTHON_IMAGE_ID, ['pip install pip==19.3.1']) as img_id:
         yield img_id
 
 @pytest.fixture(scope='session', params=MANYLINUX_IMAGES.keys())
@@ -158,7 +158,7 @@ def any_manylinux_img(request):
     base = MANYLINUX_IMAGES[policy]
     env = {'PATH': PATH[policy]}
     with tmp_docker_image(base, [
-        'pip install -U pip setuptools pytest-cov',
+        'pip install -U pip==19.3.1 setuptools pytest-cov',
         'pip install -U -e /auditwheel_src',
     ], env) as img_id:
         yield policy, img_id
