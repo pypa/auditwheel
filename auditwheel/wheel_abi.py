@@ -26,6 +26,14 @@ WheelAbIInfo = namedtuple('WheelAbIInfo',
                            'pyfpe_tag'])
 
 
+class WheelAbiError(Exception):
+    """Root exception class"""
+
+
+class NonPlatformWheel(WheelAbiError):
+    """No ELF binaries in the wheel"""
+
+
 @functools.lru_cache()
 def get_wheel_elfdata(wheel_fn: str):
     full_elftree = {}
@@ -38,7 +46,9 @@ def get_wheel_elfdata(wheel_fn: str):
     with InGenericPkgCtx(wheel_fn) as ctx:
         shared_libraries_in_purelib = []
 
+        platform_wheel = False
         for fn, elf in elf_file_filter(ctx.iter_files()):
+            platform_wheel = True
 
             # Check for invalid binary wheel format: no shared library should
             # be found in purelib
@@ -78,6 +88,9 @@ def get_wheel_elfdata(wheel_fn: str):
                     # vendored it, so we will check whether we should include
                     # its internal references later.
                     nonpy_elftree[fn] = elftree
+
+        if not platform_wheel:
+            raise NonPlatformWheel
 
         # If at least one shared library exists in purelib, raise an error
         if shared_libraries_in_purelib:

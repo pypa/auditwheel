@@ -47,7 +47,7 @@ def execute(args, p):
     import os
     from distutils.spawn import find_executable
     from .repair import repair_wheel
-    from .wheel_abi import analyze_wheel_abi
+    from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
 
     if not isfile(args.WHEEL_FILE):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
@@ -59,7 +59,12 @@ def execute(args, p):
     if not exists(args.WHEEL_DIR):
         os.makedirs(args.WHEEL_DIR)
 
-    wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
+    try:
+        wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
+    except NonPlatformWheel:
+        logger.info('This does not look like a platform wheel')
+        return 1
+
     reqd_tag = get_priority_by_name(args.PLAT)
 
     if reqd_tag > get_priority_by_name(wheel_abi.sym_tag):

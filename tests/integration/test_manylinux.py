@@ -104,11 +104,11 @@ def docker_container_ctx(image, io_dir=None, env_variables={}):
         container.remove(force=True)
 
 
-def docker_exec(container, cmd):
+def docker_exec(container, cmd, expected_retcode=0):
     logger.info("docker exec %s: %r", container.id[:12], cmd)
     ec, output = container.exec_run(cmd)
     output = output.decode(ENCODING)
-    if ec != 0:
+    if ec != expected_retcode:
         print(output)
         raise CalledProcessError(ec, cmd, output=output)
     return output
@@ -379,6 +379,7 @@ def test_build_repair_pure_wheel(any_manylinux_container, io_folder):
         # If six has already been built and put in cache, let's reuse this.
         shutil.copy2(op.join(WHEEL_CACHE_FOLDER, policy,  ORIGINAL_SIX_WHEEL),
                      op.join(io_folder, ORIGINAL_SIX_WHEEL))
+        logger.info("Copied six wheel from {} to {}".format(WHEEL_CACHE_FOLDER, io_folder))
     else:
         docker_exec(manylinux_ctr, 'pip wheel -w /io --no-binary=:all: six==1.11.0')
         os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
@@ -394,21 +395,13 @@ def test_build_repair_pure_wheel(any_manylinux_container, io_folder):
     repair_command = (
         'auditwheel repair --plat {policy} -w /io /io/{orig_wheel}'
     ).format(policy=policy, orig_wheel=orig_wheel)
-    docker_exec(manylinux_ctr, repair_command)
-    filenames = os.listdir(io_folder)
-    assert len(filenames) == 1  # no new wheels
-    assert filenames == [ORIGINAL_SIX_WHEEL]
+    output = docker_exec(manylinux_ctr, repair_command, expected_retcode=1)
+    assert "This does not look like a platform wheel" in output
 
-    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + filenames[0])
-    expected = 'manylinux1' if PLATFORM in {'x86_64', 'i686'} else 'manylinux2014'
-    assert ''.join([
-        ORIGINAL_SIX_WHEEL,
-        ' is consistent with the following platform tag: ',
-        '"{}_{}".  '.format(expected, PLATFORM),
-        'The wheel references no external versioned symbols from system- ',
-        'provided shared libraries.  ',
-        'The wheel requires no external shared libraries! :)',
-    ]) in output.replace('\n', ' ')
+    output = docker_exec(manylinux_ctr, 'auditwheel show /io/{orig_wheel}'
+                         .format(orig_wheel=orig_wheel),
+                         expected_retcode=1)
+    assert "This does not look like a platform wheel" in output
 
 
 @pytest.mark.parametrize('dtag', ['rpath', 'runpath'])
