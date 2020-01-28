@@ -6,7 +6,6 @@ Tools that aren't specific to delocation
 import os
 from os.path import (join as pjoin, abspath, relpath, exists, sep as psep,
                      splitext, dirname, basename)
-import sys
 import glob
 import hashlib
 import csv
@@ -26,16 +25,6 @@ logger = logging.getLogger(__name__)
 
 class WheelToolsError(Exception):
     pass
-
-
-def open_for_csv(name, mode):
-    if sys.version_info[0] < 3:
-        kwargs = {}
-        mode += 'b'
-    else:
-        kwargs = {'newline': '', 'encoding': 'utf-8'}
-
-    return open(name, mode, **kwargs)
 
 
 def _dist_info_dir(bdist_dir):
@@ -82,7 +71,7 @@ def rewrite_record(bdist_dir):
         """Wheel hashes every possible file."""
         return path == record_relpath
 
-    with open_for_csv(record_path, 'w+') as record_file:
+    with open(record_path, 'w+', newline='', encoding='utf-8') as record_file:
         writer = csv.writer(record_file)
         for path in walk():
             relative_path = relpath(path, bdist_dir)
