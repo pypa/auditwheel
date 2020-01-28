@@ -12,9 +12,9 @@ import csv
 from itertools import product
 import logging
 
-from wheel.util import urlsafe_b64encode, open_for_csv, native  # type: ignore
+from wheel.util import urlsafe_b64encode, native  # type: ignore
 from wheel.pkginfo import read_pkg_info, write_pkg_info  # type: ignore
-from wheel.install import WHEEL_INFO_RE  # type: ignore
+from wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip
@@ -71,7 +71,7 @@ def rewrite_record(bdist_dir):
         """Wheel hashes every possible file."""
         return path == record_relpath
 
-    with open_for_csv(record_path, 'w+') as record_file:
+    with open(record_path, 'w+', newline='', encoding='utf-8') as record_file:
         writer = csv.writer(record_file)
         for path in walk():
             relative_path = relpath(path, bdist_dir)
@@ -201,7 +201,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
         out_dir = '.'
         wheel_fname = basename(wheel_ctx.in_wheel)
 
-    parsed_fname = WHEEL_INFO_RE(wheel_fname)
+    parsed_fname = WHEEL_INFO_RE.match(wheel_fname)
     fparts = parsed_fname.groupdict()
     original_fname_tags = fparts['plat'].split('.')
     logger.info('Previous filename tags: %s', ', '.join(original_fname_tags))
