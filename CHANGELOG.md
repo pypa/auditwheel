@@ -2,6 +2,17 @@
 
 ## HEAD
 
+## 3.1.0
+
+Released Jan. 29, 2020
+
+### User-facing changes
+- [FEATURE] Put libraries in `$WHEELNAME.libs` to avoid vendoring multiple copies 
+  of the same library ([#90](https://github.com/pypa/auditwheel/pull/90))
+
+### Housekeeping
+- Upgrade `wheel` to 0.34  ([#223](https://github.com/pypa/auditwheel/pull/223))
+
 ## 3.0.0
 
 Released Jan. 11, 2020
