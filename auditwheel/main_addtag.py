@@ -22,13 +22,13 @@ def configure_parser(sub_parsers):
 
 def execute(args, p):
     import os
-    from wheel.install import WHEEL_INFO_RE  # type: ignore
+    from wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
     from .wheeltools import InWheelCtx, add_platforms, WheelToolsError
     from .wheel_abi import analyze_wheel_abi
 
     wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
 
-    parsed_fname = WHEEL_INFO_RE(basename(args.WHEEL_FILE))
+    parsed_fname = WHEEL_INFO_RE.search(basename(args.WHEEL_FILE))
     in_fname_tags = parsed_fname.groupdict()['plat'].split('.')
 
     logger.info('%s receives the following tag: "%s".',
