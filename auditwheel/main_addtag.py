@@ -24,9 +24,13 @@ def execute(args, p):
     import os
     from wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
     from .wheeltools import InWheelCtx, add_platforms, WheelToolsError
-    from .wheel_abi import analyze_wheel_abi
+    from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
 
-    wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
+    try:
+        wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
+    except NonPlatformWheel:
+        logger.info('This does not look like a platform wheel')
+        return 1
 
     parsed_fname = WHEEL_INFO_RE.search(basename(args.WHEEL_FILE))
     in_fname_tags = parsed_fname.groupdict()['plat'].split('.')
