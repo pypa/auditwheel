@@ -2,6 +2,8 @@
 #include "dependency.h"
 #else
 #include <malloc.h>
+#include <stdlib.h>
+#include <stdint.h>
 #endif
 #include <Python.h>
 
@@ -16,7 +18,7 @@ run(PyObject *self, PyObject *args)
 #ifdef WITH_DEPENDENCY
     res = dep_run();
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 17)
-    res = (int)secure_getenv("NON_EXISTING_ENV_VARIABLE");
+    res = (int)(intptr_t)secure_getenv("NON_EXISTING_ENV_VARIABLE");
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 10)
     res = malloc_info(0, stdout);
 #else

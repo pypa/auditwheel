@@ -3,10 +3,10 @@ import subprocess
 from os import path
 from os import getenv
 
-cmd = 'gcc -shared -fPIC dependency.c -o libdependency.so'
+cmd = 'gcc -shared -fPIC -D_GNU_SOURCE dependency.c -o libdependency.so'
 subprocess.check_call(cmd.split())
 
-define_macros = []
+define_macros = [('_GNU_SOURCE', None)]
 libraries = []
 library_dirs = []
 
