@@ -2,6 +2,20 @@
 
 ## HEAD
 
+## 3.1.1
+
+Released Apr. 25, 2020
+
+### User-facing changes
+- [BUGFIX] Always exclude ELF dynamic linker/loader from analysis ([#213](https://github.com/pypa/auditwheel/pull/213))
+  - Fixes "auditwheel repair marked internal so files as shared library dependencies ([#212](https://github.com/pypa/auditwheel/issues/212))"
+- [BUGFIX] Correctly detect non-platform wheels ([#224](https://github.com/pypa/auditwheel/pull/224))
+  - Fixes "Auditwheel addtag returns stack trace when given a none-any wheel ([#218](https://github.com/pypa/auditwheel/issues/218))"
+- [BUGFIX] Fix obsolete wheel usage in addtag ([#226](https://github.com/pypa/auditwheel/pull/226))
+
+### Housekeeping
+- Upgrade `wheel` to 0.34.2 ([#235](https://github.com/pypa/auditwheel/pull/235))
+
 ## 3.1.0
 
 Released Jan. 29, 2020
