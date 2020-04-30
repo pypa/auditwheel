@@ -9,10 +9,10 @@ from auditwheel.lddtree import lddtree
 
 @pytest.fixture
 def systemlib():
-    for libdata in lddtree(sys.executable)["libs"].values():
-        # return one of the arbitrary libraries that python is linked
-        # against, like libc.so.6. any one will do.         
-        return libdata["realpath"]
+    # return one of the arbitrary libraries that python is linked
+    # against, like libc.so.6. any one will do.         
+    lib, *_ = lddtree(sys.executable)["libs"].values()
+    return lib["realpath"]
 
 
 on_supported_platform = pytest.mark.skipif(
