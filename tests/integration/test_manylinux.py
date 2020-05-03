@@ -39,7 +39,7 @@ PYTHON_IMAGE_ID = 'python:' + '.'.join(PYTHON_MAJ_MIN)
 DEVTOOLSET = {
     'manylinux1': 'devtoolset-2',
     'manylinux2010': 'devtoolset-8',
-    'manylinux2014': 'devtoolset-8',
+    'manylinux2014': 'devtoolset-9',
 }
 PATH_DIRS = [
     '/opt/python/{}/bin'.format(PYTHON_ABI),
@@ -182,7 +182,6 @@ def any_manylinux_container(any_manylinux_img, io_folder):
         yield '{}_{}'.format(policy, PLATFORM), container
 
 
-@pytest.mark.xfail(condition=(PLATFORM == 'aarch64'), reason='numpy build fails on aarch64', strict=True)
 def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
     # Integration test: repair numpy built from scratch
 
