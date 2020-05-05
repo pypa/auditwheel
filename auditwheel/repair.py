@@ -48,8 +48,14 @@ def verify_patchelf():
                      version)
 
 
-def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
-                 update_tags: bool) -> Optional[str]:
+def repair_wheel(
+    wheel_path: str,
+    abi: str,
+    lib_sdir: str,
+    out_dir: str,
+    update_tags: bool,
+    extra_lib_name_tag: str = None,
+) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
 
@@ -82,7 +88,9 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
                                       'library "%s" could not be located') %
                                      soname)
 
-                new_soname, new_path = copylib(src_path, dest_dir)
+                new_soname, new_path = copylib(
+                    src_path, dest_dir, extra_lib_name_tag=extra_lib_name_tag
+                )
                 soname_map[soname] = (new_soname, new_path)
                 check_call(['patchelf', '--replace-needed', soname,
                             new_soname, fn])
@@ -107,7 +115,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
     return ctx.out_wheel
 
 
-def copylib(src_path, dest_dir):
+def copylib(src_path, dest_dir, extra_lib_name_tag=None):
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
@@ -122,6 +130,9 @@ def copylib(src_path, dest_dir):
 
     with open(src_path, 'rb') as f:
         shorthash = hashfile(f)[:8]
+
+    if extra_lib_name_tag:
+        shorthash = "%s-%s" % (extra_lib_name_tag, shorthash)
 
     src_name = os.path.basename(src_path)
     base, ext = src_name.split('.', 1)

@@ -1,3 +1,4 @@
+import os
 from os.path import isfile, exists, abspath, basename
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
@@ -11,10 +12,16 @@ def configure_parser(sub_parsers):
     policy_names = [p['name'] for p in load_policies()]
     highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)
     help = "Vendor in external shared library dependencies of a wheel."
-    p = sub_parsers.add_parser('repair', help=help, description=help)
-    p.add_argument('WHEEL_FILE', help='Path to wheel file.')
+    p = sub_parsers.add_parser("repair", help=help, description=help)
+    p.add_argument("WHEEL_FILE", help="Path to wheel file.")
     p.add_argument(
-        '--plat',
+        "--extra-lib-name-tag",
+        dest="EXTRA_LIB_NAME_TAG",
+        help="Extra, optional tag for copied library names",
+        default=os.environ.get("AUDITWHEEL_EXTRA_LIB_NAME_TAG", None),
+    )
+    p.add_argument(
+        "--plat",
         action=EnvironmentDefault,
         env='AUDITWHEEL_PLAT',
         dest='PLAT',
@@ -81,23 +88,34 @@ def execute(args, p):
                (args.WHEEL_FILE, args.PLAT))
         p.error(msg)
 
-    out_wheel = repair_wheel(args.WHEEL_FILE,
-                             abi=args.PLAT,
-                             lib_sdir=args.LIB_SDIR,
-                             out_dir=args.WHEEL_DIR,
-                             update_tags=args.UPDATE_TAGS)
+    out_wheel = repair_wheel(
+        args.WHEEL_FILE,
+        abi=args.PLAT,
+        lib_sdir=args.LIB_SDIR,
+        out_dir=args.WHEEL_DIR,
+        update_tags=args.UPDATE_TAGS,
+        extra_lib_name_tag=args.EXTRA_LIB_NAME_TAG,
+    )
 
     if out_wheel is not None:
         analyzed_tag = analyze_wheel_abi(out_wheel).overall_tag
         if reqd_tag < get_priority_by_name(analyzed_tag):
-            logger.info(('Wheel is eligible for a higher priority tag. '
-                         'You requested %s but I have found this wheel is '
-                         'eligible for %s.'),
-                        args.PLAT, analyzed_tag)
-            out_wheel = repair_wheel(args.WHEEL_FILE,
-                                     abi=analyzed_tag,
-                                     lib_sdir=args.LIB_SDIR,
-                                     out_dir=args.WHEEL_DIR,
-                                     update_tags=args.UPDATE_TAGS)
+            logger.info(
+                (
+                    "Wheel is eligible for a higher priority tag. "
+                    "You requested %s but I have found this wheel is "
+                    "eligible for %s."
+                ),
+                args.PLAT,
+                analyzed_tag,
+            )
+            out_wheel = repair_wheel(
+                args.WHEEL_FILE,
+                abi=analyzed_tag,
+                lib_sdir=args.LIB_SDIR,
+                out_dir=args.WHEEL_DIR,
+                update_tags=args.UPDATE_TAGS,
+                extra_lib_name_tag=args.EXTRA_LIB_NAME_TAG,
+            )
 
-        logger.info('\nFixed-up wheel written to %s', out_wheel)
+        logger.info("\nFixed-up wheel written to %s", out_wheel)
