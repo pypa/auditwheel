@@ -8,11 +8,11 @@ jobs:
   - python: "3.6"
   - python: "3.7"
   - python: "3.8"
-  - language: c
+  - python: "3.7"
     arch: arm64
-  - language: c
+  - python: "3.7"
     arch: ppc64le
-  - language: c
+  - python: "3.7"
     arch: s390x
   - python: "3.7"
     env: LINTER=1
@@ -24,7 +24,6 @@ notifications:
   email: false
 
 before_install:
-  - if [ "$(uname -m)" != "x86_64" ]; then sudo apt-get install -y python3-pip python3-venv && python3 -m venv ./.venv && source ./.venv/bin/activate; fi
   - pip install --upgrade pip setuptools
 
 install:
