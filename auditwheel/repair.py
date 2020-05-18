@@ -1,5 +1,6 @@
 import os
 import re
+import stat
 import shutil
 import itertools
 import functools
@@ -137,6 +138,9 @@ def copylib(src_path, dest_dir):
     logger.debug('Grafting: %s -> %s', src_path, dest_path)
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
+    statinfo = os.stat(dest_path)
+    if not statinfo.st_mode & stat.S_IWRITE:
+        os.chmod(dest_path, statinfo.st_mode | stat.S_IWRITE)
 
     verify_patchelf()
     check_call(['patchelf', '--set-soname', new_soname, dest_path])
