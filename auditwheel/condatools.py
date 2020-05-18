@@ -31,4 +31,4 @@ class InCondaPkgCtx(InCondaPkg):
     def iter_files(self):
         files = os.path.join(self.path, 'info', 'files')
         with open(files) as f:
-            return [native(l.strip()) for l in f.readlines()]
+            return [native(line.strip()) for line in f.readlines()]
