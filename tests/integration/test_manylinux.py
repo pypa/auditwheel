@@ -211,7 +211,8 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
 
     # Repair the wheel using the manylinux container
     repair_command = (
-        'auditwheel repair --plat {policy} -w /io /io/{orig_wheel}'
+        'auditwheel repair  '
+        '--plat {policy} -w /io /io/{orig_wheel}'
     ).format(policy=policy, orig_wheel=orig_wheel)
     docker_exec(manylinux_ctr, repair_command)
     filenames = os.listdir(io_folder)
