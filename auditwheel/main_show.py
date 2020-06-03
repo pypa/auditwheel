@@ -1,7 +1,11 @@
+import logging
+
 try:
     from collections.abc import OrderedDict
 except ImportError:
     from collections import OrderedDict
+
+logger = logging.getLogger(__name__)
 
 
 def configure_parser(sub_parsers):
@@ -23,13 +27,18 @@ def execute(args, p):
     from .policy import (load_policies, get_priority_by_name,
                          POLICY_PRIORITY_LOWEST, POLICY_PRIORITY_HIGHEST,
                          get_policy_name)
-    from .wheel_abi import analyze_wheel_abi
+    from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
     fn = basename(args.WHEEL_FILE)
 
     if not isfile(args.WHEEL_FILE):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
 
-    winfo = analyze_wheel_abi(args.WHEEL_FILE)
+    try:
+        winfo = analyze_wheel_abi(args.WHEEL_FILE)
+    except NonPlatformWheel:
+        logger.info('This does not look like a platform wheel')
+        return 1
+
     libs_with_versions = ['%s with versions %s' % (k, v)
                           for k, v in winfo.versioned_symbols.items()]
 
@@ -39,7 +48,7 @@ def execute(args, p):
     if get_priority_by_name(winfo.pyfpe_tag) < POLICY_PRIORITY_HIGHEST:
         printp(('This wheel uses the PyFPE_jbuf function, which is not '
                 'compatible with the manylinux1 tag. (see '
-                'https://www.python.org/dev/peps/pep-0513/#fpectl-builds-vs-no-fpectl-builds)'))
+                'https://www.python.org/dev/peps/pep-0513/#fpectl-builds-vs-no-fpectl-builds)'))  # noqa
         if args.verbose < 1:
             return
 
@@ -80,4 +89,5 @@ def execute(args, p):
             printp(('In order to achieve the tag platform tag "%s" '
                     'the following shared library dependencies '
                     'will need to be eliminated:') % p['name'])
-            printp(', '.join(sorted(winfo.external_refs[p['name']]['libs'].keys())))
+            printp(', '.join(
+                sorted(winfo.external_refs[p['name']]['libs'].keys())))

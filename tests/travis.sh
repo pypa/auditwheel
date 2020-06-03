@@ -2,9 +2,10 @@
 
 set -exo pipefail
 
-if [[ "$WHEELHOUSE" == "1" ]]; then
-    bash tests/test-wheelhouses.sh
+if [[ "$LINTER" == "1" ]]; then
+    tox -e lint
 else
-    pytest -s
+    pytest -s --cov auditwheel --cov-branch
     auditwheel lddtree $(python -c 'import sys; print(sys.executable)')
+    codecov || true  # Ignore failures from codecov tool
 fi

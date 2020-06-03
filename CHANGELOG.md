@@ -2,6 +2,76 @@
 
 ## HEAD
 
+## 3.1.1
+
+Released Apr. 25, 2020
+
+### User-facing changes
+- [BUGFIX] Always exclude ELF dynamic linker/loader from analysis ([#213](https://github.com/pypa/auditwheel/pull/213))
+  - Fixes "auditwheel repair marked internal so files as shared library dependencies ([#212](https://github.com/pypa/auditwheel/issues/212))"
+- [BUGFIX] Correctly detect non-platform wheels ([#224](https://github.com/pypa/auditwheel/pull/224))
+  - Fixes "Auditwheel addtag returns stack trace when given a none-any wheel ([#218](https://github.com/pypa/auditwheel/issues/218))"
+- [BUGFIX] Fix obsolete wheel usage in addtag ([#226](https://github.com/pypa/auditwheel/pull/226))
+
+### Housekeeping
+- Upgrade `wheel` to 0.34.2 ([#235](https://github.com/pypa/auditwheel/pull/235))
+
+## 3.1.0
+
+Released Jan. 29, 2020
+
+### User-facing changes
+- [FEATURE] Put libraries in `$WHEELNAME.libs` to avoid vendoring multiple copies 
+  of the same library ([#90](https://github.com/pypa/auditwheel/pull/90))
+
+### Housekeeping
+- Upgrade `wheel` to 0.34  ([#223](https://github.com/pypa/auditwheel/pull/223))
+
+## 3.0.0
+
+Released Jan. 11, 2020
+
+- No user facing changes since 3.0.0.0rc1.
+
+## 3.0.0.0rc1
+
+Released Nov. 7, 2019
+
+### User-facing changes
+- [FEATURE] manylinux2014 policy ([#192](https://github.com/pypa/auditwheel/pull/192), [#202](https://github.com/pypa/auditwheel/pull/202))
+- [FEATURE] Update machine detection ([#201](https://github.com/pypa/auditwheel/pull/201))
+- [FEATURE] Advertise python 3.8 support and run python 3.8 in CI ([#203](https://github.com/pypa/auditwheel/pull/203))
+
+### Housekeeping
+- Run manylinux tests using current python version ([#199](https://github.com/pypa/auditwheel/pull/199))
+
+## 2.1.1
+
+Released Oct. 08, 2019
+
+### User-facing changes
+
+- [BUGFIX] Add missing symbols for manylinux2010_i686 policy ([#141](https://github.com/pypa/auditwheel/pull/141), [#194](https://github.com/pypa/auditwheel/pull/194))
+- [BUGFIX] Fix --version for python 3.10 ([#189](https://github.com/pypa/auditwheel/pull/189))
+
+### Housekeeping
+
+- Simplify policy unit test ([#188](https://github.com/pypa/auditwheel/pull/188))
+
+## 2.1
+
+Released Jul. 28, 2019
+
+- Instead of outputting only the first shared library found in `purelib`,
+  include a list of all offending files ([#143](https://github.com/pypa/auditwheel/pull/143))
+- Better policy detection ([#150](https://github.com/pypa/auditwheel/pull/150))
+- Use `AUDITWHEEL_PLAT` environment variable as a default option to --plat
+  ([#151](https://github.com/pypa/auditwheel/pull/150))
+- Workaround for `patchelf` bug not setting `DT_RUNPATH` correctly
+  ([#173](https://github.com/pypa/auditwheel/pull/173))
+- Remove `libcrypt.so.1` from library whitelist
+  ([#182](https://github.com/pypa/auditwheel/pull/182))
+
 ## 2.0
 
 Released Jan. 23, 2019

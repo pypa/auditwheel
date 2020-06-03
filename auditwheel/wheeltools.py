@@ -12,9 +12,9 @@ import csv
 from itertools import product
 import logging
 
-from wheel.util import urlsafe_b64encode, open_for_csv, native  # type: ignore
+from wheel.util import urlsafe_b64encode, native  # type: ignore
 from wheel.pkginfo import read_pkg_info, write_pkg_info  # type: ignore
-from wheel.install import WHEEL_INFO_RE  # type: ignore
+from wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip
@@ -28,7 +28,7 @@ class WheelToolsError(Exception):
 
 
 def _dist_info_dir(bdist_dir):
-    """Get the .dist-info directort from an unpacked wheel
+    """Get the .dist-info directory from an unpacked wheel
 
     Parameters
     ----------
@@ -71,7 +71,7 @@ def rewrite_record(bdist_dir):
         """Wheel hashes every possible file."""
         return path == record_relpath
 
-    with open_for_csv(record_path, 'w+') as record_file:
+    with open(record_path, 'w+', newline='', encoding='utf-8') as record_file:
         writer = csv.writer(record_file)
         for path in walk():
             relative_path = relpath(path, bdist_dir)
@@ -112,17 +112,17 @@ class InWheel(InTemporaryDirectory):
         """
         self.in_wheel = abspath(in_wheel)
         self.out_wheel = None if out_wheel is None else abspath(out_wheel)
-        super(InWheel, self).__init__()
+        super().__init__()
 
     def __enter__(self):
         zip2dir(self.in_wheel, self.name)
-        return super(InWheel, self).__enter__()
+        return super().__enter__()
 
     def __exit__(self, exc, value, tb):
         if self.out_wheel is not None:
             rewrite_record(self.name)
             dir2zip(self.name, self.out_wheel)
-        return super(InWheel, self).__exit__(exc, value, tb)
+        return super().__exit__(exc, value, tb)
 
 
 class InWheelCtx(InWheel):
@@ -152,11 +152,11 @@ class InWheelCtx(InWheel):
             filename of wheel to write after exiting.  If None, don't write and
             discard
         """
-        super(InWheelCtx, self).__init__(in_wheel, out_wheel)
+        super().__init__(in_wheel, out_wheel)
         self.path = None
 
     def __enter__(self):
-        self.path = super(InWheelCtx, self).__enter__()
+        self.path = super().__enter__()
         return self
 
     def iter_files(self):
@@ -201,7 +201,7 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
         out_dir = '.'
         wheel_fname = basename(wheel_ctx.in_wheel)
 
-    parsed_fname = WHEEL_INFO_RE(wheel_fname)
+    parsed_fname = WHEEL_INFO_RE.match(wheel_fname)
     fparts = parsed_fname.groupdict()
     original_fname_tags = fparts['plat'].split('.')
     logger.info('Previous filename tags: %s', ', '.join(original_fname_tags))

@@ -1,3 +1,4 @@
+import argparse
 import os
 import shutil
 from glob import glob
@@ -44,7 +45,7 @@ def zip2dir(zip_fname, out_dir):
     try:
         # but sometimes preserving permssions is really bad, and makes it
         # we don't have the permissions to read any of the files
-        with open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0]) as f:
+        with open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0]):
             pass
     except PermissionError:
         shutil.rmtree(out_dir)
@@ -66,7 +67,8 @@ def dir2zip(in_dir, zip_fname):
     zip_fname : str
         Filename of zip archive to write
     """
-    with zipfile.ZipFile(zip_fname, 'w', compression=zipfile.ZIP_DEFLATED) as z:
+    with zipfile.ZipFile(zip_fname, 'w',
+                         compression=zipfile.ZIP_DEFLATED) as z:
         for root, dirs, files in os.walk(in_dir):
             for file in files:
                 fname = os.path.join(root, file)
@@ -100,3 +102,34 @@ def find_package_dirs(root_path):
         if isdir(fname) and exists(pjoin(fname, '__init__.py')):
             package_sdirs.add(fname)
     return package_sdirs
+
+
+class EnvironmentDefault(argparse.Action):
+    """Get values from environment variable."""
+
+    def __init__(self, env, required=True, default=None, **kwargs):
+        self.env_default = os.environ.get(env)
+        self.env = env
+        if self.env_default:
+            default = self.env_default
+        if default:
+            required = False
+        if self.env_default and 'choices' in kwargs:
+            choices = kwargs['choices']
+            if self.env_default not in choices:
+                self.option_strings = kwargs['option_strings']
+                args = {'value': self.env_default,
+                        'choices': ', '.join(map(repr, choices)),
+                        'env': self.env}
+                msg = 'invalid choice: %(value)r from environment variable '\
+                      '%(env)r (choose from %(choices)s)'
+                raise argparse.ArgumentError(self, msg % args)
+
+        super().__init__(
+            default=default,
+            required=required,
+            **kwargs
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)

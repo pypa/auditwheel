@@ -1,0 +1,4 @@
+[paths]
+source =
+    auditwheel/
+    /auditwheel_src/auditwheel

@@ -11,9 +11,13 @@ from . import main_repair
 
 
 def main():
+    if sys.platform != 'linux':
+        print('Error: This tool only supports Linux')
+        return 1
+
     dist = pkg_resources.get_distribution('auditwheel')
-    version = 'auditwheel %s installed at %s (python %s)' % (
-        dist.version, dist.location, sys.version[:3])
+    version = 'auditwheel {} installed at {} (python {}.{})'.format(
+        dist.version, dist.location, *sys.version_info)
 
     p = argparse.ArgumentParser(description='Cross-distro Python wheels.')
     p.set_defaults(prog=os.path.basename(sys.argv[0]))
@@ -43,10 +47,6 @@ def main():
         p.print_help()
         return
 
-    try:
-        rval = args.func(args, p)
-    except:
-        # TODO(rmcgibbo): nice message
-        raise
+    rval = args.func(args, p)
 
     return rval

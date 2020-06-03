@@ -5,47 +5,48 @@ from typing import Optional
 from os.path import join, dirname, abspath
 import logging
 
-logger = logging.getLogger(__name__)
 
-_sys_map = {'linux2': 'linux',
-            'linux': 'linux',
-            'darwin': 'osx',
-            'win32': 'win',
-            'openbsd5': 'openbsd'}
-non_x86_linux_machines = {'armv6l', 'armv7l', 'ppc64le'}
-platform = _sys_map.get(sys.platform, 'unknown')
-linkage = _platform_module.architecture()[1]
+logger = logging.getLogger(__name__)
 
 # https://docs.python.org/3/library/platform.html#platform.architecture
 bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 
-_PLATFORM_REPLACEMENT_MAP = {
-    'manylinux1_x86_64': ['linux_x86_64'],
-    'manylinux2010_x86_64': ['linux_x86_64'],
-    'manylinux1_i686': ['linux_i686'],
-    'manylinux2010_i686': ['linux_i686'],
-}
 
-# XXX: this could be weakened. The show command _could_ run on OS X or
-# Windows probably, but there's not much reason to inspect foreign package
-# that won't run on the platform.
-if platform != 'linux':
-    logger.critical('Error: This tool only supports Linux')
-    sys.exit(1)
+_PLATFORM_REPLACEMENT_MAP = {}
+for _policy in {'manylinux1', 'manylinux2010'}:
+    for _arch in {'x86_64', 'i686'}:
+        _key = '{}_{}'.format(_policy, _arch)
+        _value = 'linux_{}'.format(_arch)
+        _PLATFORM_REPLACEMENT_MAP[_key] = [_value]
+
+for _policy in {'manylinux2014'}:
+    for _arch in {
+        'x86_64', 'i686', 'aarch64', 'armv7l', 'ppc64', 'ppc64le', 's390x'
+    }:
+        _key = '{}_{}'.format(_policy, _arch)
+        _value = 'linux_{}'.format(_arch)
+        _PLATFORM_REPLACEMENT_MAP[_key] = [_value]
+
 
 def get_arch_name():
-    if _platform_module.machine() in non_x86_linux_machines:
-        return _platform_module.machine()
+    machine = _platform_module.machine()
+    if machine not in {'x86_64', 'i686'}:
+        return machine
     else:
         return {64: 'x86_64', 32: 'i686'}[bits]
+
 
 _ARCH_NAME = get_arch_name()
 
 
 with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
-    _POLICIES = json.load(f)
-    for p in _POLICIES:
-        p['name'] = p['name'] + '_' + _ARCH_NAME
+    _POLICIES = []
+    _policies_temp = json.load(f)
+    for _p in _policies_temp:
+        _name = _p['name'] + '_' + _ARCH_NAME
+        if _name in _PLATFORM_REPLACEMENT_MAP or _name.startswith('linux'):
+            _p['name'] = _name
+            _POLICIES.append(_p)
 
 POLICY_PRIORITY_HIGHEST = max(p['priority'] for p in _POLICIES)
 POLICY_PRIORITY_LOWEST = min(p['priority'] for p in _POLICIES)
@@ -95,8 +96,9 @@ def get_replace_platforms(name: str):
     return _PLATFORM_REPLACEMENT_MAP.get(name, [])
 
 
-from .external_references import lddtree_external_references
-from .versioned_symbols import versioned_symbols_policy
+# These have to be imported here to avoid a circular import.
+from .external_references import lddtree_external_references  # noqa
+from .versioned_symbols import versioned_symbols_policy  # noqa
 
 __all__ = ['lddtree_external_references', 'versioned_symbols_policy',
            'load_policies', 'POLICY_PRIORITY_HIGHEST',

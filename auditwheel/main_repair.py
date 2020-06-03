@@ -1,9 +1,13 @@
 from os.path import isfile, exists, abspath, basename
+
+from auditwheel.patcher import Patchelf
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
+from .tools import EnvironmentDefault
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 def configure_parser(sub_parsers):
     policy_names = [p['name'] for p in load_policies()]
@@ -13,6 +17,8 @@ def configure_parser(sub_parsers):
     p.add_argument('WHEEL_FILE', help='Path to wheel file.')
     p.add_argument(
         '--plat',
+        action=EnvironmentDefault,
+        env='AUDITWHEEL_PLAT',
         dest='PLAT',
         help='Desired target platform. (default: "%s")' % highest_policy,
         choices=policy_names,
@@ -41,21 +47,23 @@ def configure_parser(sub_parsers):
 
 def execute(args, p):
     import os
-    from distutils.spawn import find_executable
     from .repair import repair_wheel
-    from .wheel_abi import analyze_wheel_abi
+    from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
 
     if not isfile(args.WHEEL_FILE):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
-    if find_executable('patchelf') is None:
-        p.error('cannot find the \'patchelf\' tool, which is required')
 
     logger.info('Repairing %s', basename(args.WHEEL_FILE))
 
     if not exists(args.WHEEL_DIR):
         os.makedirs(args.WHEEL_DIR)
 
-    wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
+    try:
+        wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
+    except NonPlatformWheel:
+        logger.info('This does not look like a platform wheel')
+        return 1
+
     reqd_tag = get_priority_by_name(args.PLAT)
 
     if reqd_tag > get_priority_by_name(wheel_abi.sym_tag):
@@ -72,11 +80,13 @@ def execute(args, p):
                (args.WHEEL_FILE, args.PLAT))
         p.error(msg)
 
+    patcher = Patchelf()
     out_wheel = repair_wheel(args.WHEEL_FILE,
                              abi=args.PLAT,
                              lib_sdir=args.LIB_SDIR,
                              out_dir=args.WHEEL_DIR,
-                             update_tags=args.UPDATE_TAGS)
+                             update_tags=args.UPDATE_TAGS,
+                             patcher=patcher)
 
     if out_wheel is not None:
         analyzed_tag = analyze_wheel_abi(out_wheel).overall_tag
@@ -89,6 +99,7 @@ def execute(args, p):
                                      abi=analyzed_tag,
                                      lib_sdir=args.LIB_SDIR,
                                      out_dir=args.WHEEL_DIR,
-                                     update_tags=args.UPDATE_TAGS)
+                                     update_tags=args.UPDATE_TAGS,
+                                     patcher=patcher)
 
         logger.info('\nFixed-up wheel written to %s', out_wheel)

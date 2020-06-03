@@ -7,18 +7,20 @@ auditwheel
     :target: https://pypi.org/project/auditwheel
 
 Auditing and relabeling of `PEP 513 manylinux1
-<https://www.python.org/dev/peps/pep-0513/>`_ and `PEP 571 manylinux2010
-<https://www.python.org/dev/peps/pep-0571/>`_ Linux wheels.
+<https://www.python.org/dev/peps/pep-0513/>`_, `PEP 571 manylinux2010
+<https://www.python.org/dev/peps/pep-0571/>`_ and `PEP 599 manylinux2014
+<https://www.python.org/dev/peps/pep-0599/>`_ Linux wheels.
 
 Overview
 --------
 
 ``auditwheel`` is a command line tool to facilitate the creation of Python
-`wheel packages <http://pythonwheels.com/>`_ for Linux containing pre-compiled
-binary extensions are compatible with a wide variety of Linux distributions,
+`wheel packages <http://pythonwheels.com/>`_ for Linux (containing pre-compiled
+binary extensions) that are compatible with a wide variety of Linux distributions,
 consistent with the `PEP 513 manylinux1
-<https://www.python.org/dev/peps/pep-0513/>`_ and `PEP 571 manylinux2010
-<https://www.python.org/dev/peps/pep-0571/>`_ platform tags.
+<https://www.python.org/dev/peps/pep-0513/>`_, `PEP 571 manylinux2010
+<https://www.python.org/dev/peps/pep-0571/>`_ and `PEP 599 manylinux2014
+<https://www.python.org/dev/peps/pep-0599/>`_ platform tags.
 
 ``auditwheel show``: shows external shared libraries that the wheel depends on
 (beyond the libraries included in the ``manylinux`` policies), and
@@ -35,9 +37,11 @@ advised that bundling, like static linking, may implicate copyright concerns.
 Installation
 ------------
 
-``auditwheel`` can be installed using pip: ::
+``auditwheel`` can be installed using pip:
 
-  pip3 install auditwheel
+.. code:: bash
+
+  $ pip3 install auditwheel
 
 It requires Python 3.5+, and runs on Linux. It requires that the shell command
 ``unzip`` be available in the ``PATH``. Only systems that use `ELF
@@ -45,7 +49,8 @@ It requires Python 3.5+, and runs on Linux. It requires that the shell command
 are supported (this should be essentially every Linux).
 
 In general, building ``manylinux1`` wheels requires running on a CentOS5
-machine, and building ``manylinux2010`` wheels requires running on a CentOS6
+machine, building ``manylinux2010`` wheels requires running on a CentOS6
+machine, and building ``manylinux2014`` wheels requires running on a CentOS7
 machine, so we recommend using the pre-built manylinux `Docker images
 <https://quay.io/repository/pypa/manylinux1_x86_64>`_, e.g. ::
 
@@ -87,7 +92,7 @@ Repairing a wheel. ::
     New filename tags: manylinux1_x86_64
     Previous WHEEL info tags: cp35-cp35m-linux_x86_64
     New WHEEL info tags: cp35-cp35m-manylinux1_x86_64
-    
+
     Fixed-up wheel written to /wheelhouse/cffi-1.5.2-cp35-cp35m-manylinux1_x86_64.whl
 
 
@@ -110,8 +115,25 @@ Limitations
    on older system.
 
    So, to compile widely-compatible binaries, you're best off doing the build
-   on an old Linux distribution, such as the manylinux Docker image.
+   on an old Linux distribution, such as a manylinux Docker image.
 
+Testing
+-------
+
+The tests can be run with ``tox``, which will automatically install
+test dependencies.
+
+Some of the integration tests also require a running and accessible Docker
+daemon. These tests will pull a number of docker images if they are not already
+available on your system, but it won't update existing images.
+To update these images manually, run::
+
+    docker pull python:3.5
+    docker pull quay.io/pypa/manylinux1_x86_64
+    docker pull quay.io/pypa/manylinux2010_x86_64
+    docker pull quay.io/pypa/manylinux2014_x86_64
+
+You may also remove these images using ``docker rmi``.
 
 Code of Conduct
 ---------------
