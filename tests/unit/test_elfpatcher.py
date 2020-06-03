@@ -60,8 +60,25 @@ class TestPatchElf:
     def test_set_rpath(self, check_call, _):
         patcher = Patchelf()
         patcher.set_rpath("test.so", "$ORIGIN/.lib")
-        expected_args = [call(['patchelf', '--remove-rpath', 'test.so']),
+        expected_args = [call(['patchelf', '--print-rpath', 'test.so']),
+                         call(['patchelf', '--remove-rpath', 'test.so']),
                          call(['patchelf', '--force-rpath', '--set-rpath',
                                '$ORIGIN/.lib', 'test.so'])]
+
+        assert check_call.call_args_list == expected_args
+
+    def test_set_additional_rpath(self, check_call, _):
+        patcher = Patchelf()
+        patcher.set_rpath("test.so", "$ORIGIN/.existinglibdir")
+        patcher.set_rpath("test.so", "$ORIGIN/.lib")
+        expected_args = [call(['patchelf', '--print-rpath', 'test.so']),
+                         call(['patchelf', '--remove-rpath', 'test.so']),
+                         call(['patchelf', '--force-rpath', '--set-rpath',
+                               '$ORIGIN/.existinglibdir', 'test.so']),
+                         call(['patchelf', '--print-rpath', 'test.so']),
+                         call(['patchelf', '--remove-rpath', 'test.so']),
+                         call(['patchelf', '--force-rpath', '--set-rpath',
+                               '$ORIGIN/.existinglibdir:$ORIGIN/.lib',
+                               'test.so'])]
 
         assert check_call.call_args_list == expected_args
