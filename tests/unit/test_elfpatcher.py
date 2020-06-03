@@ -59,6 +59,7 @@ class TestPatchElf:
 
     def test_set_rpath(self, check_call, _):
         patcher = Patchelf()
+        check_call.return_value = b""
         patcher.set_rpath("test.so", "$ORIGIN/.lib")
         expected_args = [call(['patchelf', '--print-rpath', 'test.so']),
                          call(['patchelf', '--remove-rpath', 'test.so']),
@@ -69,13 +70,12 @@ class TestPatchElf:
 
     def test_set_additional_rpath(self, check_call, _):
         patcher = Patchelf()
-        patcher.set_rpath("test.so", "$ORIGIN/.existinglibdir")
+        # The first call to check_call will be to print the existing rpath
+        # When that is non-empty the existing rpaths should be present in the
+        # subsequent call to patchelf
+        check_call.return_value = b"$ORIGIN/.existinglibdir"
         patcher.set_rpath("test.so", "$ORIGIN/.lib")
         expected_args = [call(['patchelf', '--print-rpath', 'test.so']),
-                         call(['patchelf', '--remove-rpath', 'test.so']),
-                         call(['patchelf', '--force-rpath', '--set-rpath',
-                               '$ORIGIN/.existinglibdir', 'test.so']),
-                         call(['patchelf', '--print-rpath', 'test.so']),
                          call(['patchelf', '--remove-rpath', 'test.so']),
                          call(['patchelf', '--force-rpath', '--set-rpath',
                                '$ORIGIN/.existinglibdir:$ORIGIN/.lib',
