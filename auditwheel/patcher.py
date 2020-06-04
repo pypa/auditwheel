@@ -61,8 +61,8 @@ class Patchelf(ElfPatcher):
                   file_name: str,
                   rpath: str) -> None:
 
-        old_rpath = check_call(['patchelf', '--print-rpath',
-                                file_name]).decode('utf-8').strip()
+        old_rpath = check_output(['patchelf', '--print-rpath',
+                                  file_name]).decode('utf-8').strip()
         if old_rpath != '':
             rpath = ':'.join([old_rpath, rpath])
         check_call(['patchelf', '--remove-rpath', file_name])
