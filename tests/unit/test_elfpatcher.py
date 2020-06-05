@@ -86,7 +86,7 @@ class TestPatchElf:
                                           'test.so']),
                                     call(['patchelf', '--force-rpath',
                                           '--set-rpath',
-                                          '${}:$ORIGIN/.lib'.format(existing_rpath.decode()),
+                                          '{}:$ORIGIN/.lib'.format(existing_rpath.decode()),
                                           'test.so'])]
 
         assert check_output.call_args_list == check_output_expected_args
