@@ -74,19 +74,19 @@ class TestPatchElf:
         assert check_call.call_args_list == check_call_expected_args
 
     def test_set_additional_rpath(self, check_call, check_output, _):
+        existing_rpath = b"$ORIGIN/.existinglibdir"
         patcher = Patchelf()
-        # The first call to check_call will be to print the existing rpath
-        # When that is non-empty the existing rpaths should be present in the
-        # subsequent call to patchelf
-        check_output.return_value = b"$ORIGIN/.existinglibdir"
+        # When a library has an existing RPATH entry
+        check_output.return_value = existing_rpath
         patcher.set_rpath("test.so", "$ORIGIN/.lib")
         check_output_expected_args = [call(['patchelf', '--print-rpath',
                                             'test.so'])]
+        # Then that entry is preserved when updating the RPATH
         check_call_expected_args = [call(['patchelf', '--remove-rpath',
                                           'test.so']),
                                     call(['patchelf', '--force-rpath',
                                           '--set-rpath',
-                                          '$ORIGIN/.existinglibdir:$ORIGIN/.lib',
+                                          '${}:$ORIGIN/.lib'.format(existing_rpath.decode()),
                                           'test.so'])]
 
         assert check_output.call_args_list == check_output_expected_args
