@@ -20,6 +20,15 @@ class ElfPatcher:
                   rpath: str) -> None:
         raise NotImplementedError
 
+    def get_rpath(self,
+                  file_name: str) -> str:
+        raise NotImplementedError
+
+    def append_rpath(self,
+                  file_name: str,
+                  rpath: str) -> None:
+        raise NotImplementedError
+
 
 def _verify_patchelf() -> None:
     """This function looks for the ``patchelf`` external binary in the PATH,
@@ -61,10 +70,21 @@ class Patchelf(ElfPatcher):
                   file_name: str,
                   rpath: str) -> None:
 
-        old_rpath = check_output(['patchelf', '--print-rpath',
-                                  file_name]).decode('utf-8').strip()
-        if old_rpath != '':
-            rpath = ':'.join([old_rpath, rpath])
         check_call(['patchelf', '--remove-rpath', file_name])
         check_call(['patchelf', '--force-rpath', '--set-rpath',
                     rpath, file_name])
+
+    def get_rpath(self,
+                  file_name: str) -> str:
+
+        return check_output(['patchelf', '--print-rpath',
+                             file_name]).decode('utf-8').strip()
+
+    def append_rpath(self,
+                     file_name: str,
+                     rpath: str) -> None:
+
+        old_rpath = self.get_rpath(file_name)
+        if old_rpath != '':
+            rpath = ':'.join([old_rpath, rpath])
+        self.set_rpath(file_name, rpath)

@@ -66,7 +66,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
             if len(ext_libs) > 0:
                 new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
                 new_rpath = os.path.join('$ORIGIN', new_rpath)
-                patcher.set_rpath(fn, new_rpath)
+                patcher.append_rpath(fn, new_rpath)
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
@@ -121,6 +121,6 @@ def copylib(src_path, dest_dir, patcher):
     patcher.set_soname(dest_path, new_soname)
 
     if any(itertools.chain(rpaths['rpaths'], rpaths['runpaths'])):
-        patcher.set_rpath(dest_path, dest_dir)
+        patcher.append_rpath(dest_path, dest_dir)
 
     return new_soname, dest_path

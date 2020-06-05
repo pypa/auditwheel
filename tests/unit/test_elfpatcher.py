@@ -58,27 +58,33 @@ class TestPatchElf:
         check_call.assert_called_once_with(['patchelf', '--set-soname',
                                             soname_new, filename])
 
-    def test_set_rpath(self, check_call, check_output, _):
+    def test_set_rpath(self, check_call, _0, _1):
         patcher = Patchelf()
-        check_output.return_value = b""
         patcher.set_rpath("test.so", "$ORIGIN/.lib")
-        check_output_expected_args = [call(['patchelf', '--print-rpath',
-                                            'test.so'])]
         check_call_expected_args = [call(['patchelf', '--remove-rpath',
                                           'test.so']),
                                     call(['patchelf', '--force-rpath',
                                           '--set-rpath', '$ORIGIN/.lib',
                                           'test.so'])]
 
-        assert check_output.call_args_list == check_output_expected_args
         assert check_call.call_args_list == check_call_expected_args
 
-    def test_set_additional_rpath(self, check_call, check_output, _):
+    def test_get_rpath(self, _0, check_output, _1):
+        patcher = Patchelf()
+        check_output.return_value = b"existing_rpath"
+        result = patcher.get_rpath("test.so")
+        check_output_expected_args = [call(['patchelf', '--print-rpath',
+                                            'test.so'])]
+
+        assert result == check_output.return_value.decode()
+        assert check_output.call_args_list == check_output_expected_args
+
+    def test_append_rpath(self, check_call, check_output, _):
         existing_rpath = b"$ORIGIN/.existinglibdir"
         patcher = Patchelf()
         # When a library has an existing RPATH entry
         check_output.return_value = existing_rpath
-        patcher.set_rpath("test.so", "$ORIGIN/.lib")
+        patcher.append_rpath("test.so", "$ORIGIN/.lib")
         check_output_expected_args = [call(['patchelf', '--print-rpath',
                                             'test.so'])]
         # Then that entry is preserved when updating the RPATH
