@@ -25,8 +25,8 @@ class ElfPatcher:
         raise NotImplementedError
 
     def append_rpath(self,
-                  file_name: str,
-                  rpath: str) -> None:
+                     file_name: str,
+                     rpath: str) -> None:
         raise NotImplementedError
 
 
