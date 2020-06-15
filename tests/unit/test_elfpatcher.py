@@ -1,3 +1,4 @@
+import os
 from subprocess import CalledProcessError
 from unittest.mock import patch, call
 
@@ -80,11 +81,12 @@ class TestPatchElf:
         assert check_output.call_args_list == check_output_expected_args
 
     def test_append_rpath(self, check_call, check_output, _):
-        existing_rpath = b"$ORIGIN/.existinglibdir"
         patcher = Patchelf()
-        # When a library has an existing RPATH entry
+        # When a library has an existing RPATH entry within wheel_dir
+        existing_rpath = b"$ORIGIN/.existinglibdir"
         check_output.return_value = existing_rpath
-        patcher.append_rpath("test.so", "$ORIGIN/.lib")
+        wheel_dir = '.'
+        patcher.append_rpath("test.so", "$ORIGIN/.lib", wheel_dir)
         check_output_expected_args = [call(['patchelf', '--print-rpath',
                                             'test.so'])]
         # Then that entry is preserved when updating the RPATH
@@ -93,6 +95,67 @@ class TestPatchElf:
                                     call(['patchelf', '--force-rpath',
                                           '--set-rpath',
                                           '{}:$ORIGIN/.lib'.format(existing_rpath.decode()),
+                                          'test.so'])]
+
+        assert check_output.call_args_list == check_output_expected_args
+        assert check_call.call_args_list == check_call_expected_args
+
+    def test_append_rpath_reject_outside_wheel(self, check_call, check_output, _):
+        patcher = Patchelf()
+        # When a library has an existing RPATH entry outside wheel_dir
+        existing_rpath = b"/outside/wheel/dir"
+        check_output.return_value = existing_rpath
+        wheel_dir = '/not/outside'
+        patcher.append_rpath("test.so", "$ORIGIN/.lib", wheel_dir)
+        check_output_expected_args = [call(['patchelf', '--print-rpath',
+                                            'test.so'])]
+        # Then that entry is eliminated when updating the RPATH
+        check_call_expected_args = [call(['patchelf', '--remove-rpath',
+                                          'test.so']),
+                                    call(['patchelf', '--force-rpath',
+                                          '--set-rpath',
+                                          '$ORIGIN/.lib',
+                                          'test.so'])]
+
+        assert check_output.call_args_list == check_output_expected_args
+        assert check_call.call_args_list == check_call_expected_args
+
+    def test_append_rpath_ignore_duplicates(self, check_call, check_output, _):
+        patcher = Patchelf()
+        # When a library has an existing RPATH entry and we try and append it again
+        existing_rpath = b"$ORIGIN"
+        check_output.return_value = existing_rpath
+        wheel_dir = '.'
+        patcher.append_rpath("test.so", "$ORIGIN", wheel_dir)
+        check_output_expected_args = [call(['patchelf', '--print-rpath',
+                                            'test.so'])]
+        # Then that entry is ignored when updating the RPATH
+        check_call_expected_args = [call(['patchelf', '--remove-rpath',
+                                          'test.so']),
+                                    call(['patchelf', '--force-rpath',
+                                          '--set-rpath',
+                                          '$ORIGIN',
+                                          'test.so'])]
+
+        assert check_output.call_args_list == check_output_expected_args
+        assert check_call.call_args_list == check_call_expected_args
+
+    def test_append_rpath_ignore_relative(self, check_call, check_output, _):
+        patcher = Patchelf()
+        # When a library has an existing RPATH entry but it cannot be resolved
+        # to an absolute path, it is eliminated
+        existing_rpath = b"not/absolute"
+        check_output.return_value = existing_rpath
+        wheel_dir = '.'
+        patcher.append_rpath("test.so", "$ORIGIN", wheel_dir)
+        check_output_expected_args = [call(['patchelf', '--print-rpath',
+                                            'test.so'])]
+        # Then that entry is ignored when updating the RPATH
+        check_call_expected_args = [call(['patchelf', '--remove-rpath',
+                                          'test.so']),
+                                    call(['patchelf', '--force-rpath',
+                                          '--set-rpath',
+                                          '$ORIGIN',
                                           'test.so'])]
 
         assert check_output.call_args_list == check_output_expected_args

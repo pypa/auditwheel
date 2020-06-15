@@ -1,6 +1,12 @@
+import logging
+import platform
 import re
+from collections import OrderedDict
 from distutils.spawn import find_executable
+from os.path import abspath, commonpath, dirname, isabs, normpath
 from subprocess import check_call, check_output, CalledProcessError
+
+logger = logging.getLogger(__name__)
 
 
 class ElfPatcher:
@@ -26,7 +32,8 @@ class ElfPatcher:
 
     def append_rpath(self,
                      file_name: str,
-                     rpath: str) -> None:
+                     rpath: str,
+                     wheel_base_dir: str) -> None:
         raise NotImplementedError
 
 
@@ -82,9 +89,68 @@ class Patchelf(ElfPatcher):
 
     def append_rpath(self,
                      file_name: str,
-                     rpath: str) -> None:
+                     rpath: str,
+                     wheel_base_dir: str) -> None:
+        """Add a new rpath entry to a file while preserving as many existing
+        rpath entries as possible.
 
-        old_rpath = self.get_rpath(file_name)
-        if old_rpath != '':
-            rpath = ':'.join([old_rpath, rpath])
+        In order to preserve an rpath entry it must:
+
+        1) Point to a location within wheel_base_dir.
+        2) Not be a duplicate of an already-existing rpath entry.
+        """
+        old_rpaths = self.get_rpath(file_name)
+        old_rpaths = _preserve_existing_rpaths(old_rpaths, file_name,
+                                               wheel_base_dir)
+        if old_rpaths != '':
+            if rpath not in old_rpaths.split(':'):
+                rpath = ':'.join([old_rpaths, rpath])
+            else:
+                rpath = old_rpaths
         self.set_rpath(file_name, rpath)
+
+
+def _preserve_existing_rpaths(rpaths: str,
+                              lib_name: str,
+                              wheel_base_dir: str) -> str:
+
+    if not isabs(lib_name):
+        lib_name = abspath(lib_name)
+    lib_dir = dirname(lib_name)
+    if not isabs(wheel_base_dir):
+        wheel_base_dir = abspath(wheel_base_dir)
+
+    new_rpaths = OrderedDict()  # Use this to fake an OrderedSet
+    for rpath_entry in rpaths.split(':'):
+        full_rpath_entry = _resolve_rpath_tokens(rpath_entry, lib_dir)
+        if not isabs(full_rpath_entry):
+            logger.debug('rpath entry {} could not be resolved to an absolute '
+                         'path -- discarding it.'.format(rpath_entry))
+            continue
+
+        common_path = commonpath([wheel_base_dir, full_rpath_entry])
+        if common_path == wheel_base_dir:
+            logger.debug('Preserved rpath entry {}'.format(rpath_entry))
+            new_rpaths[rpath_entry] = ''
+        else:
+            logger.debug('Rejected rpath entry {}'.format(rpath_entry))
+
+
+    return ':'.join(new_rpaths.keys())
+
+
+def _resolve_rpath_tokens(rpath: str,
+                          lib_base_dir: str) -> str:
+    # See https://www.man7.org/linux/man-pages/man8/ld.so.8.html#DESCRIPTION
+    if platform.architecture()[0] == '64bit':
+        system_lib_dir = 'lib64'
+    else:
+        system_lib_dir = 'lib'
+    system_processor_type = platform.machine()
+    token_replacements = {'ORIGIN': lib_base_dir,
+                          'LIB': system_lib_dir,
+                          'PLATFORM': system_processor_type}
+    for token, target in token_replacements.items():
+        rpath = rpath.replace('${}'.format(token), target)      # $TOKEN
+        rpath = rpath.replace('${{{}}}'.format(token), target)  # ${TOKEN}
+    return rpath
