@@ -6,6 +6,8 @@ from distutils.spawn import find_executable
 from os.path import abspath, commonpath, dirname, isabs, normpath
 from subprocess import check_call, check_output, CalledProcessError
 
+from .elfutils import is_subdir
+
 logger = logging.getLogger(__name__)
 
 
@@ -128,8 +130,7 @@ def _preserve_existing_rpaths(rpaths: str,
                          'path -- discarding it.'.format(rpath_entry))
             continue
 
-        common_path = commonpath([wheel_base_dir, full_rpath_entry])
-        if common_path == wheel_base_dir:
+        if is_subdir(full_rpath_entry, wheel_base_dir):
             logger.debug('Preserved rpath entry {}'.format(rpath_entry))
             new_rpaths[rpath_entry] = ''
         else:
