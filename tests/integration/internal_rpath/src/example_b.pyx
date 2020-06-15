@@ -1,6 +1,6 @@
-cdef extern from "a.h":
-    int fa();
+cdef extern from "b.h":
+    int fb();
 
 
 cpdef int example_b():
-    return fa() * 10
+    return fb()

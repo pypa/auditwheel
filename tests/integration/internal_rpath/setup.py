@@ -19,10 +19,9 @@ setup(
         Extension(
             '{}.example_b'.format(package_name),
             ['src/example_b.pyx'],
-            include_dirs=['lib-src/a'],
-            library_dirs=[package_name, 'lib-src/b'],
-            libraries=['a'],
-            extra_link_args=['-Wl,-rpath,$ORIGIN'],
+            include_dirs=['lib-src/b'],
+            library_dirs=['lib-src/b'],
+            libraries=['b'],
         ),
     ],
 )

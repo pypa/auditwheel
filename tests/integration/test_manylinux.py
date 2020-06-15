@@ -629,14 +629,14 @@ def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_
     docker_exec(docker_python, 'pip install /io/' + repaired_wheel)
     for mod, func, expected in [
         ('example_a', 'example_a', '11'),
-        ('example_b', 'example_b', '110'),
+        ('example_b', 'example_b', '10'),
     ]:
         output = docker_exec(
             docker_python,
             [
                 'python',
                 '-c',
-                'from {mod} import {func}; print({func}())'.format(
+                'from internal_rpath.{mod} import {func}; print({func}())'.format(
                     mod=mod, func=func
                 ),
             ],
