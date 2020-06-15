@@ -22,6 +22,7 @@ setup(
             include_dirs=['lib-src/a'],
             library_dirs=[package_name, 'lib-src/b'],
             libraries=['a'],
+            extra_link_args=['-Wl,-rpath,$ORIGIN'],
         ),
     ],
 )
