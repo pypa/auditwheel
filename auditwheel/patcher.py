@@ -3,7 +3,7 @@ import platform
 import re
 from collections import OrderedDict
 from distutils.spawn import find_executable
-from os.path import abspath, commonpath, dirname, isabs, normpath
+from os.path import abspath, dirname, isabs
 from subprocess import check_call, check_output, CalledProcessError
 
 from .elfutils import is_subdir
@@ -135,7 +135,6 @@ def _preserve_existing_rpaths(rpaths: str,
             new_rpaths[rpath_entry] = ''
         else:
             logger.debug('Rejected rpath entry {}'.format(rpath_entry))
-
 
     return ':'.join(new_rpaths.keys())
 
