@@ -565,3 +565,88 @@ def test_build_repair_multiple_top_level_modules_wheel(any_manylinux_container, 
                 )
                 for name in w.namelist()
             )
+
+
+def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_python, io_folder):
+    
+
+    policy, manylinux_ctr = any_manylinux_container
+
+    docker_exec(
+        manylinux_ctr,
+        [
+            'bash',
+            '-c',
+            'cd /auditwheel_src/tests/integration/internal_rpath '
+            '&& make '
+            '&& mv lib-src/a/liba.so internal_rpath'
+            '&& pip wheel . -w /io',
+        ]
+    )
+
+    filenames = os.listdir(io_folder)
+    assert filenames == [
+        'internal_rpath-1.0-{abi}-linux_{platform}.whl'.format(
+            abi=PYTHON_ABI, platform=PLATFORM)]
+    orig_wheel = filenames[0]
+    assert 'manylinux' not in orig_wheel
+    
+    # Repair the wheel using the appropriate manylinux container
+    repair_command = (
+        'auditwheel repair --plat {policy} -w /io /io/{orig_wheel}'
+    ).format(policy=policy, orig_wheel=orig_wheel)
+    docker_exec(
+        manylinux_ctr,
+        [
+            'bash',
+            '-c',
+            (
+                'LD_LIBRARY_PATH='
+                '/auditwheel_src/tests/integration/multiple_top_level/lib-src/b:'
+                '$LD_LIBRARY_PATH '
+            )
+            + repair_command,
+        ],
+    )
+    filenames = os.listdir(io_folder)
+    repaired_wheels = [fn for fn in filenames if policy in fn]
+    # Wheel picks up newer symbols when built in manylinux2010
+    expected_wheel_name = (
+        'internal_rpath-1.0-{abi}-{policy}.whl'
+    ).format(abi=PYTHON_ABI, policy=policy)
+    assert repaired_wheels == [expected_wheel_name]
+    repaired_wheel = expected_wheel_name
+    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
+    if PLATFORM in {'x86_64', 'i686'}:
+        expect = 'manylinux1_{}'.format(PLATFORM)
+    else:
+        expect = 'manylinux2014_{}'.format(PLATFORM)
+    assert (
+        '{wheel} is consistent'
+        ' with the following platform tag: "{expect}"'
+    ).format(wheel=repaired_wheel, expect=expect) in output.replace('\n', ' ')
+
+    docker_exec(docker_python, 'pip install /io/' + repaired_wheel)
+    for mod, func, expected in [
+        ('example_a', 'example_a', '11'),
+        ('example_b', 'example_b', '110'),
+    ]:
+        output = docker_exec(
+            docker_python,
+            [
+                'python',
+                '-c',
+                'from {mod} import {func}; print({func}())'.format(
+                    mod=mod, func=func
+                ),
+            ],
+        ).strip()
+        assert output.strip() == expected
+    with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as w:
+        for lib_name in ['libb']:
+            assert any(
+                re.match(
+                    r'internal_rpath.libs/{}.*\.so'.format(lib_name), name
+                )
+                for name in w.namelist()
+            )
