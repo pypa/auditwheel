@@ -602,7 +602,7 @@ def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_
             '-c',
             (
                 'LD_LIBRARY_PATH='
-                '/auditwheel_src/tests/integration/multiple_top_level/lib-src/b:'
+                '/auditwheel_src/tests/integration/internal_rpath/lib-src/b:'
                 '$LD_LIBRARY_PATH '
             )
             + repair_command,
