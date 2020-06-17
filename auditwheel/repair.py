@@ -1,15 +1,17 @@
 import itertools
 import logging
 import os
+import platform
 import re
 import stat
 import shutil
-from os.path import exists, basename, abspath, isabs
+from collections import OrderedDict
+from os.path import exists, basename, abspath, isabs, dirname
 from os.path import join as pjoin
 from typing import Dict, Optional
 
 from auditwheel.patcher import ElfPatcher
-from .elfutils import elf_read_rpaths, elf_read_dt_needed
+from .elfutils import elf_read_rpaths, elf_read_dt_needed, is_subdir
 from .hashfile import hashfile
 from .policy import get_replace_platforms
 from .wheel_abi import get_wheel_elfdata
@@ -66,7 +68,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
             if len(ext_libs) > 0:
                 new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
                 new_rpath = os.path.join('$ORIGIN', new_rpath)
-                patcher.append_rpath(fn, new_rpath, ctx.name)
+                append_rpath_within_wheel(fn, new_rpath, ctx.name)
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
@@ -124,3 +126,68 @@ def copylib(src_path, dest_dir, patcher):
         patcher.set_rpath(dest_path, dest_dir)
 
     return new_soname, dest_path
+
+
+def append_rpath_within_wheel(lib_name: str,
+                              rpath: str,
+                              wheel_base_dir: str,
+                              patcher: ElfPatcher) -> None:
+    """Add a new rpath entry to a file while preserving as many existing
+    rpath entries as possible.
+
+    In order to preserve an rpath entry it must:
+
+    1) Point to a location within wheel_base_dir.
+    2) Not be a duplicate of an already-existing rpath entry.
+    """
+    if not isabs(lib_name):
+        lib_name = abspath(lib_name)
+    lib_dir = dirname(lib_name)
+    if not isabs(wheel_base_dir):
+        wheel_base_dir = abspath(wheel_base_dir)
+
+    def is_valid_rpath(rpath: str) -> bool:
+        return _is_valid_rpath(rpath, lib_dir, wheel_base_dir)
+
+    old_rpaths = patcher.get_rpath(lib_name)
+    rpaths = filter(is_valid_rpath, old_rpaths.split(':'))
+    # Remove duplicates while preserving ordering
+    # Fake an OrderedSet using OrderedDict
+    rpaths = OrderedDict({old_rpath: '' for old_rpath in rpaths})
+    rpaths[rpath] = ''
+
+    patcher.set_rpath(lib_name, ':'.join(rpaths))
+
+
+def _is_valid_rpath(rpath: str,
+                    lib_dir: str,
+                    wheel_base_dir: str) -> bool:
+    full_rpath_entry = _resolve_rpath_tokens(rpath, lib_dir)
+    if not isabs(full_rpath_entry):
+        logger.debug('rpath entry {} could not be resolved to an absolute '
+                     'path -- discarding it.'.format(rpath))
+        return False
+    elif not is_subdir(full_rpath_entry, wheel_base_dir):
+        logger.debug('rpath entry {} points outside the wheel -- discarding '
+                     'it.'.format(rpath))
+        return False
+    else:
+        logger.debug('Preserved rpath entry {}'.format(rpath))
+        return True
+
+
+def _resolve_rpath_tokens(rpath: str,
+                          lib_base_dir: str) -> str:
+    # See https://www.man7.org/linux/man-pages/man8/ld.so.8.html#DESCRIPTION
+    if platform.architecture()[0] == '64bit':
+        system_lib_dir = 'lib64'
+    else:
+        system_lib_dir = 'lib'
+    system_processor_type = platform.machine()
+    token_replacements = {'ORIGIN': lib_base_dir,
+                          'LIB': system_lib_dir,
+                          'PLATFORM': system_processor_type}
+    for token, target in token_replacements.items():
+        rpath = rpath.replace('${}'.format(token), target)      # $TOKEN
+        rpath = rpath.replace('${{{}}}'.format(token), target)  # ${TOKEN}
+    return rpath
