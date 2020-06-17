@@ -68,7 +68,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
             if len(ext_libs) > 0:
                 new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
                 new_rpath = os.path.join('$ORIGIN', new_rpath)
-                append_rpath_within_wheel(fn, new_rpath, ctx.name)
+                append_rpath_within_wheel(fn, new_rpath, ctx.name, patcher)
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
