@@ -6,7 +6,7 @@ import stat
 import shutil
 from os.path import exists, basename, abspath, isabs
 from os.path import join as pjoin
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from auditwheel.patcher import ElfPatcher
 from .elfutils import elf_read_rpaths, elf_read_dt_needed
@@ -32,9 +32,9 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
 
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:
-        return
+        return None
 
-    soname_map = {}  # type: Dict[str, str]
+    soname_map = {}  # type: Dict[str, Tuple[str, str]]
     if not isabs(out_dir):
         out_dir = abspath(out_dir)
 
@@ -43,7 +43,12 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
     with InWheelCtx(wheel_path) as ctx:
         ctx.out_wheel = pjoin(out_dir, wheel_fname)
 
-        dest_dir = WHEEL_INFO_RE(wheel_fname).group('name') + lib_sdir
+        match = WHEEL_INFO_RE(wheel_fname)
+        if not match:
+            raise ValueError("Failed to parse wheel file name: %s",
+                             wheel_fname)
+
+        dest_dir = match.group('name') + lib_sdir
 
         if not exists(dest_dir):
             os.mkdir(dest_dir)

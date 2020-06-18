@@ -183,7 +183,7 @@ def load_ld_paths(root: str = '/', prefix: str = '') -> Dict[str, List[str]]:
     -------
     dict containing library paths to search
     """
-    ldpaths = {'conf': [], 'env': [], 'interp': []}
+    ldpaths = {'conf': [], 'env': [], 'interp': []}  # type: Dict
 
     # Load up $LD_LIBRARY_PATH.
     env_ldpath = os.environ.get('LD_LIBRARY_PATH')
@@ -312,9 +312,12 @@ def lddtree(path: str,
       },
     }
     """
+    if not ldpaths:
+        ldpaths = load_ld_paths().copy()
+
     if _first:
         _all_libs = {}
-        ldpaths = load_ld_paths().copy()
+
     ret = {
         'interp': None,
         'path': path if display is None else display,

@@ -1,9 +1,6 @@
 import logging
 
-try:
-    from collections.abc import OrderedDict
-except ImportError:
-    from collections import OrderedDict
+from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
