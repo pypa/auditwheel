@@ -6,3 +6,4 @@ flake8
 pretend
 docker
 pyelftools
+mypy
