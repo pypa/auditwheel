@@ -153,7 +153,7 @@ def append_rpath_within_wheel(lib_name: str,
     rpaths = filter(is_valid_rpath, old_rpaths.split(':'))
     # Remove duplicates while preserving ordering
     # Fake an OrderedSet using OrderedDict
-    rpaths = OrderedDict({old_rpath: '' for old_rpath in rpaths})
+    rpaths = OrderedDict([(old_rpath, '') for old_rpath in rpaths])
     rpaths[rpath] = ''
 
     patcher.set_rpath(lib_name, ':'.join(rpaths))
