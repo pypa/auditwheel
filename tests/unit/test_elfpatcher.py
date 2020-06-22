@@ -1,3 +1,4 @@
+import os
 from subprocess import CalledProcessError
 from unittest.mock import patch, call
 
@@ -36,11 +37,12 @@ def test_patchelf_version_check_fail(check_output, version):
 
 
 @patch("auditwheel.patcher._verify_patchelf")
+@patch("auditwheel.patcher.check_output")
 @patch("auditwheel.patcher.check_call")
 class TestPatchElf:
     """"Validate that patchelf is invoked with the correct arguments."""
 
-    def test_replace_needed(self, check_call, _):
+    def test_replace_needed(self, check_call, _0, _1):
         patcher = Patchelf()
         filename = "test.so"
         soname_old = "TEST_OLD"
@@ -49,7 +51,7 @@ class TestPatchElf:
         check_call.assert_called_once_with(['patchelf', '--replace-needed',
                                             soname_old, soname_new, filename])
 
-    def test_set_soname(self, check_call, _):
+    def test_set_soname(self, check_call, _0, _1):
         patcher = Patchelf()
         filename = "test.so"
         soname_new = "TEST_NEW"
@@ -57,11 +59,23 @@ class TestPatchElf:
         check_call.assert_called_once_with(['patchelf', '--set-soname',
                                             soname_new, filename])
 
-    def test_set_rpath(self, check_call, _):
+    def test_set_rpath(self, check_call, _0, _1):
         patcher = Patchelf()
         patcher.set_rpath("test.so", "$ORIGIN/.lib")
-        expected_args = [call(['patchelf', '--remove-rpath', 'test.so']),
-                         call(['patchelf', '--force-rpath', '--set-rpath',
-                               '$ORIGIN/.lib', 'test.so'])]
+        check_call_expected_args = [call(['patchelf', '--remove-rpath',
+                                          'test.so']),
+                                    call(['patchelf', '--force-rpath',
+                                          '--set-rpath', '$ORIGIN/.lib',
+                                          'test.so'])]
 
-        assert check_call.call_args_list == expected_args
+        assert check_call.call_args_list == check_call_expected_args
+
+    def test_get_rpath(self, _0, check_output, _1):
+        patcher = Patchelf()
+        check_output.return_value = b"existing_rpath"
+        result = patcher.get_rpath("test.so")
+        check_output_expected_args = [call(['patchelf', '--print-rpath',
+                                            'test.so'])]
+
+        assert result == check_output.return_value.decode()
+        assert check_output.call_args_list == check_output_expected_args
