@@ -5,6 +5,8 @@ auditwheel
     :target: https://travis-ci.org/pypa/auditwheel
 .. image:: https://badge.fury.io/py/auditwheel.svg
     :target: https://pypi.org/project/auditwheel
+.. image:: https://pepy.tech/badge/auditwheel/month
+    :target: https://pepy.tech/project/auditwheel/month
 
 Auditing and relabeling of `PEP 513 manylinux1
 <https://www.python.org/dev/peps/pep-0513/>`_, `PEP 571 manylinux2010
