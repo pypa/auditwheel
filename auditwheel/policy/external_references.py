@@ -54,7 +54,7 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
             whitelist = set(p['lib_whitelist'])
             needed_external_libs = get_req_external(
                 set(filter_libs(lddtree['needed'], whitelist)),
-                whitelist)  # type: List[str]
+                whitelist)
 
         pol_ext_deps = {}
         for lib in needed_external_libs:
