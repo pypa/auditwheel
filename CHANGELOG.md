@@ -2,6 +2,15 @@
 
 ## HEAD
 
+## 3.2.0
+
+Released Jul. 1, 2020
+
+### User-facing changes
+- [FEATURE] Ensure that system-copied libraries are writable before running patchelf 
+  ([https://github.com/pypa/auditwheel/pull/237](#237))
+- [FEATURE] Preserve RPATH in extension modules ([https://github.com/pypa/auditwheel/pull/245](#245))
+
 ## 3.1.1
 
 Released Apr. 25, 2020
