@@ -1,3 +1,4 @@
+import glob
 from contextlib import contextmanager
 import docker
 from subprocess import CalledProcessError
@@ -650,3 +651,32 @@ def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_
                 )
                 for name in w.namelist()
             )
+
+
+def test_strip_wheel(any_manylinux_container, docker_python, io_folder):
+    policy, manylinux_ctr = any_manylinux_container
+    docker_exec(
+        manylinux_ctr,
+        ['bash', '-c', 'cd /auditwheel_src/tests/integration/sample_extension '
+                       '&& python -m pip wheel --no-deps -w /io .']
+    )
+
+    orig_wheel, *_ = os.listdir(io_folder)
+    assert orig_wheel.startswith("sample_extension-0.1.0")
+
+    # Repair the wheel using the appropriate manylinux container
+    repair_command = (
+        'auditwheel repair --plat {policy} --strip -w /io /io/{orig_wheel}'
+    ).format(policy=policy, orig_wheel=orig_wheel)
+    docker_exec(manylinux_ctr, repair_command)
+
+    repaired_wheel, *_ = glob.glob("{io_folder}/*{policy}*.whl".format(
+        io_folder=io_folder, policy=policy))
+    repaired_wheel = os.path.basename(repaired_wheel)
+
+    docker_exec(docker_python, "pip install /io/" + repaired_wheel)
+    output = docker_exec(
+        docker_python,
+        ["python", "-c", "from sample_extension import test_func; print(test_func(1))"]
+    )
+    assert output.strip() == "2"
