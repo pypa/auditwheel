@@ -45,7 +45,7 @@ Installation
 
   $ pip3 install auditwheel
 
-It requires Python 3.5+, and runs on Linux. It requires that the shell command
+It requires Python 3.6+, and runs on Linux. It requires that the shell command
 ``unzip`` be available in the ``PATH``. Only systems that use `ELF
 <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based linkage
 are supported (this should be essentially every Linux).
@@ -130,7 +130,7 @@ daemon. These tests will pull a number of docker images if they are not already
 available on your system, but it won't update existing images.
 To update these images manually, run::
 
-    docker pull python:3.5
+    docker pull python:3.6
     docker pull quay.io/pypa/manylinux1_x86_64
     docker pull quay.io/pypa/manylinux2010_x86_64
     docker pull quay.io/pypa/manylinux2014_x86_64

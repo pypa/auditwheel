@@ -21,12 +21,13 @@ class TestRepair:
         check_output_expected_args = [call(['patchelf', '--print-rpath',
                                             full_lib_name])]
         # Then that entry is preserved when updating the RPATH
-        check_call_expected_args = [call(['patchelf', '--remove-rpath',
-                                          full_lib_name]),
-                                    call(['patchelf', '--force-rpath',
-                                          '--set-rpath',
-                                          '{}:$ORIGIN/.lib'.format(existing_rpath.decode()),
-                                          full_lib_name])]
+        check_call_expected_args = [
+            call(['patchelf', '--remove-rpath', full_lib_name]),
+            call([
+                'patchelf', '--force-rpath', '--set-rpath',
+                f'{existing_rpath.decode()}:$ORIGIN/.lib', full_lib_name
+            ])
+        ]
 
         assert check_output.call_args_list == check_output_expected_args
         assert check_call.call_args_list == check_call_expected_args

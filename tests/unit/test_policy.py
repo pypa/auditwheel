@@ -36,21 +36,21 @@ class TestPolicyAccess:
 
     def test_get_by_priority(self):
         _arch = get_arch_name()
-        assert get_policy_name(80) == 'manylinux2014_{}'.format(_arch)
+        assert get_policy_name(80) == f'manylinux2014_{_arch}'
         if _arch in {'x86_64', 'i686'}:
-            assert get_policy_name(90) == 'manylinux2010_{}'.format(_arch)
-            assert get_policy_name(100) == 'manylinux1_{}'.format(_arch)
-        assert get_policy_name(0) == 'linux_{}'.format(_arch)
+            assert get_policy_name(90) == f'manylinux2010_{_arch}'
+            assert get_policy_name(100) == f'manylinux1_{_arch}'
+        assert get_policy_name(0) == f'linux_{_arch}'
 
     def test_get_by_priority_missing(self):
         assert get_policy_name(101) is None
 
     def test_get_by_name(self):
         _arch = get_arch_name()
-        assert get_priority_by_name("manylinux2014_{}".format(_arch)) == 80
+        assert get_priority_by_name(f"manylinux2014_{_arch}") == 80
         if _arch in {'x86_64', 'i686'}:
-            assert get_priority_by_name("manylinux2010_{}".format(_arch)) == 90
-            assert get_priority_by_name("manylinux1_{}".format(_arch)) == 100
+            assert get_priority_by_name(f"manylinux2010_{_arch}") == 90
+            assert get_priority_by_name(f"manylinux1_{_arch}") == 100
 
     def test_get_by_name_missing(self):
         assert get_priority_by_name("nosuchpolicy") is None
