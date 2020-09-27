@@ -1,21 +1,69 @@
 {
+    "$schema": "http://json-schema.org/draft-06/schema#",
     "type": "array",
     "items": {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "priority": {"type": "integer"},
-            "symbol_versions": {
-                "type": "object",
-                "patternProperties": {
-                    ".*": {"type": "array",
-                           "items": {"type": "string"}}
+        "$ref": "#/definitions/PolicyElement"
+    },
+    "definitions": {
+        "PolicyElement": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "symbol_versions": {
+                    "$ref": "#/definitions/SymbolVersion"
+                },
+                "lib_whitelist": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             },
-            "lib_whitelist": {
-                "type": "array",
-                "items": {"type": "string"}
-            }
+            "required": [
+                "lib_whitelist",
+                "name",
+                "priority",
+                "symbol_versions"
+            ],
+            "title": "PolicyElement"
+        },
+        "SymbolVersion": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "CXXABI": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "GCC": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "GLIBC": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "GLIBCXX": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [],
+            "title": "SymbolVersion"
         }
     }
 }

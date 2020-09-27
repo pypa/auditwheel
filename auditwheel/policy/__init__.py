@@ -12,22 +12,6 @@ logger = logging.getLogger(__name__)
 bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 
 
-_PLATFORM_REPLACEMENT_MAP = {}
-for _policy in {'manylinux1', 'manylinux2010'}:
-    for _arch in {'x86_64', 'i686'}:
-        _key = f'{_policy}_{_arch}'
-        _value = f'linux_{_arch}'
-        _PLATFORM_REPLACEMENT_MAP[_key] = [_value]
-
-for _policy in {'manylinux2014'}:
-    for _arch in {
-        'x86_64', 'i686', 'aarch64', 'armv7l', 'ppc64', 'ppc64le', 's390x'
-    }:
-        _key = f'{_policy}_{_arch}'
-        _value = f'linux_{_arch}'
-        _PLATFORM_REPLACEMENT_MAP[_key] = [_value]
-
-
 def get_arch_name():
     machine = _platform_module.machine()
     if machine not in {'x86_64', 'i686'}:
@@ -43,9 +27,10 @@ with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
     _POLICIES = []
     _policies_temp = json.load(f)
     for _p in _policies_temp:
-        _name = _p['name'] + '_' + _ARCH_NAME
-        if _name in _PLATFORM_REPLACEMENT_MAP or _name.startswith('linux'):
-            _p['name'] = _name
+        if _ARCH_NAME in _p['symbol_versions'].keys() or _p['name'] == 'linux':
+            if _p['name'] != 'linux':
+                _p['symbol_versions'] = _p['symbol_versions'][_ARCH_NAME]
+            _p['name'] = _p['name'] + '_' + _ARCH_NAME
             _POLICIES.append(_p)
 
 POLICY_PRIORITY_HIGHEST = max(p['priority'] for p in _POLICIES)
@@ -93,7 +78,9 @@ def get_replace_platforms(name: str):
     ['linux_i686']
 
     """
-    return _PLATFORM_REPLACEMENT_MAP.get(name, [])
+    if name.startswith('linux'):
+        return []
+    return ['linux_' + '_'.join(name.split('_')[1:])]
 
 
 # These have to be imported here to avoid a circular import.
