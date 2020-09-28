@@ -15,16 +15,16 @@ bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 _PLATFORM_REPLACEMENT_MAP = {}
 for _policy in {'manylinux1', 'manylinux2010'}:
     for _arch in {'x86_64', 'i686'}:
-        _key = '{}_{}'.format(_policy, _arch)
-        _value = 'linux_{}'.format(_arch)
+        _key = f'{_policy}_{_arch}'
+        _value = f'linux_{_arch}'
         _PLATFORM_REPLACEMENT_MAP[_key] = [_value]
 
 for _policy in {'manylinux2014'}:
     for _arch in {
         'x86_64', 'i686', 'aarch64', 'armv7l', 'ppc64', 'ppc64le', 's390x'
     }:
-        _key = '{}_{}'.format(_policy, _arch)
-        _value = 'linux_{}'.format(_arch)
+        _key = f'{_policy}_{_arch}'
+        _value = f'linux_{_arch}'
         _PLATFORM_REPLACEMENT_MAP[_key] = [_value]
 
 

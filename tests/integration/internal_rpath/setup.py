@@ -9,7 +9,7 @@ setup(
     packages=find_packages(),
     ext_modules=[
         Extension(
-            '{}.example_a'.format(package_name),
+            f'{package_name}.example_a',
             ['src/example_a.pyx'],
             include_dirs=['lib-src/a'],
             library_dirs=[package_name],
@@ -17,7 +17,7 @@ setup(
             extra_link_args=['-Wl,-rpath,$ORIGIN'],
         ),
         Extension(
-            '{}.example_b'.format(package_name),
+            f'{package_name}.example_b',
             ['src/example_b.pyx'],
             include_dirs=['lib-src/b'],
             library_dirs=['lib-src/b'],

@@ -183,15 +183,15 @@ def _is_valid_rpath(rpath: str,
                     wheel_base_dir: str) -> bool:
     full_rpath_entry = _resolve_rpath_tokens(rpath, lib_dir)
     if not isabs(full_rpath_entry):
-        logger.debug('rpath entry {} could not be resolved to an absolute '
-                     'path -- discarding it.'.format(rpath))
+        logger.debug(f'rpath entry {rpath} could not be resolved to an '
+                     'absolute path -- discarding it.')
         return False
     elif not is_subdir(full_rpath_entry, wheel_base_dir):
-        logger.debug('rpath entry {} points outside the wheel -- discarding '
-                     'it.'.format(rpath))
+        logger.debug(f'rpath entry {rpath} points outside the wheel -- '
+                     'discarding it.')
         return False
     else:
-        logger.debug('Preserved rpath entry {}'.format(rpath))
+        logger.debug(f'Preserved rpath entry {rpath}')
         return True
 
 
@@ -207,6 +207,6 @@ def _resolve_rpath_tokens(rpath: str,
                           'LIB': system_lib_dir,
                           'PLATFORM': system_processor_type}
     for token, target in token_replacements.items():
-        rpath = rpath.replace('${}'.format(token), target)      # $TOKEN
-        rpath = rpath.replace('${{{}}}'.format(token), target)  # ${TOKEN}
+        rpath = rpath.replace(f'${token}', target)      # $TOKEN
+        rpath = rpath.replace(f'${{{token}}}', target)  # ${TOKEN}
     return rpath
