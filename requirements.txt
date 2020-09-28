@@ -1,2 +1,2 @@
-wheel == 0.34.2
+wheel == 0.35.1
 pyelftools >=0.24
