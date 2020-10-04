@@ -103,7 +103,7 @@ Limitations
 
 1. ``auditwheel`` uses the `DT_NEEDED <https://en.wikipedia.org/wiki/Direct_binding>`_
    information (like ``ldd``) from the Python extension modules to determine
-   which system system libraries they depend on. Code that dynamically
+   which system libraries they depend on. Code that dynamically
    loads libraries at runtime using ``ctypes`` / ``cffi`` (from Python) or
    ``dlopen`` (from C/C++) doesn't contain this information in a way that can
    be statically determined, so dependencies that are loaded via those
