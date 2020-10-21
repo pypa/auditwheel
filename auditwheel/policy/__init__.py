@@ -80,6 +80,8 @@ def get_replace_platforms(name: str):
     """
     if name.startswith('linux'):
         return []
+    if name.startswith('manylinux_'):
+        return ['linux_' + '_'.join(name.split('_')[3:])]
     return ['linux_' + '_'.join(name.split('_')[1:])]
 
 

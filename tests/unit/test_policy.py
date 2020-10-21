@@ -37,6 +37,7 @@ def test_64bits_arch_name(machine_mock, reported_arch, expected_arch):
     ("linux_aarch64", []),
     ("manylinux1_ppc64le", ["linux_ppc64le"]),
     ("manylinux2014_x86_64", ["linux_x86_64"]),
+    ("manylinux_2_24_x86_64", ["linux_x86_64"]),
 ])
 def test_replacement_platform(name, expected):
     assert get_replace_platforms(name) == expected
@@ -46,6 +47,7 @@ class TestPolicyAccess:
 
     def test_get_by_priority(self):
         _arch = get_arch_name()
+        assert get_policy_name(70) == f'manylinux_2_24_{_arch}'
         assert get_policy_name(80) == f'manylinux2014_{_arch}'
         if _arch in {'x86_64', 'i686'}:
             assert get_policy_name(90) == f'manylinux2010_{_arch}'
@@ -65,6 +67,7 @@ class TestPolicyAccess:
 
     def test_get_by_name(self):
         _arch = get_arch_name()
+        assert get_priority_by_name(f"manylinux_2_24_{_arch}") == 70
         assert get_priority_by_name(f"manylinux2014_{_arch}") == 80
         if _arch in {'x86_64', 'i686'}:
             assert get_priority_by_name(f"manylinux2010_{_arch}") == 90
