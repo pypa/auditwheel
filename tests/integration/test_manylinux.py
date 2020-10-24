@@ -20,14 +20,16 @@ logger = logging.getLogger(__name__)
 
 ENCODING = 'utf-8'
 PLATFORM = get_arch_name()
-MANYLINUX1_IMAGE_ID = f'quay.io/pypa/manylinux1_{PLATFORM}'
-MANYLINUX2010_IMAGE_ID = f'quay.io/pypa/manylinux2010_{PLATFORM}'
+MANYLINUX1_IMAGE_ID = f'quay.io/pypa/manylinux1_{PLATFORM}:latest'
+MANYLINUX2010_IMAGE_ID = f'quay.io/pypa/manylinux2010_{PLATFORM}:latest'
 MANYLINUX2014_IMAGE_ID = f'quay.io/pypa/manylinux2014_{PLATFORM}:latest'
+MANYLINUX_2_24_IMAGE_ID = f'quay.io/pypa/manylinux_2_24_{PLATFORM}:latest'
 if PLATFORM in {'i686', 'x86_64'}:
     MANYLINUX_IMAGES = {
         'manylinux_2_5': MANYLINUX1_IMAGE_ID,
         'manylinux_2_12': MANYLINUX2010_IMAGE_ID,
         'manylinux_2_17': MANYLINUX2014_IMAGE_ID,
+        'manylinux_2_24': MANYLINUX_2_24_IMAGE_ID,
     }
     POLICY_ALIASES = {
         'manylinux_2_5': ['manylinux1'],
@@ -37,6 +39,7 @@ if PLATFORM in {'i686', 'x86_64'}:
 else:
     MANYLINUX_IMAGES = {
         'manylinux_2_17': MANYLINUX2014_IMAGE_ID,
+        'manylinux_2_24': MANYLINUX_2_24_IMAGE_ID,
     }
     POLICY_ALIASES = {
         'manylinux_2_17': ['manylinux2014'],
@@ -51,6 +54,7 @@ DEVTOOLSET = {
     'manylinux_2_5': 'devtoolset-2',
     'manylinux_2_12': 'devtoolset-8',
     'manylinux_2_17': 'devtoolset-9',
+    'manylinux_2_24': 'devtoolset-not-present',
 }
 PATH_DIRS = [
     f'/opt/python/{PYTHON_ABI}/bin',
@@ -160,7 +164,7 @@ def tmp_docker_image(base, commands, setup_env={}):
 @pytest.fixture(scope='session')
 def docker_python_img():
     """The Python base image with up-to-date pip"""
-    with tmp_docker_image(PYTHON_IMAGE_ID, ['pip install pip']) as img_id:
+    with tmp_docker_image(PYTHON_IMAGE_ID, ['pip install -U pip']) as img_id:
         yield img_id
 
 
@@ -234,7 +238,14 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
     # First build numpy from source as a naive linux wheel that is tied
     # to system libraries (atlas, libgfortran...)
     policy, tag, manylinux_ctr = any_manylinux_container
-    docker_exec(manylinux_ctr, 'yum install -y atlas atlas-devel')
+    if policy.startswith('manylinux_2_24_'):
+        docker_exec(manylinux_ctr, 'apt-get update')
+        docker_exec(
+            manylinux_ctr,
+            'apt-get install -y --no-install-recommends libatlas-dev'
+        )
+    else:
+        docker_exec(manylinux_ctr, 'yum install -y atlas atlas-devel')
 
     if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
         # If numpy has already been built and put in cache, let's reuse this.
@@ -290,7 +301,14 @@ def test_build_wheel_with_binary_executable(any_manylinux_container, docker_pyth
     # Test building a wheel that contains a binary executable (e.g., a program)
 
     policy, tag, manylinux_ctr = any_manylinux_container
-    docker_exec(manylinux_ctr, 'yum install -y gsl-devel')
+    if policy.startswith('manylinux_2_24_'):
+        docker_exec(manylinux_ctr, 'apt-get update')
+        docker_exec(
+            manylinux_ctr,
+            'apt-get install -y --no-install-recommends libgsl-dev'
+        )
+    else:
+        docker_exec(manylinux_ctr, 'yum install -y gsl-devel')
 
     docker_exec(
         manylinux_ctr,
