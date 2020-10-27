@@ -57,7 +57,8 @@ PATH_DIRS = [
 PATH = {k: ':'.join(PATH_DIRS).format(devtoolset=v)
         for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser('~/.cache/auditwheel_tests')
-ORIGINAL_NUMPY_WHEEL = f'numpy-1.16.5-{PYTHON_ABI}-linux_{PLATFORM}.whl'
+NUMPY_VERSION = '1.19.2'
+ORIGINAL_NUMPY_WHEEL = f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl'
 ORIGINAL_SIX_WHEEL = 'six-1.11.0-py2.py3-none-any.whl'
 
 
@@ -202,8 +203,10 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
         # and put the result in the cache folder to speed-up future build.
         # This part of the build is independent of the auditwheel code-base
         # so it's safe to put it in cache.
-        docker_exec(manylinux_ctr,
-            'pip wheel -w /io --no-binary=:all: numpy==1.16.5')
+        docker_exec(
+            manylinux_ctr,
+            f'pip wheel -w /io --no-binary=:all: numpy=={NUMPY_VERSION}'
+        )
         os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
         shutil.copy2(op.join(io_folder, ORIGINAL_NUMPY_WHEEL),
                      op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL))
@@ -219,11 +222,13 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
 
     assert len(filenames) == 2
     repaired_wheels = [fn for fn in filenames if 'manylinux' in fn]
-    assert repaired_wheels == [f'numpy-1.16.5-{PYTHON_ABI}-{policy}.whl']
+    assert repaired_wheels == [
+        f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{policy}.whl'
+    ]
     repaired_wheel = repaired_wheels[0]
     output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
     assert (
-        f'numpy-1.16.5-{PYTHON_ABI}-{policy}.whl is consistent'
+        f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{policy}.whl is consistent'
         f' with the following platform tag: "{policy}"'
     ) in output.replace('\n', ' ')
 
