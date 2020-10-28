@@ -2,7 +2,8 @@ from unittest.mock import patch
 
 import pytest
 
-from auditwheel.policy import get_arch_name, get_policy_name, get_priority_by_name
+from auditwheel.policy import get_arch_name, get_policy_name, \
+    get_priority_by_name, get_replace_platforms
 
 
 @patch("auditwheel.policy._platform_module.machine")
@@ -30,6 +31,15 @@ def test_64bits_arch_name(machine_mock, reported_arch, expected_arch):
     machine_mock.return_value = reported_arch
     machine = get_arch_name()
     assert machine == expected_arch
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("linux_aarch64", []),
+    ("manylinux1_ppc64le", ["linux_ppc64le"]),
+    ("manylinux2014_x86_64", ["linux_x86_64"]),
+])
+def test_replacement_platform(name, expected):
+    assert get_replace_platforms(name) == expected
 
 
 class TestPolicyAccess:
