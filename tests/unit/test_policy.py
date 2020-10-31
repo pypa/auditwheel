@@ -55,6 +55,14 @@ class TestPolicyAccess:
     def test_get_by_priority_missing(self):
         assert get_policy_name(101) is None
 
+    @patch("auditwheel.policy._POLICIES", [
+        {"name": "duplicate", "priority": 0},
+        {"name": "duplicate", "priority": 0},
+    ])
+    def test_get_by_priority_duplicate(self):
+        with pytest.raises(RuntimeError):
+            get_policy_name(0)
+
     def test_get_by_name(self):
         _arch = get_arch_name()
         assert get_priority_by_name(f"manylinux2014_{_arch}") == 80
@@ -64,4 +72,12 @@ class TestPolicyAccess:
 
     def test_get_by_name_missing(self):
         assert get_priority_by_name("nosuchpolicy") is None
+
+    @patch("auditwheel.policy._POLICIES", [
+        {"name": "duplicate", "priority": 0},
+        {"name": "duplicate", "priority": 0},
+    ])
+    def test_get_by_name_duplicate(self):
+        with pytest.raises(RuntimeError):
+            get_priority_by_name("duplicate")
 
