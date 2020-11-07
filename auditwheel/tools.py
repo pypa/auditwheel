@@ -2,7 +2,6 @@ import argparse
 import os
 import shutil
 from glob import glob
-from os.path import exists, isdir
 from os.path import join as pjoin
 import zipfile
 import subprocess
@@ -80,28 +79,6 @@ def tarbz2todir(tarbz2_fname, out_dir):
     """Extract `tarbz2_fname` into output directory `out_dir`
     """
     subprocess.check_output(['tar', 'xjf', tarbz2_fname, '-C', out_dir])
-
-
-def find_package_dirs(root_path):
-    """Find python package directories in directory `root_path`
-
-    Parameters
-    ----------
-    root_path : str
-        Directory to search for package subdirectories
-
-    Returns
-    -------
-    package_sdirs : set
-        Set of strings where each is a subdirectory of `root_path`, containing
-        an ``__init__.py`` file.  Paths prefixed by `root_path`
-    """
-    package_sdirs = set()
-    for entry in os.listdir(root_path):
-        fname = entry if root_path == '.' else pjoin(root_path, entry)
-        if isdir(fname) and exists(pjoin(fname, '__init__.py')):
-            package_sdirs.add(fname)
-    return package_sdirs
 
 
 class EnvironmentDefault(argparse.Action):
