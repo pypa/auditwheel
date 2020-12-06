@@ -2,6 +2,21 @@
 
 ## HEAD
 
+## 3.3.0
+
+Released Dec. 6, 2020
+
+### User-facing changes
+- [FEATURE] Add `--strip` option to repair ([#255](https://github.com/pypa/auditwheel/pull/255))
+- [FEATURE] Add manylinux_2_24 policy ([#264](https://github.com/pypa/auditwheel/pull/264))
+- [FEATURE] Add python 3.9 support ([#265](https://github.com/pypa/auditwheel/pull/265))
+- [FEATURE] Drop python 3.5 support ([#261](https://github.com/pypa/auditwheel/pull/261))
+
+### Housekeeping
+- The PyPA has adopted the PSF code of conduct ([#256](https://github.com/pypa/auditwheel/pull/256))
+- Remove unused `find_package_dirs` function ([#267](https://github.com/pypa/auditwheel/pull/267))
+- Bump `wheel` to 0.36.1 ([#269](https://github.com/pypa/auditwheel/pull/269))
+
 ## 3.2.0
 
 Released Jul. 1, 2020
