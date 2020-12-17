@@ -3,7 +3,6 @@ conda packages.
 """
 import os
 
-from wheel.util import native  # type: ignore
 from .tmpdirs import InTemporaryDirectory
 from .tools import tarbz2todir
 
@@ -30,5 +29,5 @@ class InCondaPkgCtx(InCondaPkg):
 
     def iter_files(self):
         files = os.path.join(self.path, 'info', 'files')
-        with open(files) as f:
-            return [native(line.strip()) for line in f.readlines()]
+        with open(files, 'rt') as f:
+            return [line.strip() for line in f.readlines()]

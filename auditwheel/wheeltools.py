@@ -12,7 +12,7 @@ import csv
 from itertools import product
 import logging
 
-from wheel.util import urlsafe_b64encode, native  # type: ignore
+from base64 import urlsafe_b64encode
 from wheel.pkginfo import read_pkg_info, write_pkg_info  # type: ignore
 from wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
 
@@ -82,7 +82,7 @@ def rewrite_record(bdist_dir):
                 with open(path, 'rb') as f:
                     data = f.read()
                 digest = hashlib.sha256(data).digest()
-                hash = 'sha256=' + native(urlsafe_b64encode(digest))
+                hash = 'sha256=' + urlsafe_b64encode(digest).decode('ascii')
                 size = len(data)
             record_path = relpath(path, bdist_dir).replace(psep, '/')
             writer.writerow((record_path, hash, size))
@@ -164,9 +164,9 @@ class InWheelCtx(InWheel):
         if len(record_names) != 1:
             raise ValueError("Should be exactly one `*.dist_info` directory")
 
-        with open(record_names[0]) as f:
+        with open(record_names[0], 'rt') as f:
             record = f.read()
-        reader = csv.reader((native(r) for r in record.splitlines()))
+        reader = csv.reader((r for r in record.splitlines()))
         for row in reader:
             filename = row[0]
             yield filename
