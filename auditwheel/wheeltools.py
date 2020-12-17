@@ -76,16 +76,17 @@ def rewrite_record(bdist_dir):
         for path in walk():
             relative_path = relpath(path, bdist_dir)
             if skip(relative_path):
-                hash = ''
+                hash_ = ''
                 size = ''
             else:
                 with open(path, 'rb') as f:
                     data = f.read()
                 digest = hashlib.sha256(data).digest()
-                hash = 'sha256=' + urlsafe_b64encode(digest).decode('ascii')
+                sha256 = urlsafe_b64encode(digest).rstrip(b'=').decode('ascii')
+                hash_ = f'sha256={sha256}'
                 size = len(data)
             record_path = relpath(path, bdist_dir).replace(psep, '/')
-            writer.writerow((record_path, hash, size))
+            writer.writerow((record_path, hash_, size))
 
 
 class InWheel(InTemporaryDirectory):
