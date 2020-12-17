@@ -13,8 +13,8 @@ from itertools import product
 import logging
 
 from base64 import urlsafe_b64encode
-from wheel.pkginfo import read_pkg_info, write_pkg_info  # type: ignore
-from wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
+from ._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info  # type: ignore
+from ._vendor.wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip
