@@ -4,7 +4,7 @@ import os
 from tempfile import TemporaryDirectory
 
 
-class InTemporaryDirectory(object):
+class InTemporaryDirectory:
     ''' Create, return, and change directory to a temporary directory
 
     Examples

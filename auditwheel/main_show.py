@@ -36,29 +36,29 @@ def execute(args, p):
         logger.info('This does not look like a platform wheel')
         return 1
 
-    libs_with_versions = ['%s with versions %s' % (k, v)
+    libs_with_versions = [f'{k} with versions {v}'
                           for k, v in winfo.versioned_symbols.items()]
 
     printp('%s is consistent with the following platform tag: "%s".' %
            (fn, winfo.overall_tag))
 
     if get_priority_by_name(winfo.pyfpe_tag) < POLICY_PRIORITY_HIGHEST:
-        printp(('This wheel uses the PyFPE_jbuf function, which is not '
+        printp('This wheel uses the PyFPE_jbuf function, which is not '
                 'compatible with the manylinux1 tag. (see '
-                'https://www.python.org/dev/peps/pep-0513/#fpectl-builds-vs-no-fpectl-builds)'))  # noqa
+                'https://www.python.org/dev/peps/pep-0513/#fpectl-builds-vs-no-fpectl-builds)')  # noqa
         if args.verbose < 1:
             return
 
     if get_priority_by_name(winfo.ucs_tag) < POLICY_PRIORITY_HIGHEST:
-        printp(('This wheel is compiled against a narrow unicode (UCS2) '
-                'version of Python, which is not compatible with the '
-                'manylinux1 tag.'))
+        printp('This wheel is compiled against a narrow unicode (UCS2) '
+               'version of Python, which is not compatible with the '
+               'manylinux1 tag.')
         if args.verbose < 1:
             return
 
     if len(libs_with_versions) == 0:
-        printp(("The wheel references no external versioned symbols from "
-                "system-provided shared libraries."))
+        printp('The wheel references no external versioned symbols from '
+               'system-provided shared libraries.')
     else:
         printp('The wheel references external versioned symbols in these '
                'system-provided shared libraries: %s' %
@@ -77,8 +77,8 @@ def execute(args, p):
     if len(libs) == 0:
         printp('The wheel requires no external shared libraries! :)')
     else:
-        printp(('The following external shared libraries are required '
-                'by the wheel:'))
+        printp('The following external shared libraries are required '
+               'by the wheel:')
         print(json.dumps(OrderedDict(sorted(libs.items())), indent=4))
 
     for p in sorted(load_policies(), key=lambda p: p['priority']):

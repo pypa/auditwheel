@@ -124,7 +124,7 @@ def copylib(src_path, dest_dir, patcher):
     src_name = os.path.basename(src_path)
     base, ext = src_name.split('.', 1)
     if not base.endswith('-%s' % shorthash):
-        new_soname = '%s-%s.%s' % (base, shorthash, ext)
+        new_soname = f'{base}-{shorthash}.{ext}'
     else:
         new_soname = src_name
 

@@ -166,9 +166,9 @@ class InWheelCtx(InWheel):
         if len(record_names) != 1:
             raise ValueError("Should be exactly one `*.dist_info` directory")
 
-        with open(record_names[0], 'rt') as f:
+        with open(record_names[0]) as f:
             record = f.read()
-        reader = csv.reader((r for r in record.splitlines()))
+        reader = csv.reader(r for r in record.splitlines())
         for row in reader:
             filename = row[0]
             yield filename
