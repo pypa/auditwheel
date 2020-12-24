@@ -154,7 +154,7 @@ def parse_ld_so_conf(ldso_conf: str,
                                                   _first=False)
                 else:
                     paths += [normpath(root + line)]
-    except IOError as e:
+    except OSError as e:
         if e.errno != errno.ENOENT:
             log.warning(e)
 
