@@ -2,6 +2,19 @@
 
 ## HEAD
 
+## 3.3.1
+
+Released Dec. 24, 2020
+
+### User-facing changes
+- [FEATURE] Vendor `wheel` to improve user experience ([#275](https://github.com/pypa/auditwheel/pull/275))
+
+### Housekeeping
+- Fix twine check warning
+- Modernize Python syntax using `pyupgrade --py36-plus` ([#278](https://github.com/pypa/auditwheel/pull/278))
+- Remove usage of `wheel` imported helpers for python 2/3 compatibility ([#276](https://github.com/pypa/auditwheel/pull/276))
+- Bump `wheel` to 0.36.2 ([#273](https://github.com/pypa/auditwheel/pull/273))
+
 ## 3.3.0
 
 Released Dec. 6, 2020
