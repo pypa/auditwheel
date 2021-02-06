@@ -122,12 +122,12 @@ def get_wheel_elfdata(wheel_fn: str):
             # Even if a non-pyextension ELF file is not needed, we
             # should include it as an external references, because
             # they might also require external libraries.
-            full_external_refs[fn] = lddtree_external_references(nonpy_elftree[fn],
-                                                                 ctx.path)
+            full_external_refs[fn] = lddtree_external_references(
+                nonpy_elftree[fn], ctx.path)
 
     log.debug('full_elftree:\n%s', json.dumps(full_elftree, indent=4))
     log.debug('full_external_refs (will be repaired):\n%s',
-        json.dumps(full_external_refs, indent=4))
+              json.dumps(full_external_refs, indent=4))
 
     return (full_elftree, full_external_refs, versioned_symbols,
             uses_ucs2_symbols, uses_PyFPE_jbuf)
