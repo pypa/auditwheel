@@ -10,12 +10,14 @@ import glob
 import hashlib
 import csv
 from itertools import product
+from types import TracebackType
+from typing import Generator, Iterable, Optional, Type
 import logging
 
 from base64 import urlsafe_b64encode
-from ._vendor.wheel.pkginfo import (read_pkg_info,  # type: ignore
+from ._vendor.wheel.pkginfo import (read_pkg_info,
                                     write_pkg_info)
-from ._vendor.wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
+from ._vendor.wheel.wheelfile import WHEEL_INFO_RE
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import unique_by_index, zip2dir, dir2zip
@@ -28,7 +30,7 @@ class WheelToolsError(Exception):
     pass
 
 
-def _dist_info_dir(bdist_dir):
+def _dist_info_dir(bdist_dir: str) -> str:
     """Get the .dist-info directory from an unpacked wheel
 
     Parameters
@@ -43,7 +45,7 @@ def _dist_info_dir(bdist_dir):
     return info_dirs[0]
 
 
-def rewrite_record(bdist_dir):
+def rewrite_record(bdist_dir: str) -> None:
     """ Rewrite RECORD file with hashes for all files in `wheel_sdir`
 
     Copied from :method:`wheel.bdist_wheel.bdist_wheel.write_record`
@@ -63,12 +65,12 @@ def rewrite_record(bdist_dir):
     if exists(sig_path):
         os.unlink(sig_path)
 
-    def walk():
+    def walk() -> Generator[str, None, None]:
         for dir, dirs, files in os.walk(bdist_dir):
             for f in files:
                 yield pjoin(dir, f)
 
-    def skip(path):
+    def skip(path: str) -> bool:
         """Wheel hashes every possible file."""
         return path == record_relpath
 
@@ -85,7 +87,7 @@ def rewrite_record(bdist_dir):
                 digest = hashlib.sha256(data).digest()
                 sha256 = urlsafe_b64encode(digest).rstrip(b'=').decode('ascii')
                 hash_ = f'sha256={sha256}'
-                size = len(data)
+                size = f'{len(data)}'
             record_path = relpath(path, bdist_dir).replace(psep, '/')
             writer.writerow((record_path, hash_, size))
 
@@ -98,7 +100,7 @@ class InWheel(InTemporaryDirectory):
     pack stuff up for you.
     """
 
-    def __init__(self, in_wheel, out_wheel=None, ret_self=False):
+    def __init__(self, in_wheel: str, out_wheel: Optional[str] = None) -> None:
         """ Initialize in-wheel context manager
 
         Parameters
@@ -108,19 +110,18 @@ class InWheel(InTemporaryDirectory):
         out_wheel : None or str:
             filename of wheel to write after exiting.  If None, don't write and
             discard
-        ret_self : bool, optional
-            If True, return ``self`` from ``__enter__``, otherwise return the
-            directory path.
         """
         self.in_wheel = abspath(in_wheel)
         self.out_wheel = None if out_wheel is None else abspath(out_wheel)
         super().__init__()
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         zip2dir(self.in_wheel, self.name)
         return super().__enter__()
 
-    def __exit__(self, exc, value, tb):
+    def __exit__(self, exc: Optional[Type[BaseException]],
+                 value: Optional[BaseException],
+                 tb: Optional[TracebackType]) -> None:
         if self.out_wheel is not None:
             rewrite_record(self.name)
             dir2zip(self.name, self.out_wheel)
@@ -143,7 +144,7 @@ class InWheelCtx(InWheel):
     ``wheel_path``.
     """
 
-    def __init__(self, in_wheel, out_wheel=None):
+    def __init__(self, in_wheel: str, out_wheel: Optional[str] = None) -> None:
         """ Init in-wheel context manager returning self from enter
 
         Parameters
@@ -161,7 +162,10 @@ class InWheelCtx(InWheel):
         self.path = super().__enter__()
         return self
 
-    def iter_files(self):
+    def iter_files(self) -> Generator[str, None, None]:
+        if self.path is None:
+            raise ValueError(
+                "This function should be called from context manager")
         record_names = glob.glob(os.path.join(self.path, '*.dist-info/RECORD'))
         if len(record_names) != 1:
             raise ValueError("Should be exactly one `*.dist_info` directory")
@@ -174,7 +178,8 @@ class InWheelCtx(InWheel):
             yield filename
 
 
-def add_platforms(wheel_ctx, platforms, remove_platforms=()):
+def add_platforms(wheel_ctx: InWheelCtx, platforms: Iterable[str],
+                  remove_platforms: Iterable[str] = ()) -> str:
     """Add platform tags `platforms` to a wheel
 
     Add any platform tags in `platforms` that are missing
@@ -192,6 +197,10 @@ def add_platforms(wheel_ctx, platforms, remove_platforms=()):
         ``('linux_x86_64',)`` when ``('manylinux_x86_64')`` is added
     """
     definitely_not_purelib = False
+
+    if wheel_ctx.path is None:
+        raise ValueError(
+            "This function should be called from wheel_ctx context manager")
 
     info_fname = pjoin(_dist_info_dir(wheel_ctx.path), 'WHEEL')
     info = read_pkg_info(info_fname)

@@ -12,7 +12,7 @@ def configure_parser(sub_parsers):
     p.set_defaults(func=execute)
 
 
-def printp(text):
+def printp(text: str) -> None:
     from textwrap import wrap
     print()
     print('\n'.join(wrap(text)))

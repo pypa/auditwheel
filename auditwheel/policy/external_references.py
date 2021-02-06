@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import Dict, List, Set, Any
+from typing import Dict, Set, Any, Generator
 
 from ..elfutils import is_subdir
 from . import load_policies
@@ -9,12 +9,13 @@ log = logging.getLogger(__name__)
 LIBPYTHON_RE = re.compile(r'^libpython\d\.\dm?.so(.\d)*$')
 
 
-def lddtree_external_references(lddtree: Dict, wheel_path: str):
+def lddtree_external_references(lddtree: Dict, wheel_path: str) -> Dict:
     # XXX: Document the lddtree structure, or put it in something
     # more stable than a big nested dict
     policies = load_policies()
 
-    def filter_libs(libs, whitelist):
+    def filter_libs(libs: Set[str],
+                    whitelist: Set[str]) -> Generator[str, None, None]:
         for lib in libs:
             if 'ld-linux' in lib or lib in ['ld64.so.2', 'ld64.so.1']:
                 # always exclude ELF dynamic linker/loader
@@ -30,7 +31,7 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
                 continue
             yield lib
 
-    def get_req_external(libs: Set[str], whitelist: Set[str]):
+    def get_req_external(libs: Set[str], whitelist: Set[str]) -> Set[str]:
         # get all the required external libraries
         libs = libs.copy()
         reqs = set()
@@ -44,7 +45,7 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str):
 
     ret = {}  # type: Dict[str, Dict[str, Any]]
     for p in policies:
-        needed_external_libs = []  # type: List[str]
+        needed_external_libs = set()  # type: Set[str]
 
         if not (p['name'] == 'linux' and p['priority'] == 0):
             # special-case the generic linux platform here, because it

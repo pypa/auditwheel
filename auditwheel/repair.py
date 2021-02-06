@@ -9,7 +9,7 @@ from collections import OrderedDict
 from os.path import exists, basename, abspath, isabs, dirname
 from os.path import join as pjoin
 from subprocess import check_call
-from typing import Dict, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 from auditwheel.patcher import ElfPatcher
 from .elfutils import elf_read_rpaths, elf_read_dt_needed, is_subdir
@@ -99,13 +99,14 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
     return ctx.out_wheel
 
 
-def strip_symbols(libraries):
+def strip_symbols(libraries: Iterable[str]) -> None:
     for lib in libraries:
         logger.info('Stripping symbols from %s', lib)
         check_call(['strip', '-s', lib])
 
 
-def copylib(src_path, dest_dir, patcher):
+def copylib(src_path: str, dest_dir: str,
+            patcher: ElfPatcher) -> Tuple[str, str]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 

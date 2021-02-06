@@ -2,7 +2,8 @@ import os
 import sys
 import logging
 import argparse
-import pkg_resources  # type: ignore
+import pkg_resources
+from typing import Optional
 
 from . import main_show
 from . import main_addtag
@@ -10,7 +11,7 @@ from . import main_lddtree
 from . import main_repair
 
 
-def main():
+def main() -> Optional[int]:
     if sys.platform != 'linux':
         print('Error: This tool only supports Linux')
         return 1
@@ -45,7 +46,7 @@ def main():
 
     if not hasattr(args, 'func'):
         p.print_help()
-        return
+        return None
 
     rval = args.func(args, p)
 

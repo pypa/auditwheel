@@ -1,7 +1,8 @@
 import hashlib
+from typing import BinaryIO
 
 
-def hashfile(afile, blocksize=65536):
+def hashfile(afile: BinaryIO, blocksize: int = 65536) -> str:
     """Hash the contents of an open file handle with SHA256"""
     hasher = hashlib.sha256()
     buf = afile.read(blocksize)

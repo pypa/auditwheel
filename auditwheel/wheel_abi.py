@@ -127,14 +127,14 @@ def get_wheel_elfdata(wheel_fn: str):
             uses_ucs2_symbols, uses_PyFPE_jbuf)
 
 
-def get_external_libs(external_refs):
+def get_external_libs(external_refs) -> Dict[str, str]:
     """Get external library dependencies for all policies excluding the default
     linux policy
     :param external_refs: external references for all policies
     :return: {realpath: soname} e.g.
     {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
     """
-    result = {}
+    result: Dict[str, str] = {}
     for policy in external_refs.values():
         # linux tag (priority 0) has no white-list, do not analyze it
         if policy['priority'] == 0:
@@ -193,7 +193,7 @@ def get_symbol_policies(versioned_symbols, external_versioned_symbols,
     return result
 
 
-def analyze_wheel_abi(wheel_fn: str):
+def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
     external_refs = {
         p['name']: {'libs': {},
                     'priority': p['priority']}

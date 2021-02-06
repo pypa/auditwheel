@@ -2,6 +2,8 @@
 '''
 import os
 from tempfile import TemporaryDirectory
+from types import TracebackType
+from typing import Optional, Type
 
 
 class InTemporaryDirectory:
@@ -21,19 +23,21 @@ class InTemporaryDirectory:
     True
     '''
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._tmpdir = TemporaryDirectory()
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._tmpdir.name
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         self._pwd = os.getcwd()
         os.chdir(self._tmpdir.name)
         return self._tmpdir.__enter__()
 
-    def __exit__(self, exc, value, tb):
+    def __exit__(self, exc: Optional[Type[BaseException]],
+                 value: Optional[BaseException],
+                 tb: Optional[TracebackType]) -> None:
         os.chdir(self._pwd)
         return self._tmpdir.__exit__(exc, value, tb)
 
@@ -62,7 +66,7 @@ class InGivenDirectory:
     again.
     """
 
-    def __init__(self, path=None):
+    def __init__(self, path: Optional[str] = None) -> None:
         """ Initialize directory context manager
 
         Parameters
@@ -75,12 +79,14 @@ class InGivenDirectory:
             path = os.getcwd()
         self.name = os.path.abspath(path)
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         self._pwd = os.path.abspath(os.getcwd())
         if not os.path.isdir(self.name):
             os.mkdir(self.name)
         os.chdir(self.name)
         return self.name
 
-    def __exit__(self, exc, value, tb):
+    def __exit__(self, exc: Optional[Type[BaseException]],
+                 value: Optional[BaseException],
+                 tb: Optional[TracebackType]) -> None:
         os.chdir(self._pwd)

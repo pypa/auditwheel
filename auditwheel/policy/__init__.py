@@ -1,7 +1,7 @@
 import sys
 import json
 import platform as _platform_module
-from typing import Optional
+from typing import Optional, List
 from os.path import join, dirname, abspath
 import logging
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
 
 
-def get_arch_name():
+def get_arch_name() -> str:
     machine = _platform_module.machine()
     if machine not in {'x86_64', 'i686'}:
         return machine
@@ -56,7 +56,7 @@ def get_policy_name(priority: int) -> Optional[str]:
     return matches[0]
 
 
-def get_priority_by_name(name: str):
+def get_priority_by_name(name: str) -> Optional[int]:
     matches = [p['priority'] for p in _POLICIES if p['name'] == name]
     if len(matches) == 0:
         return None
@@ -65,7 +65,7 @@ def get_priority_by_name(name: str):
     return matches[0]
 
 
-def get_replace_platforms(name: str):
+def get_replace_platforms(name: str) -> List[str]:
     """Extract platform tag replacement rules from policy
 
     >>> get_replace_platforms('linux_x86_64')

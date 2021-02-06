@@ -2,8 +2,8 @@ import os
 from os.path import basename, realpath, relpath
 from .lddtree import parse_ld_paths
 
-from elftools.elf.elffile import ELFFile  # type: ignore
-from elftools.common.exceptions import ELFError  # type: ignore
+from elftools.elf.elffile import ELFFile
+from elftools.common.exceptions import ELFError
 from typing import Iterator, Tuple, Optional, Dict, List
 
 
@@ -78,7 +78,8 @@ def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
     return False
 
 
-def elf_is_python_extension(fn, elf) -> Tuple[bool, Optional[int]]:
+def elf_is_python_extension(fn: str,
+                            elf: ELFFile) -> Tuple[bool, Optional[int]]:
     modname = basename(fn).split('.', 1)[0]
     module_init_f = {
         'init' + modname: 2,

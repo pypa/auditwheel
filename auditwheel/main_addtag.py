@@ -22,7 +22,7 @@ def configure_parser(sub_parsers):
 
 def execute(args, p):
     import os
-    from ._vendor.wheel.wheelfile import WHEEL_INFO_RE  # type: ignore
+    from ._vendor.wheel.wheelfile import WHEEL_INFO_RE
     from .wheeltools import InWheelCtx, add_platforms, WheelToolsError
     from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
 
