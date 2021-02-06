@@ -693,3 +693,7 @@ def test_nonpy_rpath(any_manylinux_container, docker_python, io_folder):
         f'hello-0.1.0-{PYTHON_ABI}-{policy}.whl is consistent'
         f' with the following platform tag: "{policy}"'
     ) in output.replace('\n', ' ')
+
+    # Test the resulting wheel outside the manylinux container
+    docker_exec(docker_python, 'pip install -U /io/' + repaired_wheel)
+    docker_exec(docker_python, 'python /auditwheel_src/tests/integration/nonpy_rpath/tests/manual_test.py')
