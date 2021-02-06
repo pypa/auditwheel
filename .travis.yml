@@ -12,8 +12,6 @@ jobs:
     arch: ppc64le
   - python: "3.8"
     arch: s390x
-  - python: "3.8"
-    env: LINTER=1
 
 services:
   - docker
