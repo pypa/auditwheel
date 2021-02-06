@@ -1,3 +1,4 @@
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "extensions/testzlib.h"
 
@@ -27,7 +28,7 @@ static PyObject* z_compress(PyObject *self, PyObject *args) {
 
 static PyObject* z_uncompress(PyObject *self, PyObject *args) {
     const char * str_uncompress;
-    int str_uncompress_len;
+    Py_ssize_t str_uncompress_len;
     // according to https://docs.python.org/3/c-api/arg.html
     if (!PyArg_ParseTuple(args, "y#", &str_uncompress, &str_uncompress_len)) {
         return NULL;
@@ -55,15 +56,15 @@ static PyObject* hello(PyObject *self, PyObject *args) {
 //          accepting arguments, accepting keyword arguments, being a
 //          class method, or being a static method of a class.
 // ml_doc:  Contents of this method's docstring
-static PyMethodDef hello_methods[] = { 
-    {   
+static PyMethodDef hello_methods[] = {
+    {
         "hello_world", hello_world, METH_NOARGS,
         "Print 'hello world' from a method defined in a C extension."
-    },  
-    {   
+    },
+    {
         "hello", hello, METH_VARARGS,
         "Print 'hello xxx' from a method defined in a C extension."
-    },  
+    },
     {
         "z_compress", z_compress, METH_VARARGS,
         "Compresses a string using C's libz.so"
@@ -78,11 +79,11 @@ static PyMethodDef hello_methods[] = {
 // Module definition
 // The arguments of this structure tell Python what to call your extension,
 // what it's methods are and where to look for it's method definitions
-static struct PyModuleDef hello_definition = { 
+static struct PyModuleDef hello_definition = {
     PyModuleDef_HEAD_INIT,
     "_hello",
     "A Python module that prints 'hello world' from C code.",
-    -1, 
+    -1,
     hello_methods
 };
 
