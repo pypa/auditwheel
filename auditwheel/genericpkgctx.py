@@ -1,8 +1,11 @@
+from typing import Optional, Union
 from .wheeltools import InWheelCtx
 from .condatools import InCondaPkgCtx
 
 
-def InGenericPkgCtx(in_path, out_path=None):
+def InGenericPkgCtx(
+    in_path: str, out_path: Optional[str] = None
+) -> Union[InWheelCtx, InCondaPkgCtx]:
     """Factory that returns a InWheelCtx or InCondaPkgCtx
     context manager depending on the file extension
     """

@@ -17,9 +17,9 @@ import glob
 import errno
 import logging
 import functools
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 
-from elftools.elf.elffile import ELFFile  # type: ignore
+from elftools.elf.elffile import ELFFile
 
 log = logging.getLogger(__name__)
 __all__ = ['lddtree']
@@ -75,7 +75,7 @@ def dedupe(items: List[str]) -> List[str]:
     return [seen.setdefault(x, x) for x in items if x not in seen]
 
 
-def parse_ld_paths(str_ldpaths, root='', path=None) -> List[str]:
+def parse_ld_paths(str_ldpaths: str, path: str, root: str = '') -> List[str]:
     """Parse the colon-delimited list of paths and apply ldso rules to each
 
     Note the special handling as dictated by the ldso:
@@ -204,7 +204,7 @@ def load_ld_paths(root: str = '/', prefix: str = '') -> Dict[str, List[str]]:
     return ldpaths
 
 
-def compatible_elfs(elf1, elf2):
+def compatible_elfs(elf1: ELFFile, elf2: ELFFile) -> bool:
     """See if two ELFs are compatible
 
     This compares the aspects of the ELF to see if they're compatible:
@@ -232,7 +232,8 @@ def compatible_elfs(elf1, elf2):
             elf1.header['e_machine'] == elf2.header['e_machine'])
 
 
-def find_lib(elf, lib, ldpaths, root='/'):
+def find_lib(elf: ELFFile, lib: str, ldpaths: List[str],
+             root: str = '/') -> Tuple[Optional[str], Optional[str]]:
     """Try to locate a ``lib`` that is compatible to ``elf`` in the given
     ``ldpaths``
 
@@ -370,13 +371,13 @@ def lddtree(path: str,
                 if t.entry.d_tag == 'DT_RPATH':
                     rpaths = parse_ld_paths(
                         t.rpath,
-                        root=root,
-                        path=path)
+                        path=path,
+                        root=root)
                 elif t.entry.d_tag == 'DT_RUNPATH':
                     runpaths = parse_ld_paths(
                         t.runpath,
-                        root=root,
-                        path=path)
+                        path=path,
+                        root=root)
                 elif t.entry.d_tag == 'DT_NEEDED':
                     libs.append(t.needed)
             if runpaths:
@@ -412,7 +413,7 @@ def lddtree(path: str,
                 'path': fullpath,
                 'needed': [],
             }
-            if fullpath:
+            if realpath and fullpath:
                 lret = lddtree(realpath,
                                root,
                                prefix,

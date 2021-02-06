@@ -3,11 +3,12 @@ import os
 import shutil
 from glob import glob
 from os.path import join as pjoin
+from typing import Any, Iterable, List
 import zipfile
 import subprocess
 
 
-def unique_by_index(sequence):
+def unique_by_index(sequence: Iterable[Any]) -> List[Any]:
     """ unique elements in `sequence` in the order in which they occur
 
     Parameters
@@ -27,7 +28,7 @@ def unique_by_index(sequence):
     return uniques
 
 
-def zip2dir(zip_fname, out_dir):
+def zip2dir(zip_fname: str, out_dir: str) -> None:
     """ Extract `zip_fname` into output directory `out_dir`
 
     Parameters
@@ -52,7 +53,7 @@ def zip2dir(zip_fname, out_dir):
             zf.extractall(out_dir)
 
 
-def dir2zip(in_dir, zip_fname):
+def dir2zip(in_dir: str, zip_fname: str) -> None:
     """ Make a zip file `zip_fname` with contents of directory `in_dir`
 
     The recorded filenames are relative to `in_dir`, so doing a standard zip
@@ -75,7 +76,7 @@ def dir2zip(in_dir, zip_fname):
                 z.write(os.path.join(root, file), out_fname)
 
 
-def tarbz2todir(tarbz2_fname, out_dir):
+def tarbz2todir(tarbz2_fname: str, out_dir: str) -> None:
     """Extract `tarbz2_fname` into output directory `out_dir`
     """
     subprocess.check_output(['tar', 'xjf', tarbz2_fname, '-C', out_dir])

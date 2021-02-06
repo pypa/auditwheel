@@ -46,7 +46,7 @@ def _verify_patchelf() -> None:
 
 
 class Patchelf(ElfPatcher):
-    def __init__(self):
+    def __init__(self) -> None:
         _verify_patchelf()
 
     def replace_needed(self,
