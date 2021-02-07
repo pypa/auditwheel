@@ -9,6 +9,7 @@ jobs:
     name: CPython ${{ matrix.python }}
     runs-on: ubuntu-20.04
     strategy:
+      fail-fast: false
       matrix:
         include:
           - python: "3.6"
