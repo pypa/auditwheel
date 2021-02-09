@@ -1,10 +1,13 @@
+import logging
+import os
 from os.path import isfile, exists, abspath, basename
 
-from auditwheel.patcher import Patchelf
+from .patcher import Patchelf
 from .policy import (load_policies, get_policy_name, get_priority_by_name,
                      POLICY_PRIORITY_HIGHEST)
+from .repair import repair_wheel
 from .tools import EnvironmentDefault
-import logging
+from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +53,27 @@ def configure_parser(sub_parsers):
     p.set_defaults(func=execute)
 
 
+def _repair_wheel(requested_tag, args, patcher):
+    analyzed_tag = analyze_wheel_abi(args.WHEEL_FILE).overall_tag
+    if requested_tag < get_priority_by_name(analyzed_tag):
+        logger.info(('Wheel is eligible for a higher priority tag. '
+                     'You requested %s but I have found this wheel is '
+                     'eligible for %s.'),
+                    args.PLAT, analyzed_tag)
+    requested_tag = analyzed_tag
+    out_wheel = repair_wheel(args.WHEEL_FILE,
+                             abi=requested_tag,
+                             lib_sdir=args.LIB_SDIR,
+                             out_dir=args.WHEEL_DIR,
+                             update_tags=args.UPDATE_TAGS,
+                             patcher=patcher,
+                             strip=args.STRIP)
+
+    if out_wheel is not None:
+        logger.info('\nFixed-up wheel written to %s', out_wheel)
+
+
 def execute(args, p):
-    import os
-    from .repair import repair_wheel
-    from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
 
     if not isfile(args.WHEEL_FILE):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)
@@ -86,26 +106,4 @@ def execute(args, p):
         p.error(msg)
 
     patcher = Patchelf()
-    out_wheel = repair_wheel(args.WHEEL_FILE,
-                             abi=args.PLAT,
-                             lib_sdir=args.LIB_SDIR,
-                             out_dir=args.WHEEL_DIR,
-                             update_tags=args.UPDATE_TAGS,
-                             patcher=patcher,
-                             strip=args.STRIP)
-
-    if out_wheel is not None:
-        analyzed_tag = analyze_wheel_abi(out_wheel).overall_tag
-        if reqd_tag < get_priority_by_name(analyzed_tag):
-            logger.info(('Wheel is eligible for a higher priority tag. '
-                         'You requested %s but I have found this wheel is '
-                         'eligible for %s.'),
-                        args.PLAT, analyzed_tag)
-            out_wheel = repair_wheel(args.WHEEL_FILE,
-                                     abi=analyzed_tag,
-                                     lib_sdir=args.LIB_SDIR,
-                                     out_dir=args.WHEEL_DIR,
-                                     update_tags=args.UPDATE_TAGS,
-                                     patcher=patcher)
-
-        logger.info('\nFixed-up wheel written to %s', out_wheel)
+    _repair_wheel(reqd_tag, args, patcher)
