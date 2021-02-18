@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from auditwheel.policy import get_arch_name, get_policy_name, \
-    get_priority_by_name, get_replace_platforms
+    get_priority_by_name, get_replace_platforms, _validate_pep600_compliance
 
 
 @patch("auditwheel.policy._platform_module.machine")
@@ -41,6 +41,59 @@ def test_64bits_arch_name(machine_mock, reported_arch, expected_arch):
 ])
 def test_replacement_platform(name, expected):
     assert get_replace_platforms(name) == expected
+
+
+def test_pep600_compliance():
+    _validate_pep600_compliance([{
+        "name": "manylinux1", "priority": 100, "symbol_versions": {
+            "i686": {"CXXABI": ["1.3"]},
+        },
+        "lib_whitelist": ["libgcc_s.so.1"]
+    }, {
+        "name": "manylinux2010", "priority": 90, "symbol_versions": {
+            "i686": {"CXXABI": ["1.3", "1.3.1"]},
+        },
+        "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
+    }])
+
+    _validate_pep600_compliance([{
+        "name": "manylinux1", "priority": 100, "symbol_versions": {
+            "i686": {"CXXABI": ["1.3"]},
+            "x86_64": {"CXXABI": ["1.3"]},
+        },
+        "lib_whitelist": ["libgcc_s.so.1"]
+    }, {
+        "name": "manylinux2010", "priority": 90, "symbol_versions": {
+            "i686": {"CXXABI": ["1.3", "1.3.1"]},
+        },
+        "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
+    }])
+
+    with pytest.raises(ValueError):
+        _validate_pep600_compliance([{
+            "name": "manylinux1", "priority": 100, "symbol_versions": {
+                "i686": {"CXXABI": ["1.3", "1.3.2"]},
+            },
+            "lib_whitelist": ["libgcc_s.so.1"]
+        }, {
+            "name": "manylinux2010", "priority": 90, "symbol_versions": {
+                "i686": {"CXXABI": ["1.3", "1.3.1"]},
+            },
+            "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
+        }])
+
+    with pytest.raises(ValueError):
+        _validate_pep600_compliance([{
+            "name": "manylinux1", "priority": 100, "symbol_versions": {
+                "i686": {"CXXABI": ["1.3"]},
+            },
+            "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"]
+        }, {
+            "name": "manylinux2010", "priority": 90, "symbol_versions": {
+                "i686": {"CXXABI": ["1.3", "1.3.1"]},
+            },
+            "lib_whitelist": ["libgcc_s.so.1"],
+        }])
 
 
 class TestPolicyAccess:
