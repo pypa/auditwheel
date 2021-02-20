@@ -25,13 +25,21 @@ MANYLINUX2010_IMAGE_ID = f'quay.io/pypa/manylinux2010_{PLATFORM}'
 MANYLINUX2014_IMAGE_ID = f'quay.io/pypa/manylinux2014_{PLATFORM}:latest'
 if PLATFORM in {'i686', 'x86_64'}:
     MANYLINUX_IMAGES = {
-        'manylinux1': MANYLINUX1_IMAGE_ID,
-        'manylinux2010': MANYLINUX2010_IMAGE_ID,
-        'manylinux2014': MANYLINUX2014_IMAGE_ID,
+        'manylinux_2_5': MANYLINUX1_IMAGE_ID,
+        'manylinux_2_12': MANYLINUX2010_IMAGE_ID,
+        'manylinux_2_17': MANYLINUX2014_IMAGE_ID,
+    }
+    POLICY_ALIASES = {
+        'manylinux_2_5': ['manylinux1'],
+        'manylinux_2_12': ['manylinux2010'],
+        'manylinux_2_17': ['manylinux2014'],
     }
 else:
     MANYLINUX_IMAGES = {
-        'manylinux2014': MANYLINUX2014_IMAGE_ID,
+        'manylinux_2_17': MANYLINUX2014_IMAGE_ID,
+    }
+    POLICY_ALIASES = {
+        'manylinux_2_17': ['manylinux2014'],
     }
 DOCKER_CONTAINER_NAME = 'auditwheel-test-manylinux'
 PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
@@ -40,9 +48,9 @@ PYTHON_ABI_FLAGS = 'm' if sys.version_info.minor < 8 else ''
 PYTHON_ABI = f'cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}{PYTHON_ABI_FLAGS}'
 PYTHON_IMAGE_ID = 'python:' + '.'.join(PYTHON_MAJ_MIN)
 DEVTOOLSET = {
-    'manylinux1': 'devtoolset-2',
-    'manylinux2010': 'devtoolset-8',
-    'manylinux2014': 'devtoolset-9',
+    'manylinux_2_5': 'devtoolset-2',
+    'manylinux_2_12': 'devtoolset-8',
+    'manylinux_2_17': 'devtoolset-9',
 }
 PATH_DIRS = [
     f'/opt/python/{PYTHON_ABI}/bin',
@@ -124,6 +132,7 @@ def io_folder(tmp_path):
     d.mkdir(exist_ok=True)
     return str(d)
 
+
 @contextmanager
 def tmp_docker_image(base, commands, setup_env={}):
     """Make a temporary docker image for tests
@@ -147,11 +156,13 @@ def tmp_docker_image(base, commands, setup_env={}):
         client = image.client
         client.images.remove(image.id)
 
+
 @pytest.fixture(scope='session')
 def docker_python_img():
     """The Python base image with up-to-date pip"""
     with tmp_docker_image(PYTHON_IMAGE_ID, ['pip install pip']) as img_id:
         yield img_id
+
 
 @pytest.fixture(scope='session', params=MANYLINUX_IMAGES.keys())
 def any_manylinux_img(request):
@@ -168,6 +179,7 @@ def any_manylinux_img(request):
     ], env) as img_id:
         yield policy, img_id
 
+
 @pytest.fixture()
 def docker_python(docker_python_img, io_folder):
     with docker_container_ctx(docker_python_img, io_folder) as container:
@@ -183,7 +195,9 @@ def any_manylinux_container(any_manylinux_img, io_folder):
             env[key] = os.environ[key]
 
     with docker_container_ctx(manylinux_img, io_folder, env) as container:
-        yield f'{policy}_{PLATFORM}', container
+        platform_tag = '.'.join([f'{p}_{PLATFORM}'
+                                 for p in [policy] + POLICY_ALIASES.get(policy, [])])
+        yield f'{policy}_{PLATFORM}', platform_tag, container
 
 
 def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
@@ -191,7 +205,7 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
 
     # First build numpy from source as a naive linux wheel that is tied
     # to system libraries (atlas, libgfortran...)
-    policy, manylinux_ctr = any_manylinux_container
+    policy, tag, manylinux_ctr = any_manylinux_container
     docker_exec(manylinux_ctr, 'yum install -y atlas atlas-devel')
 
     if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
@@ -223,12 +237,12 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
     assert len(filenames) == 2
     repaired_wheels = [fn for fn in filenames if 'manylinux' in fn]
     assert repaired_wheels == [
-        f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{policy}.whl'
+        f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{tag}.whl'
     ]
     repaired_wheel = repaired_wheels[0]
     output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
     assert (
-        f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{policy}.whl is consistent'
+        f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{tag}.whl is consistent'
         f' with the following platform tag: "{policy}"'
     ) in output.replace('\n', ' ')
 
@@ -254,7 +268,7 @@ def test_build_wheel_with_binary_executable(any_manylinux_container, docker_pyth
                                             io_folder):
     # Test building a wheel that contains a binary executable (e.g., a program)
 
-    policy, manylinux_ctr = any_manylinux_container
+    policy, tag, manylinux_ctr = any_manylinux_container
     docker_exec(manylinux_ctr, 'yum install -y gsl-devel')
 
     docker_exec(
@@ -274,12 +288,12 @@ def test_build_wheel_with_binary_executable(any_manylinux_container, docker_pyth
     assert len(filenames) == 2
     repaired_wheels = [fn for fn in filenames if policy in fn]
     # Wheel picks up newer symbols when built in manylinux2010
-    expected_wheel_name = f'testpackage-0.0.1-py3-none-{policy}.whl'
+    expected_wheel_name = f'testpackage-0.0.1-py3-none-{tag}.whl'
     assert repaired_wheels == [expected_wheel_name]
     repaired_wheel = repaired_wheels[0]
     output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
     assert (
-        f'testpackage-0.0.1-py3-none-{policy}.whl is consistent'
+        f'testpackage-0.0.1-py3-none-{tag}.whl is consistent'
         f' with the following platform tag: "{policy}"'
     ) in output.replace('\n', ' ')
 
@@ -306,7 +320,7 @@ def test_build_wheel_with_image_dependencies(with_dependency, any_manylinux_cont
     #   available on policies pre-dating the policy matching the image being
     #   tested.
 
-    policy, manylinux_ctr = any_manylinux_container
+    policy, tag, manylinux_ctr = any_manylinux_container
 
     docker_exec(manylinux_ctr, [
         'bash', '-c',
@@ -324,7 +338,7 @@ def test_build_wheel_with_image_dependencies(with_dependency, any_manylinux_cont
 
     policy_priority = get_priority_by_name(policy)
     older_policies = \
-        [p for p in MANYLINUX_IMAGES.keys()
+        [f'{p}_{PLATFORM}' for p in MANYLINUX_IMAGES.keys()
          if policy_priority < get_priority_by_name(f'{p}_{PLATFORM}')]
     for target_policy in older_policies:
         # we shall fail to repair the wheel when targeting an older policy than
@@ -343,12 +357,12 @@ def test_build_wheel_with_image_dependencies(with_dependency, any_manylinux_cont
     filenames = os.listdir(io_folder)
     assert len(filenames) == 2
     repaired_wheels = [fn for fn in filenames if policy in fn]
-    expected_wheel_name = f'testdependencies-0.0.1-{PYTHON_ABI}-{policy}.whl'
+    expected_wheel_name = f'testdependencies-0.0.1-{PYTHON_ABI}-{tag}.whl'
     assert repaired_wheels == [expected_wheel_name]
     repaired_wheel = repaired_wheels[0]
     output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
     assert (
-        f'testdependencies-0.0.1-{PYTHON_ABI}-{policy}.whl is consistent'
+        f'testdependencies-0.0.1-{PYTHON_ABI}-{tag}.whl is consistent'
         f' with the following platform tag: "{policy}"'
     ) in output.replace('\n', ' ')
 
@@ -375,7 +389,7 @@ def test_build_wheel_with_image_dependencies(with_dependency, any_manylinux_cont
 
 
 def test_build_repair_pure_wheel(any_manylinux_container, io_folder):
-    policy, manylinux_ctr = any_manylinux_container
+    policy, tag, manylinux_ctr = any_manylinux_container
 
     if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL)):
         # If six has already been built and put in cache, let's reuse this.
@@ -413,7 +427,7 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
     # - check if RPATH location is correct, i.e. it is inside .libs directory
     #   where all gathered libraries are put
 
-    policy, manylinux_ctr = any_manylinux_container
+    policy, tag, manylinux_ctr = any_manylinux_container
 
     docker_exec(
         manylinux_ctr,
@@ -446,16 +460,16 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
     filenames = os.listdir(io_folder)
     repaired_wheels = [fn for fn in filenames if policy in fn]
     # Wheel picks up newer symbols when built in manylinux2010
-    expected_wheel_name = f'testrpath-0.0.1-{PYTHON_ABI}-{policy}.whl'
+    expected_wheel_name = f'testrpath-0.0.1-{PYTHON_ABI}-{tag}.whl'
     assert expected_wheel_name in repaired_wheels
     repaired_wheel = expected_wheel_name
     output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
     if PLATFORM in {'x86_64', 'i686'}:
-        expect = f'manylinux1_{PLATFORM}'
+        expect = f'manylinux_2_5_{PLATFORM}'
     else:
-        expect = f'manylinux2014_{PLATFORM}'
+        expect = f'manylinux_2_17_{PLATFORM}'
     assert (
-        f'testrpath-0.0.1-{PYTHON_ABI}-{policy}.whl is consistent'
+        f'testrpath-0.0.1-{PYTHON_ABI}-{tag}.whl is consistent'
         f' with the following platform tag: "{expect}"'
     ) in output.replace('\n', ' ')
 
@@ -480,7 +494,7 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
 
 def test_build_repair_multiple_top_level_modules_wheel(any_manylinux_container, docker_python, io_folder):
 
-    policy, manylinux_ctr = any_manylinux_container
+    policy, tag, manylinux_ctr = any_manylinux_container
 
     docker_exec(
         manylinux_ctr,
@@ -518,14 +532,14 @@ def test_build_repair_multiple_top_level_modules_wheel(any_manylinux_container, 
     filenames = os.listdir(io_folder)
     repaired_wheels = [fn for fn in filenames if policy in fn]
     # Wheel picks up newer symbols when built in manylinux2010
-    expected_wheel_name = f'multiple_top_level-1.0-{PYTHON_ABI}-{policy}.whl'
+    expected_wheel_name = f'multiple_top_level-1.0-{PYTHON_ABI}-{tag}.whl'
     assert repaired_wheels == [expected_wheel_name]
     repaired_wheel = expected_wheel_name
     output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
     if PLATFORM in {'x86_64', 'i686'}:
-        expect = f'manylinux1_{PLATFORM}'
+        expect = f'manylinux_2_5_{PLATFORM}'
     else:
-        expect = f'manylinux2014_{PLATFORM}'
+        expect = f'manylinux_2_17_{PLATFORM}'
     assert (
         f'{repaired_wheel} is consistent'
         f' with the following platform tag: "{expect}"'
@@ -556,9 +570,7 @@ def test_build_repair_multiple_top_level_modules_wheel(any_manylinux_container, 
 
 
 def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_python, io_folder):
-    
-
-    policy, manylinux_ctr = any_manylinux_container
+    policy, tag, manylinux_ctr = any_manylinux_container
 
     docker_exec(
         manylinux_ctr,
@@ -595,14 +607,14 @@ def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_
     filenames = os.listdir(io_folder)
     repaired_wheels = [fn for fn in filenames if policy in fn]
     # Wheel picks up newer symbols when built in manylinux2010
-    expected_wheel_name = f'internal_rpath-1.0-{PYTHON_ABI}-{policy}.whl'
+    expected_wheel_name = f'internal_rpath-1.0-{PYTHON_ABI}-{tag}.whl'
     assert repaired_wheels == [expected_wheel_name]
     repaired_wheel = expected_wheel_name
     output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
     if PLATFORM in {'x86_64', 'i686'}:
-        expect = f'manylinux1_{PLATFORM}'
+        expect = f'manylinux_2_5_{PLATFORM}'
     else:
-        expect = f'manylinux2014_{PLATFORM}'
+        expect = f'manylinux_2_17_{PLATFORM}'
     assert (
         f'{repaired_wheel} is consistent'
         f' with the following platform tag: "{expect}"'
@@ -633,7 +645,7 @@ def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_
 
 
 def test_strip_wheel(any_manylinux_container, docker_python, io_folder):
-    policy, manylinux_ctr = any_manylinux_container
+    policy, tag, manylinux_ctr = any_manylinux_container
     docker_exec(
         manylinux_ctr,
         ['bash', '-c', 'cd /auditwheel_src/tests/integration/sample_extension '
@@ -657,3 +669,50 @@ def test_strip_wheel(any_manylinux_container, docker_python, io_folder):
         ["python", "-c", "from sample_extension import test_func; print(test_func(1))"]
     )
     assert output.strip() == "2"
+
+
+@pytest.mark.parametrize(
+    'target_policy',
+    [f'{p}_{PLATFORM}' for p in list(MANYLINUX_IMAGES.keys())] +
+    [f'{p}_{PLATFORM}' for aliases in POLICY_ALIASES.values() for p in aliases]
+)
+def test_build_wheel_compat(target_policy, any_manylinux_container,
+                            docker_python, io_folder):
+    # test building wheels with compatibility with older spec
+    # check aliases for older spec
+
+    policy, tag, manylinux_ctr = any_manylinux_container
+
+    docker_exec(manylinux_ctr, [
+        'bash', '-c', 'cd /auditwheel_src/tests/integration/testsimple '
+                      '&& python -m pip wheel --no-deps -w /io .'
+    ])
+
+    filenames = os.listdir(io_folder)
+    orig_wheel = filenames[0]
+    assert 'manylinux' not in orig_wheel
+
+    if PLATFORM in {'x86_64', 'i686'}:
+        expect = f'manylinux_2_5_{PLATFORM}'
+    else:
+        expect = f'manylinux_2_17_{PLATFORM}'
+
+    # we shall ba able to repair the wheel for all targets
+    docker_exec(manylinux_ctr, [
+        'bash', '-c',
+        f'auditwheel -v repair --plat {target_policy} -w /io /io/{orig_wheel}'])
+    filenames = os.listdir(io_folder)
+    assert len(filenames) >= 1
+    repaired_wheels = [fn for fn in filenames if target_policy in fn]
+    assert len(repaired_wheels) == 1
+    repaired_wheel = repaired_wheels[0]
+    output = docker_exec(manylinux_ctr, f'auditwheel show /io/{repaired_wheel}')
+    assert (
+        f'is consistent with the following platform tag: "{expect}"'
+    ) in output.replace('\n', ' ')
+    docker_exec(docker_python, f'pip install /io/{repaired_wheel}')
+    docker_exec(
+        docker_python,
+        ['python', '-c',
+         'from sys import exit; from testsimple import run; exit(run())']
+    )

@@ -11,7 +11,7 @@ import hashlib
 import csv
 from itertools import product
 from types import TracebackType
-from typing import Generator, Iterable, Optional, Type
+from typing import Generator, Iterable, List, Optional, Type
 import logging
 
 from base64 import urlsafe_b64encode
@@ -178,7 +178,7 @@ class InWheelCtx(InWheel):
             yield filename
 
 
-def add_platforms(wheel_ctx: InWheelCtx, platforms: Iterable[str],
+def add_platforms(wheel_ctx: InWheelCtx, platforms: List[str],
                   remove_platforms: Iterable[str] = ()) -> str:
     """Add platform tags `platforms` to a wheel
 
@@ -189,7 +189,7 @@ def add_platforms(wheel_ctx: InWheelCtx, platforms: Iterable[str],
     ----------
     wheel_ctx : InWheelCtx
         An open wheel context
-    platforms : iterable
+    platforms : list
         platform tags to add to wheel filename and WHEEL tags - e.g.
         ``('macosx_10_9_intel', 'macosx_10_9_x86_64')
     remove_platforms : iterable
@@ -216,9 +216,9 @@ def add_platforms(wheel_ctx: InWheelCtx, platforms: Iterable[str],
     fparts = parsed_fname.groupdict()
     original_fname_tags = fparts['plat'].split('.')
     logger.info('Previous filename tags: %s', ', '.join(original_fname_tags))
-    fname_tags = {tag for tag in original_fname_tags
-                  if tag not in remove_platforms}
-    fname_tags |= set(platforms)
+    fname_tags = [tag for tag in original_fname_tags
+                  if tag not in remove_platforms]
+    fname_tags = unique_by_index(fname_tags + platforms)
 
     # Can't be 'any' and another platform
     if 'any' in fname_tags and len(fname_tags) > 1:
