@@ -556,7 +556,7 @@ def test_build_repair_multiple_top_level_modules_wheel(any_manylinux_container, 
 
 
 def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_python, io_folder):
-    
+
 
     policy, manylinux_ctr = any_manylinux_container
 
@@ -576,7 +576,7 @@ def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_
     assert filenames == [f'internal_rpath-1.0-{PYTHON_ABI}-linux_{PLATFORM}.whl']
     orig_wheel = filenames[0]
     assert 'manylinux' not in orig_wheel
-    
+
     # Repair the wheel using the appropriate manylinux container
     repair_command = f'auditwheel repair --plat {policy} -w /io /io/{orig_wheel}'
     docker_exec(
@@ -697,3 +697,42 @@ def test_nonpy_rpath(any_manylinux_container, docker_python, io_folder):
     # Test the resulting wheel outside the manylinux container
     docker_exec(docker_python, 'pip install -U /io/' + repaired_wheel)
     docker_exec(docker_python, 'python /auditwheel_src/tests/integration/nonpy_rpath/tests/manual_test.py')
+
+
+def test_nonpy_rpath2(any_manylinux_container, docker_python, io_folder):
+    # Tests https://github.com/pypa/auditwheel/issues/136
+    policy, manylinux_ctr = any_manylinux_container
+    docker_exec(
+        manylinux_ctr,
+        ['bash', '-c', 'cd /auditwheel_src/tests/integration/test_nonpy_dependencies '
+                       '&& python -m pip wheel --no-deps -w /io .']
+    )
+
+    orig_wheel, *_ = os.listdir(io_folder)
+    assert orig_wheel.startswith("test_nonpy_dependencies-0.0.1")
+    assert 'manylinux' not in orig_wheel
+
+    # Repair the wheel using the appropriate manylinux container
+    repair_command = \
+        f'auditwheel repair --plat {policy} --strip -w /io /io/{orig_wheel}'
+    docker_exec(manylinux_ctr, repair_command)
+
+    repaired_wheel, *_ = glob.glob(f"{io_folder}/*{policy}*.whl")
+    repaired_wheel = os.path.basename(repaired_wheel)
+
+    docker_exec(docker_python, "pip install /io/" + repaired_wheel)
+    output = docker_exec(
+        docker_python,
+        ["python", "-c", "import test_nonpy_dependencies; print(test_nonpy_dependencies.reverse_string(\"banana\"))"]
+    )
+    assert output.strip() == "ananab"
+
+    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
+    assert (
+        f'test_nonpy_dependencies-0.0.1-{PYTHON_ABI}-{policy}.whl is consistent'
+        f' with the following platform tag: "{policy}"'
+    ) in output.replace('\n', ' ')
+
+    # Test the resulting wheel outside the manylinux container
+    docker_exec(docker_python, 'pip install -U /io/' + repaired_wheel)
+    docker_exec(docker_python, 'python /auditwheel_src/tests/integration/test_nonpy_dependencies/tests/manual_test.py')
