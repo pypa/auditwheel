@@ -696,16 +696,16 @@ def test_nonpy_rpath(any_manylinux_container, docker_python, io_folder):
 
     # Test the resulting wheel outside the manylinux container
     docker_exec(docker_python, 'pip install -U /io/' + repaired_wheel)
-    docker_exec(docker_python, 'python /auditwheel_src/tests/integration/nonpy_rpath/tests/manual_test.py')
+    docker_exec(docker_python, 'python /auditwheel_src/tests/integration/nonpy_rpath/tests/manual_test_nonpy_rpath.py')
 
 
-def test_nonpy_rpath2(any_manylinux_container, docker_python, io_folder):
+def test_nonpy_dependencies(any_manylinux_container, docker_python, io_folder):
     # Tests https://github.com/pypa/auditwheel/issues/136
     policy, manylinux_ctr = any_manylinux_container
     docker_exec(
         manylinux_ctr,
         ['bash', '-c', 'cd /auditwheel_src/tests/integration/test_nonpy_dependencies '
-                       '&& python -m pip wheel --no-deps -w /io .']
+                       '&& python setup.py bdist_wheel -d /io']
     )
 
     orig_wheel, *_ = os.listdir(io_folder)
@@ -715,7 +715,10 @@ def test_nonpy_rpath2(any_manylinux_container, docker_python, io_folder):
     # Repair the wheel using the appropriate manylinux container
     repair_command = \
         f'auditwheel repair --plat {policy} --strip -w /io /io/{orig_wheel}'
-    docker_exec(manylinux_ctr, repair_command)
+    docker_exec(
+        manylinux_ctr,
+        ['bash', '-c', 'LD_LIBRARY_PATH=/auditwheel_src/tests/integration/test_nonpy_dependencies:$LD_LIBRARY_PATH ' + repair_command],
+    )
 
     repaired_wheel, *_ = glob.glob(f"{io_folder}/*{policy}*.whl")
     repaired_wheel = os.path.basename(repaired_wheel)
@@ -730,9 +733,9 @@ def test_nonpy_rpath2(any_manylinux_container, docker_python, io_folder):
     output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
     assert (
         f'test_nonpy_dependencies-0.0.1-{PYTHON_ABI}-{policy}.whl is consistent'
-        f' with the following platform tag: "{policy}"'
+        f' with the following platform tag: "manylinux1_x86_64"'
     ) in output.replace('\n', ' ')
 
     # Test the resulting wheel outside the manylinux container
     docker_exec(docker_python, 'pip install -U /io/' + repaired_wheel)
-    docker_exec(docker_python, 'python /auditwheel_src/tests/integration/test_nonpy_dependencies/tests/manual_test.py')
+    docker_exec(docker_python, 'python /auditwheel_src/tests/integration/test_nonpy_dependencies/tests/manual_test_nonpy_dependencies.py')
