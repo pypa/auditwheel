@@ -69,7 +69,7 @@ def test_pep600_compliance():
         "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
     }])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="manylinux2010_i686.*CXXABI.*1.3.2"):
         _validate_pep600_compliance([{
             "name": "manylinux1", "priority": 100, "symbol_versions": {
                 "i686": {"CXXABI": ["1.3", "1.3.2"]},
@@ -82,7 +82,7 @@ def test_pep600_compliance():
             "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
         }])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="manylinux2010.*libstdc\+\+\.so\.6"):
         _validate_pep600_compliance([{
             "name": "manylinux1", "priority": 100, "symbol_versions": {
                 "i686": {"CXXABI": ["1.3"]},

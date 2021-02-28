@@ -31,14 +31,26 @@ def _validate_pep600_compliance(policies) -> None:
         if policy['name'] == 'linux':
             continue
         if not lib_whitelist.issubset(set(policy['lib_whitelist'])):
-            raise ValueError('Invalid "policy.json" file')
+            diff = lib_whitelist - set(policy["lib_whitelist"])
+            raise ValueError(
+                'Invalid "policy.json" file. Missing whitelist libraries in '
+                f'"{policy["name"]}" compared to previous policies: {diff}'
+            )
         lib_whitelist.update(policy['lib_whitelist'])
         for arch in policy['symbol_versions'].keys():
             symbol_versions_arch = symbol_versions.get(arch, defaultdict(set))
             for prefix in policy['symbol_versions'][arch].keys():
+                policy_symbol_versions = set(
+                    policy['symbol_versions'][arch][prefix])
                 if not symbol_versions_arch[prefix].issubset(
-                        set(policy['symbol_versions'][arch][prefix])):
-                    raise ValueError('Invalid "policy.json" file')
+                        policy_symbol_versions):
+                    diff = symbol_versions_arch[prefix] - \
+                           policy_symbol_versions
+                    raise ValueError(
+                        'Invalid "policy.json" file. Symbol versions missing '
+                        f'in "{policy["name"]}_{arch}" for "{prefix}" '
+                        f'compared to previous policies: {diff}'
+                    )
                 symbol_versions_arch[prefix].update(
                     policy['symbol_versions'][arch][prefix])
             symbol_versions[arch] = symbol_versions_arch
