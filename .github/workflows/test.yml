@@ -21,6 +21,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Setup cache
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/auditwheel_tests
+          key: python${{ matrix.python }}-${{ hashFiles('**/test_manylinux.py') }}
+          restore-keys: python${{ matrix.python }}-
+
       - name: Install CPython ${{ matrix.python }}
         uses: actions/setup-python@v2
         with:
