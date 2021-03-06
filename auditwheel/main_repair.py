@@ -48,6 +48,11 @@ def configure_parser(sub_parsers):
                    action='store_true',
                    help='Strip symbols in the resulting wheel',
                    default=False)
+    p.add_argument('--only-plat',
+                   dest='ONLY_PLAT',
+                   action='store_true',
+                   help='Do not check for higher policy compatibility',
+                   default=False)
     p.set_defaults(func=execute)
 
 
@@ -88,6 +93,15 @@ def execute(args, p):
         p.error(msg)
 
     abis = [policy['name']] + policy['aliases']
+    if not args.ONLY_PLAT:
+        if reqd_tag < get_priority_by_name(wheel_abi.overall_tag):
+            logger.info(('Wheel is eligible for a higher priority tag. '
+                         'You requested %s but I have found this wheel is '
+                         'eligible for %s.'),
+                        args.PLAT, wheel_abi.overall_tag)
+            higher_policy = get_policy_by_name(wheel_abi.overall_tag)
+            abis = [higher_policy['name']] + higher_policy['aliases'] + abis
+
     patcher = Patchelf()
     out_wheel = repair_wheel(args.WHEEL_FILE,
                              abis=abis,
@@ -98,19 +112,4 @@ def execute(args, p):
                              strip=args.STRIP)
 
     if out_wheel is not None:
-        analyzed_tag = analyze_wheel_abi(out_wheel).overall_tag
-        if reqd_tag < get_priority_by_name(analyzed_tag):
-            logger.info(('Wheel is eligible for a higher priority tag. '
-                         'You requested %s but I have found this wheel is '
-                         'eligible for %s.'),
-                        args.PLAT, analyzed_tag)
-            policy = get_policy_by_name(analyzed_tag)
-            abis = [policy['name']] + policy['aliases']
-            out_wheel = repair_wheel(args.WHEEL_FILE,
-                                     abis=abis,
-                                     lib_sdir=args.LIB_SDIR,
-                                     out_dir=args.WHEEL_DIR,
-                                     update_tags=args.UPDATE_TAGS,
-                                     patcher=patcher)
-
         logger.info('\nFixed-up wheel written to %s', out_wheel)
