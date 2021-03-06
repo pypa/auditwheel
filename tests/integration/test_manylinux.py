@@ -200,6 +200,34 @@ def any_manylinux_container(any_manylinux_img, io_folder):
         yield f'{policy}_{PLATFORM}', platform_tag, container
 
 
+SHOW_RE = re.compile(
+    r'[\s](?P<wheel>\S+) is consistent with the following platform tag: "(?P<tag>\S+)"',
+    flags=re.DOTALL
+)
+TAG_RE = re.compile(
+    r'^manylinux_(?P<major>[0-9]+)_(?P<minor>[0-9]+)_(?P<arch>\S+)$'
+)
+
+
+def assert_show_output(manylinux_ctr, wheel, expected_tag, strict):
+    output = docker_exec(manylinux_ctr, f'auditwheel show /io/{wheel}')
+    output = output.replace('\n', ' ')
+    match = SHOW_RE.match(output)
+    assert match
+    assert match['wheel'] == wheel
+    if strict:
+        assert match['tag'] == expected_tag
+    else:
+        expected_match = TAG_RE.match(expected_tag)
+        assert expected_match
+        expected_glibc = (int(expected_match['major']), int(expected_match['minor']))
+        actual_match = TAG_RE.match(match['tag'])
+        assert actual_match
+        actual_glibc = (int(actual_match['major']), int(actual_match['minor']))
+        assert expected_match['arch'] == actual_match['arch']
+        assert actual_glibc <= expected_glibc
+
+
 def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
     # Integration test: repair numpy built from scratch
 
@@ -237,11 +265,7 @@ def test_build_repair_numpy(any_manylinux_container, docker_python, io_folder):
     assert len(filenames) == 2
     repaired_wheel = f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{tag}.whl'
     assert repaired_wheel in filenames
-    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
-    assert (
-        f'numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{tag}.whl is consistent'
-        f' with the following platform tag: "{policy}"'
-    ) in output.replace('\n', ' ')
+    assert_show_output(manylinux_ctr, repaired_wheel, policy, False)
 
     # Check that the repaired numpy wheel can be installed and executed
     # on a modern linux image.
@@ -286,11 +310,7 @@ def test_build_wheel_with_binary_executable(any_manylinux_container, docker_pyth
     assert len(filenames) == 2
     repaired_wheel = f'testpackage-0.0.1-py3-none-{tag}.whl'
     assert repaired_wheel in filenames
-    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
-    assert (
-        f'testpackage-0.0.1-py3-none-{tag}.whl is consistent'
-        f' with the following platform tag: "{policy}"'
-    ) in output.replace('\n', ' ')
+    assert_show_output(manylinux_ctr, repaired_wheel, policy, False)
 
     docker_exec(docker_python, 'pip install /io/' + repaired_wheel)
     output = docker_exec(
@@ -353,25 +373,15 @@ def test_build_wheel_with_image_dependencies(with_dependency, any_manylinux_cont
     assert len(filenames) == 2
     repaired_wheel = f'testdependencies-0.0.1-{PYTHON_ABI}-{tag}.whl'
     assert repaired_wheel in filenames
-    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
-    assert (
-        f'testdependencies-0.0.1-{PYTHON_ABI}-{tag}.whl is consistent'
-        f' with the following platform tag: "{policy}"'
-    ) in output.replace('\n', ' ')
+    assert_show_output(manylinux_ctr, repaired_wheel, policy, True)
 
     # check the original wheel with a dependency was not compliant
     # and check the one without a dependency was already compliant
-    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + orig_wheel)
     if with_dependency == '1':
-        assert (
-            f'{orig_wheel} is consistent with the following platform tag: '
-            f'"linux_{PLATFORM}"'
-        ) in output.replace('\n', ' ')
+        expected = f'linux_{PLATFORM}'
     else:
-        assert (
-            f'{orig_wheel} is consistent with the following platform tag: '
-            f'"{policy}"'
-        ) in output.replace('\n', ' ')
+        expected = policy
+    assert_show_output(manylinux_ctr, orig_wheel, expected, True)
 
     docker_exec(docker_python, 'pip install /io/' + repaired_wheel)
     docker_exec(
@@ -455,15 +465,7 @@ def test_build_wheel_depending_on_library_with_rpath(any_manylinux_container, do
     assert len(filenames) == 2
     repaired_wheel = f'testrpath-0.0.1-{PYTHON_ABI}-{tag}.whl'
     assert repaired_wheel in filenames
-    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
-    if PLATFORM in {'x86_64', 'i686'}:
-        expect = f'manylinux_2_5_{PLATFORM}'
-    else:
-        expect = f'manylinux_2_17_{PLATFORM}'
-    assert (
-        f'testrpath-0.0.1-{PYTHON_ABI}-{tag}.whl is consistent'
-        f' with the following platform tag: "{expect}"'
-    ) in output.replace('\n', ' ')
+    assert_show_output(manylinux_ctr, repaired_wheel, policy, False)
 
     docker_exec(docker_python, 'pip install /io/' + repaired_wheel)
     output = docker_exec(
@@ -526,15 +528,7 @@ def test_build_repair_multiple_top_level_modules_wheel(any_manylinux_container, 
     assert len(filenames) == 2
     repaired_wheel = f'multiple_top_level-1.0-{PYTHON_ABI}-{tag}.whl'
     assert repaired_wheel in filenames
-    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
-    if PLATFORM in {'x86_64', 'i686'}:
-        expect = f'manylinux_2_5_{PLATFORM}'
-    else:
-        expect = f'manylinux_2_17_{PLATFORM}'
-    assert (
-        f'{repaired_wheel} is consistent'
-        f' with the following platform tag: "{expect}"'
-    ) in output.replace('\n', ' ')
+    assert_show_output(manylinux_ctr, repaired_wheel, policy, False)
 
     docker_exec(docker_python, 'pip install /io/' + repaired_wheel)
     for mod, func, expected in [
@@ -600,15 +594,7 @@ def test_build_repair_wheel_with_internal_rpath(any_manylinux_container, docker_
     assert len(filenames) == 2
     repaired_wheel = f'internal_rpath-1.0-{PYTHON_ABI}-{tag}.whl'
     assert repaired_wheel in filenames
-    output = docker_exec(manylinux_ctr, 'auditwheel show /io/' + repaired_wheel)
-    if PLATFORM in {'x86_64', 'i686'}:
-        expect = f'manylinux_2_5_{PLATFORM}'
-    else:
-        expect = f'manylinux_2_17_{PLATFORM}'
-    assert (
-        f'{repaired_wheel} is consistent'
-        f' with the following platform tag: "{expect}"'
-    ) in output.replace('\n', ' ')
+    assert_show_output(manylinux_ctr, repaired_wheel, policy, False)
 
     docker_exec(docker_python, 'pip install /io/' + repaired_wheel)
     for mod, func, expected in [
@@ -711,10 +697,8 @@ def test_build_wheel_compat(target_policy, only_plat, any_manylinux_container,
         repaired_tag = f'{expect_tag}.{target_tag}'
     repaired_wheel = f'testsimple-0.0.1-{PYTHON_ABI}-{repaired_tag}.whl'
     assert repaired_wheel in filenames
-    output = docker_exec(manylinux_ctr, f'auditwheel show /io/{repaired_wheel}')
-    assert (
-        f'is consistent with the following platform tag: "{expect}"'
-    ) in output.replace('\n', ' ')
+    assert_show_output(manylinux_ctr, repaired_wheel, expect, True)
+
     docker_exec(docker_python, f'pip install /io/{repaired_wheel}')
     docker_exec(
         docker_python,
