@@ -1,8 +1,8 @@
 from os.path import isfile, exists, abspath, basename
 
 from auditwheel.patcher import Patchelf
-from .policy import (load_policies, get_policy_name, get_priority_by_name,
-                     POLICY_PRIORITY_HIGHEST)
+from .policy import (load_policies, get_policy_by_name, get_policy_name,
+                     get_priority_by_name, POLICY_PRIORITY_HIGHEST)
 from .tools import EnvironmentDefault
 import logging
 
@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 def configure_parser(sub_parsers):
     policy_names = [p['name'] for p in load_policies()]
+    policy_names += [alias for p in load_policies() for alias in p['aliases']]
     highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)
     help = "Vendor in external shared library dependencies of a wheel."
     p = sub_parsers.add_parser('repair', help=help, description=help)
@@ -69,7 +70,8 @@ def execute(args, p):
         logger.info('This does not look like a platform wheel')
         return 1
 
-    reqd_tag = get_priority_by_name(args.PLAT)
+    policy = get_policy_by_name(args.PLAT)
+    reqd_tag = policy['priority']
 
     if reqd_tag > get_priority_by_name(wheel_abi.sym_tag):
         msg = ('cannot repair "%s" to "%s" ABI because of the presence '
@@ -85,9 +87,10 @@ def execute(args, p):
                (args.WHEEL_FILE, args.PLAT))
         p.error(msg)
 
+    abis = [policy['name']] + policy['aliases']
     patcher = Patchelf()
     out_wheel = repair_wheel(args.WHEEL_FILE,
-                             abi=args.PLAT,
+                             abis=abis,
                              lib_sdir=args.LIB_SDIR,
                              out_dir=args.WHEEL_DIR,
                              update_tags=args.UPDATE_TAGS,
@@ -101,8 +104,10 @@ def execute(args, p):
                          'You requested %s but I have found this wheel is '
                          'eligible for %s.'),
                         args.PLAT, analyzed_tag)
+            policy = get_policy_by_name(analyzed_tag)
+            abis = [policy['name']] + policy['aliases']
             out_wheel = repair_wheel(args.WHEEL_FILE,
-                                     abi=analyzed_tag,
+                                     abis=abis,
                                      lib_sdir=args.LIB_SDIR,
                                      out_dir=args.WHEEL_DIR,
                                      update_tags=args.UPDATE_TAGS,

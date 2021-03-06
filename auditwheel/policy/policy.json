@@ -1,10 +1,12 @@
 [
     {"name": "linux",
+     "aliases": [],
      "priority": 0,
      "symbol_versions": {},
      "lib_whitelist": []
     },
-    {"name": "manylinux1",
+    {"name": "manylinux_2_5",
+     "aliases": ["manylinux1"],
      "priority": 100,
      "symbol_versions": {
          "i686": {
@@ -29,7 +31,8 @@
          "libSM.so.6", "libGL.so.1", "libgobject-2.0.so.0",
          "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2"
      ]},
-    {"name": "manylinux2010",
+    {"name": "manylinux_2_12",
+     "aliases": ["manylinux2010"],
      "priority": 90,
      "symbol_versions": {
        "i686": {
@@ -54,7 +57,8 @@
          "libSM.so.6", "libGL.so.1", "libgobject-2.0.so.0",
          "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2"
      ]},
-    {"name": "manylinux2014",
+    {"name": "manylinux_2_17",
+     "aliases": ["manylinux2014"],
      "priority": 80,
      "symbol_versions": {
        "i686": {
@@ -110,6 +114,7 @@
          "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2"
      ]},
     {"name": "manylinux_2_24",
+     "aliases": [],
      "priority": 70,
      "symbol_versions": {
        "i686": {

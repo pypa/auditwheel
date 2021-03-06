@@ -65,6 +65,8 @@ with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
             if _p['name'] != 'linux':
                 _p['symbol_versions'] = _p['symbol_versions'][_ARCH_NAME]
             _p['name'] = _p['name'] + '_' + _ARCH_NAME
+            _p['aliases'] = [alias + '_' + _ARCH_NAME
+                             for alias in _p['aliases']]
             _POLICIES.append(_p)
 
 POLICY_PRIORITY_HIGHEST = max(p['priority'] for p in _POLICIES)
@@ -81,6 +83,16 @@ def _load_policy_schema():
     return schema
 
 
+def get_policy_by_name(name: str) -> Optional[Dict]:
+    matches = [p for p in _POLICIES
+               if p['name'] == name or name in p['aliases']]
+    if len(matches) == 0:
+        return None
+    if len(matches) > 1:
+        raise RuntimeError('Internal error. Policies should be unique')
+    return matches[0]
+
+
 def get_policy_name(priority: int) -> Optional[str]:
     matches = [p['name'] for p in _POLICIES if p['priority'] == priority]
     if len(matches) == 0:
@@ -91,12 +103,8 @@ def get_policy_name(priority: int) -> Optional[str]:
 
 
 def get_priority_by_name(name: str) -> Optional[int]:
-    matches = [p['priority'] for p in _POLICIES if p['name'] == name]
-    if len(matches) == 0:
-        return None
-    if len(matches) > 1:
-        raise RuntimeError('Internal error. Policies should be unique.')
-    return matches[0]
+    policy = get_policy_by_name(name)
+    return None if policy is None else policy['priority']
 
 
 def get_replace_platforms(name: str) -> List[str]:

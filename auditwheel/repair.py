@@ -9,7 +9,7 @@ from collections import OrderedDict
 from os.path import exists, basename, abspath, isabs, dirname
 from os.path import join as pjoin
 from subprocess import check_call
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from auditwheel.patcher import ElfPatcher
 from .elfutils import elf_read_rpaths, elf_read_dt_needed, is_subdir
@@ -28,7 +28,7 @@ WHEEL_INFO_RE = re.compile(
     re.VERBOSE).match
 
 
-def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
+def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
                  update_tags: bool, patcher: ElfPatcher,
                  strip: bool = False) -> Optional[str]:
 
@@ -61,7 +61,7 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
 
-            ext_libs = v[abi]['libs']  # type: Dict[str, str]
+            ext_libs = v[abis[0]]['libs']  # type: Dict[str, str]
             for soname, src_path in ext_libs.items():
                 if src_path is None:
                     raise ValueError(('Cannot repair wheel, because required '
@@ -88,8 +88,8 @@ def repair_wheel(wheel_path: str, abi: str, lib_sdir: str, out_dir: str,
                     patcher.replace_needed(path, n, soname_map[n][0])
 
         if update_tags:
-            ctx.out_wheel = add_platforms(ctx, [abi],
-                                          get_replace_platforms(abi))
+            ctx.out_wheel = add_platforms(ctx, abis,
+                                          get_replace_platforms(abis[0]))
 
         if strip:
             libs_to_strip = [path for (_, path) in soname_map.values()]

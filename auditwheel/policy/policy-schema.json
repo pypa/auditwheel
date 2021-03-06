@@ -12,6 +12,12 @@
                 "name": {
                     "type": "string"
                 },
+                "aliases": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "priority": {
                     "type": "integer"
                 },

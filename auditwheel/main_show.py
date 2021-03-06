@@ -15,7 +15,8 @@ def configure_parser(sub_parsers):
 def printp(text: str) -> None:
     from textwrap import wrap
     print()
-    print('\n'.join(wrap(text)))
+    print('\n'.join(wrap(text, break_long_words=False,
+                         break_on_hyphens=False)))
 
 
 def execute(args, p):
