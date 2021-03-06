@@ -1,17 +1,18 @@
 os: linux
 dist: focal
 language: python
+python: "3.8"
+arch: arm64-graviton2
 
 jobs:
   include:
-  - python: "3.8"
-    arch: arm64-graviton2
+  - arch: arm64-graviton2
     virt: vm
     group: edge
-  - python: "3.8"
-    arch: ppc64le
-  - python: "3.8"
-    arch: s390x
+  - arch: ppc64le
+  - arch: s390x
+  allow_failures:
+  - arch: ppc64le
 
 services:
   - docker
