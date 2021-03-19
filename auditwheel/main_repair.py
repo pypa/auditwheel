@@ -4,24 +4,41 @@ from auditwheel.patcher import Patchelf
 from .policy import (load_policies, get_policy_by_name, get_policy_name,
                      get_priority_by_name, POLICY_PRIORITY_HIGHEST)
 from .tools import EnvironmentDefault
+import argparse
 import logging
+
 
 logger = logging.getLogger(__name__)
 
 
 def configure_parser(sub_parsers):
-    policy_names = [p['name'] for p in load_policies()]
-    policy_names += [alias for p in load_policies() for alias in p['aliases']]
+    policies = load_policies()
+    policy_names = [p['name'] for p in policies]
+    policy_names += [alias for p in policies for alias in p['aliases']]
+    epilog = """PLATFORMS:
+These are the possible target platform tags, as specified by PEP 600.
+Note that old, pre-PEP 600 tags are still usable and are listed as aliases
+below.
+"""
+    for p in policies:
+        epilog += f"- {p['name']}"
+        if len(p['aliases']) > 0:
+            epilog += f" (aliased by {', '.join(p['aliases'])})"
+        epilog += '\n'
     highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)
     help = "Vendor in external shared library dependencies of a wheel."
-    p = sub_parsers.add_parser('repair', help=help, description=help)
+    p = sub_parsers.add_parser(
+        'repair', help=help, description=help, epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('WHEEL_FILE', help='Path to wheel file.')
     p.add_argument(
         '--plat',
         action=EnvironmentDefault,
+        metavar='PLATFORM',
         env='AUDITWHEEL_PLAT',
         dest='PLAT',
-        help='Desired target platform. (default: "%s")' % highest_policy,
+        help='Desired target platform. See the available platforms under the '
+             f'PLATFORMS section below. (default: "{highest_policy}")',
         choices=policy_names,
         default=highest_policy)
     p.add_argument('-L',
