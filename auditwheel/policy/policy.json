@@ -55,7 +55,8 @@
          "libc.so.6", "libnsl.so.1", "libutil.so.1", "libpthread.so.0",
          "libX11.so.6", "libXext.so.6", "libXrender.so.1", "libICE.so.6",
          "libSM.so.6", "libGL.so.1", "libgobject-2.0.so.0",
-         "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2"
+         "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2",
+         "libexpat.so.1"
      ]},
     {"name": "manylinux_2_17",
      "aliases": ["manylinux2014"],
@@ -111,7 +112,8 @@
          "libc.so.6", "libnsl.so.1", "libutil.so.1", "libpthread.so.0",
          "libX11.so.6", "libXext.so.6", "libXrender.so.1", "libICE.so.6",
          "libSM.so.6", "libGL.so.1", "libgobject-2.0.so.0",
-         "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2"
+         "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2",
+         "libexpat.so.1"
      ]},
     {"name": "manylinux_2_24",
      "aliases": [],
@@ -161,7 +163,8 @@
          "libc.so.6", "libnsl.so.1", "libutil.so.1", "libpthread.so.0",
          "libX11.so.6", "libXext.so.6", "libXrender.so.1", "libICE.so.6",
          "libSM.so.6", "libGL.so.1", "libgobject-2.0.so.0",
-         "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2"
+         "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2",
+         "libexpat.so.1"
      ]},
     {"name": "manylinux_2_27",
      "aliases": [],
@@ -211,6 +214,7 @@
          "libc.so.6", "libnsl.so.1", "libutil.so.1", "libpthread.so.0",
          "libX11.so.6", "libXext.so.6", "libXrender.so.1", "libICE.so.6",
          "libSM.so.6", "libGL.so.1", "libgobject-2.0.so.0",
-         "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2"
+         "libgthread-2.0.so.0", "libglib-2.0.so.0", "libresolv.so.2",
+         "libexpat.so.1"
      ]}
 ]
