@@ -4,6 +4,7 @@
 #include <malloc.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 #endif
 #include <Python.h>
 
@@ -19,6 +20,8 @@ run(PyObject *self, PyObject *args)
 
 #ifdef WITH_DEPENDENCY
     res = dep_run();
+#elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 24)
+    res = (int)nextupf(0.0F);
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 17)
     res = (int)(intptr_t)secure_getenv("NON_EXISTING_ENV_VARIABLE");
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 10)
