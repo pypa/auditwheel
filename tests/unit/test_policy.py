@@ -100,6 +100,7 @@ class TestPolicyAccess:
 
     def test_get_by_priority(self):
         _arch = get_arch_name()
+        assert get_policy_name(65) == f'manylinux_2_27_{_arch}'
         assert get_policy_name(70) == f'manylinux_2_24_{_arch}'
         assert get_policy_name(80) == f'manylinux_2_17_{_arch}'
         if _arch in {'x86_64', 'i686'}:
@@ -120,6 +121,7 @@ class TestPolicyAccess:
 
     def test_get_by_name(self):
         _arch = get_arch_name()
+        assert get_priority_by_name(f"manylinux_2_27_{_arch}") == 65
         assert get_priority_by_name(f"manylinux_2_24_{_arch}") == 70
         assert get_priority_by_name(f"manylinux2014_{_arch}") == 80
         assert get_priority_by_name(f"manylinux_2_17_{_arch}") == 80
