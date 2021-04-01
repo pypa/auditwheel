@@ -8,7 +8,8 @@ auditwheel
 .. image:: https://pepy.tech/badge/auditwheel/month
     :target: https://pepy.tech/project/auditwheel/month
 
-Auditing and relabeling of `PEP 513 manylinux1
+Auditing and relabeling of `PEP 600 manylinux_x_y
+<https://www.python.org/dev/peps/pep-0600/>`_, `PEP 513 manylinux1
 <https://www.python.org/dev/peps/pep-0513/>`_, `PEP 571 manylinux2010
 <https://www.python.org/dev/peps/pep-0571/>`_ and `PEP 599 manylinux2014
 <https://www.python.org/dev/peps/pep-0599/>`_ Linux wheels.
@@ -19,7 +20,8 @@ Overview
 ``auditwheel`` is a command line tool to facilitate the creation of Python
 `wheel packages <http://pythonwheels.com/>`_ for Linux (containing pre-compiled
 binary extensions) that are compatible with a wide variety of Linux distributions,
-consistent with the `PEP 513 manylinux1
+consistent with the `PEP 600 manylinux_x_y
+<https://www.python.org/dev/peps/pep-0600/>`_, `PEP 513 manylinux1
 <https://www.python.org/dev/peps/pep-0513/>`_, `PEP 571 manylinux2010
 <https://www.python.org/dev/peps/pep-0571/>`_ and `PEP 599 manylinux2014
 <https://www.python.org/dev/peps/pep-0599/>`_ platform tags.
