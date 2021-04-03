@@ -2,6 +2,28 @@
 
 ## HEAD
 
+## 4.0.0.0b1
+
+Released Apr. 3, 2021
+
+### User-facing changes
+- [BUGFIX] Patch RPATHs of non-Python extension dependencies ([#136](https://github.com/pypa/auditwheel/issues/136), [#298](https://github.com/pypa/auditwheel/pull/298))
+- [BUGFIX] Ensure policies in `policy.json` are compliant with PEP600 ([#287](https://github.com/pypa/auditwheel/pull/287))
+  - This removes 2 non existing symbols from manylinux1 i686 policy and removes ncurses librairies from manylinux1 whitelist. 
+- [FEATURE] Use PEP600 policy names ([#288](https://github.com/pypa/auditwheel/pull/288), [#297](https://github.com/pypa/auditwheel/pull/297))
+  - The platform tag passed to `auditwheel repair` `--plat` argument can use either the PEP600 tag or the legacy tag. The repaired wheel will get both platform tags.
+  - Inform about aliases in `auditwheel repair --help`
+- [FEATURE] Always repair as a single wheel ([#289](https://github.com/pypa/auditwheel/pull/289))
+  - Add argument `--only-plat` to `auditwheel repair` for those who were keeping only the lowest priority tag wheel (i.e. the one requested by `--plat` argument). 
+- [FEATURE] Add manylinux_2_27 policy ([#299](https://github.com/pypa/auditwheel/issues/299), [#300](https://github.com/pypa/auditwheel/pull/300))
+- [FEATURE] Add libexpat.so.1 to whitelisted libraries starting with manylinux2010 ([#152](https://github.com/pypa/auditwheel/issues/152), [#301](https://github.com/pypa/auditwheel/pull/301))
+
+### Housekeeping
+- Add manylinux_2_24 tests ([#266](https://github.com/pypa/auditwheel/pull/266))
+- Use GitHub Actions for x86_64 tests ([#282](https://github.com/pypa/auditwheel/pull/282), [#294](https://github.com/pypa/auditwheel/pull/294))
+- Rework auditwheel show checks in test_manylinux.py  ([#295](https://github.com/pypa/auditwheel/pull/295))
+- Fix warning issued when testing tests/unit/test_policy.py ([#296](https://github.com/pypa/auditwheel/pull/296))
+
 ## 3.3.1
 
 Released Dec. 24, 2020
