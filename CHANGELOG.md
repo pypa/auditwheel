@@ -2,6 +2,12 @@
 
 ## HEAD
 
+## 4.0.0
+
+Released May. 5, 2021
+
+- No changes since 4.0.0.0b1.
+
 ## 4.0.0.0b1
 
 Released Apr. 3, 2021
