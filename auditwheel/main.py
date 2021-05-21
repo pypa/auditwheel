@@ -1,10 +1,15 @@
 import os
+import pathlib
 import sys
 import logging
 import argparse
-import pkg_resources
+try:
+    from importlib import metadata
+except ImportError:
+    import importlib_metadata as metadata  # type: ignore
 from typing import Optional
 
+import auditwheel
 from . import main_show
 from . import main_addtag
 from . import main_lddtree
@@ -16,9 +21,9 @@ def main() -> Optional[int]:
         print('Error: This tool only supports Linux')
         return 1
 
-    dist = pkg_resources.get_distribution('auditwheel')
+    location = pathlib.Path(auditwheel.__file__).parent.resolve()
     version = 'auditwheel {} installed at {} (python {}.{})'.format(
-        dist.version, dist.location, *sys.version_info)
+        metadata.version("auditwheel"), location, *sys.version_info)
 
     p = argparse.ArgumentParser(description='Cross-distro Python wheels.')
     p.set_defaults(prog=os.path.basename(sys.argv[0]))
