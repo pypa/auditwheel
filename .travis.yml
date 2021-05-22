@@ -21,6 +21,7 @@ notifications:
   email: false
 
 before_install:
+  - df -h
   - pip install --upgrade pip setuptools
 
 install:
@@ -28,6 +29,12 @@ install:
 
 script:
   - tests/travis.sh
+
+after_script: |
+  if [ -f ${HOME}/dockerd-rootless.pid ]; then
+    kill -15 $(cat ${HOME}/dockerd-rootless.pid);
+  fi
+  df -h
 
 cache:
   directories:
