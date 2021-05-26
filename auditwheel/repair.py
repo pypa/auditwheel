@@ -28,13 +28,13 @@ WHEEL_INFO_RE = re.compile(
     re.VERBOSE).match
 
 
-def _is_in_list(soname : str, l: Optional[List[str]]) -> str:
-    for item in l:
+def _is_in_list(soname: str, items: Optional[List[str]]) -> str:
+    for item in items:
         if item in soname:
             return item
 
 
-def _filter(l : List[str]) -> List[str]:
+def _filter(l: List[str]) -> List[str]:
     return [_.strip() for _ in l if _.strip()]
 
 
@@ -88,14 +88,15 @@ def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
                 # exhaustive include list
                 if include and not _is_in_list(soname, include):
                     logger.debug(
-                        f'Excluding {soname} which is not in exhaustive include list'
-                        f' `{", ".join(include)}`)')
+                        f'Excluding {soname} which is not in exhaustive '
+                        f'include list `{", ".join(include)}`)')
                     continue
 
                 # exclude some libraries
                 exc = _is_in_list(soname, exclude)
                 if exc:
-                    logger.info(f'Excluding {soname} (matched exclude string `{exc}`)')
+                    logger.info(
+                        f'Excluding {soname} (match exclude string `{exc}`)')
                     continue
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
