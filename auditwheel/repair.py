@@ -28,9 +28,22 @@ WHEEL_INFO_RE = re.compile(
     re.VERBOSE).match
 
 
+def _is_in_list(soname : str, l: Optional[List[str]]) -> str:
+    for item in l:
+        if item in soname:
+            return item
+
+
+def _filter(l : List[str]) -> List[str]:
+    return [_.strip() for _ in l if _.strip()]
+
+
 def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
                  update_tags: bool, patcher: ElfPatcher,
-                 strip: bool = False) -> Optional[str]:
+                 strip: bool = False,
+                 include: Optional[List[str]] = None,
+                 exclude: Optional[List[str]] = None,
+                 ) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
 
@@ -43,6 +56,10 @@ def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
         out_dir = abspath(out_dir)
 
     wheel_fname = basename(wheel_path)
+
+    # Remove empty strings in include/exclude list
+    include = _filter(include)
+    exclude = _filter(exclude)
 
     with InWheelCtx(wheel_path) as ctx:
         ctx.out_wheel = pjoin(out_dir, wheel_fname)
@@ -67,6 +84,19 @@ def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
                     raise ValueError(('Cannot repair wheel, because required '
                                       'library "%s" could not be located') %
                                      soname)
+
+                # exhaustive include list
+                if include and not _is_in_list(soname, include):
+                    logger.debug(
+                        f'Excluding {soname} which is not in exhaustive include list'
+                        f' `{", ".join(include)}`)')
+                    continue
+
+                # exclude some libraries
+                exc = _is_in_list(soname, exclude)
+                if exc:
+                    logger.info(f'Excluding {soname} (matched exclude string `{exc}`)')
+                    continue
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
