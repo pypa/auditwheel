@@ -28,14 +28,15 @@ WHEEL_INFO_RE = re.compile(
     re.VERBOSE).match
 
 
-def _is_in_list(soname: str, items: Optional[List[str]]) -> str:
-    for item in items:
+def _is_in_list(soname: str, items: Optional[List[str]]) -> Optional[str]:
+    for item in (items or []):
         if item in soname:
             return item
+    return None
 
 
-def _filter(items: List[str]) -> List[str]:
-    return [_.strip() for _ in items if _.strip()]
+def _filter(items: Optional[List[str]]) -> List[str]:
+    return [_.strip() for _ in (items or []) if _.strip()]
 
 
 def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
