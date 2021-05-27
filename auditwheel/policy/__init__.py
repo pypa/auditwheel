@@ -56,7 +56,7 @@ def _validate_pep600_compliance(policies) -> None:
             symbol_versions[arch] = symbol_versions_arch
 
 
-with open(join(dirname(abspath(__file__)), 'policy.json')) as f:
+with open(join(dirname(abspath(__file__)), 'manylinux-policy.json')) as f:
     _POLICIES = []
     _policies_temp = json.load(f)
     _validate_pep600_compliance(_policies_temp)
