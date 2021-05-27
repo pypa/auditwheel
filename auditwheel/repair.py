@@ -34,8 +34,8 @@ def _is_in_list(soname: str, items: Optional[List[str]]) -> str:
             return item
 
 
-def _filter(l: List[str]) -> List[str]:
-    return [_.strip() for _ in l if _.strip()]
+def _filter(items: List[str]) -> List[str]:
+    return [_.strip() for _ in items if _.strip()]
 
 
 def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
