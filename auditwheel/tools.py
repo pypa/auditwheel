@@ -1,11 +1,11 @@
 import argparse
 import os
 import shutil
+import subprocess
+import zipfile
 from glob import glob
 from os.path import join as pjoin
 from typing import Any, Iterable, List
-import zipfile
-import subprocess
 
 
 def unique_by_index(sequence: Iterable[Any]) -> List[Any]:
@@ -38,10 +38,13 @@ def zip2dir(zip_fname: str, out_dir: str) -> None:
     out_dir : str
         Directory path containing files to go in the zip archive
     """
-    # Use unzip command rather than zipfile module to preserve permissions
-    # http://bugs.python.org/issue15795
-    subprocess.check_output(['unzip', '-o', '-d', out_dir, zip_fname])
-
+    with zipfile.ZipFile(zip_fname, "r") as zip:
+        for name in zip.namelist():
+            member = zip.getinfo(name)
+            extracted_path = zip.extract(member, out_dir)
+            attr = member.external_attr >> 16
+            if attr != 0:
+                os.chmod(extracted_path, attr)
     try:
         # but sometimes preserving permssions is really bad, and makes it
         # we don't have the permissions to read any of the files
