@@ -17,9 +17,12 @@ import glob
 import errno
 import logging
 import functools
+from pathlib import Path
 from typing import List, Dict, Optional, Any, Tuple
 
 from elftools.elf.elffile import ELFFile
+from .libc import get_libc, Libc
+
 
 log = logging.getLogger(__name__)
 __all__ = ['lddtree']
@@ -195,11 +198,32 @@ def load_ld_paths(root: str = '/', prefix: str = '') -> Dict[str, List[str]]:
             # on a per-ELF basis so it can get turned into the right thing.
             ldpaths['env'] = parse_ld_paths(env_ldpath, path='')
 
-    # Load up /etc/ld.so.conf.
-    ldpaths['conf'] = parse_ld_so_conf(root + prefix + '/etc/ld.so.conf',
-                                       root=root)
-    # the trusted directories are not necessarily in ld.so.conf
-    ldpaths['conf'].extend(['/lib', '/lib64/', '/usr/lib', '/usr/lib64'])
+    libc = get_libc()
+    if libc == Libc.MUSL:
+        # from https://git.musl-libc.org/cgit/musl/tree/ldso
+        # /dynlink.c?id=3f701faace7addc75d16dea8a6cd769fa5b3f260#n1063
+        root_prefix = Path(root) / prefix
+        ld_musl = list((root_prefix / 'etc').glob("ld-musl-*.path"))
+        assert len(ld_musl) <= 1
+        if len(ld_musl) == 0:
+            ldpaths['conf'] = [
+                root + '/lib',
+                root + '/usr/local/lib',
+                root + '/usr/lib'
+            ]
+        else:
+            ldpaths['conf'] = []
+            for ldpath in ld_musl[0].read_text().split(':'):
+                ldpath_stripped = ldpath.strip()
+                if ldpath_stripped == "":
+                    continue
+                ldpaths['conf'].append(root + ldpath_stripped)
+    else:
+        # Load up /etc/ld.so.conf.
+        ldpaths['conf'] = parse_ld_so_conf(root + prefix + '/etc/ld.so.conf',
+                                           root=root)
+        # the trusted directories are not necessarily in ld.so.conf
+        ldpaths['conf'].extend(['/lib', '/lib64/', '/usr/lib', '/usr/lib64'])
     log.debug('linker ldpaths: %s', ldpaths)
     return ldpaths
 
