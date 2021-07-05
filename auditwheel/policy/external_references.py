@@ -3,7 +3,7 @@ import logging
 from typing import Dict, Set, Any, Generator
 
 from ..elfutils import is_subdir
-from . import load_policies
+from . import load_policies, get_policy_platform
 
 log = logging.getLogger(__name__)
 LIBPYTHON_RE = re.compile(r'^libpython\d\.\dm?.so(.\d)*$')
@@ -12,7 +12,7 @@ LIBPYTHON_RE = re.compile(r'^libpython\d\.\dm?.so(.\d)*$')
 def lddtree_external_references(lddtree: Dict, wheel_path: str) -> Dict:
     # XXX: Document the lddtree structure, or put it in something
     # more stable than a big nested dict
-    policies = load_policies()
+    policies = load_policies(get_policy_platform())
 
     def filter_libs(libs: Set[str],
                     whitelist: Set[str]) -> Generator[str, None, None]:

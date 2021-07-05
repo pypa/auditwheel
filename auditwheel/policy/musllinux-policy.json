@@ -1,0 +1,22 @@
+[
+  {"name": "musllinux_1_1",
+    "aliases": [],
+    "priority": 100,
+    "symbol_versions": {
+      "i686": {
+      },
+      "x86_64": {
+      },
+      "aarch64": {
+      },
+      "ppc64le": {
+      },
+      "s390x": {
+      },
+      "armv7l": {
+      }
+    },
+    "lib_whitelist": [
+      "libc.so", "libz.so"
+    ]}
+]

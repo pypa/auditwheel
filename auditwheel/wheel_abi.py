@@ -15,8 +15,7 @@ from .elfutils import (elf_file_filter, elf_find_versioned_symbols,
                        elf_references_PyFPE_jbuf,
                        elf_find_ucs2_symbols, elf_is_python_extension)
 from .policy import (lddtree_external_references, versioned_symbols_policy,
-                     get_policy_name, POLICY_PRIORITY_LOWEST,
-                     POLICY_PRIORITY_HIGHEST, load_policies)
+                     get_policy_name, load_policies, get_policy_platform)
 
 
 log = logging.getLogger(__name__)
@@ -203,7 +202,7 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
     external_refs = {
         p['name']: {'libs': {},
                     'priority': p['priority']}
-        for p in load_policies()
+        for p in load_policies(get_policy_platform())
     }
 
     (elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2,
@@ -230,25 +229,27 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
         default=(symbol_policy, versioned_symbols)
     )
 
+    policies = load_policies(get_policy_platform())
     ref_policy = max(
         (e['priority'] for e in external_refs.values() if len(e['libs']) == 0),
-        default=POLICY_PRIORITY_LOWEST)
+        default=policies.lowest)
 
     if has_ucs2:
-        ucs_policy = POLICY_PRIORITY_LOWEST
+        ucs_policy = policies.lowest
     else:
-        ucs_policy = POLICY_PRIORITY_HIGHEST
+        ucs_policy = policies.lowest
 
     if uses_PyFPE_jbuf:
-        pyfpe_policy = POLICY_PRIORITY_LOWEST
+        pyfpe_policy = policies.lowest
     else:
-        pyfpe_policy = POLICY_PRIORITY_HIGHEST
+        pyfpe_policy = policies.lowest
 
-    ref_tag = get_policy_name(ref_policy)
-    sym_tag = get_policy_name(symbol_policy)
-    ucs_tag = get_policy_name(ucs_policy)
-    pyfpe_tag = get_policy_name(pyfpe_policy)
-    overall_tag = get_policy_name(min(symbol_policy, ref_policy, ucs_policy,
+    ref_tag = get_policy_name(policies, ref_policy)
+    sym_tag = get_policy_name(policies, symbol_policy)
+    ucs_tag = get_policy_name(policies, ucs_policy)
+    pyfpe_tag = get_policy_name(policies, pyfpe_policy)
+    overall_tag = get_policy_name(policies,
+                                  min(symbol_policy, ref_policy, ucs_policy,
                                       pyfpe_policy))
 
     return WheelAbIInfo(overall_tag, external_refs, ref_tag, versioned_symbols,

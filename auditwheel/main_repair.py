@@ -2,7 +2,7 @@ from os.path import isfile, exists, abspath, basename
 
 from auditwheel.patcher import Patchelf
 from .policy import (load_policies, get_policy_by_name, get_policy_name,
-                     get_priority_by_name, POLICY_PRIORITY_HIGHEST)
+                     get_priority_by_name, get_policy_platform)
 from .tools import EnvironmentDefault
 import argparse
 import logging
@@ -12,20 +12,21 @@ logger = logging.getLogger(__name__)
 
 
 def configure_parser(sub_parsers):
-    policies = load_policies()
-    policy_names = [p['name'] for p in policies]
-    policy_names += [alias for p in policies for alias in p['aliases']]
+    policies = load_policies(get_policy_platform())
+    policy_names = [p['name'] for p in policies.policies]
+    policy_names += [alias for p in policies.policies
+                     for alias in p['aliases']]
     epilog = """PLATFORMS:
 These are the possible target platform tags, as specified by PEP 600.
 Note that old, pre-PEP 600 tags are still usable and are listed as aliases
 below.
 """
-    for p in policies:
+    for p in policies.policies:
         epilog += f"- {p['name']}"
         if len(p['aliases']) > 0:
             epilog += f" (aliased by {', '.join(p['aliases'])})"
         epilog += '\n'
-    highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)
+    highest_policy = get_policy_name(policies, policies.highest)
     help = "Vendor in external shared library dependencies of a wheel."
     p = sub_parsers.add_parser(
         'repair', help=help, description=help, epilog=epilog,
@@ -92,17 +93,18 @@ def execute(args, p):
         logger.info('This does not look like a platform wheel')
         return 1
 
-    policy = get_policy_by_name(args.PLAT)
+    policies = load_policies(get_policy_platform())
+    policy = get_policy_by_name(policies, args.PLAT)
     reqd_tag = policy['priority']
 
-    if reqd_tag > get_priority_by_name(wheel_abi.sym_tag):
+    if reqd_tag > get_priority_by_name(policies, wheel_abi.sym_tag):
         msg = ('cannot repair "%s" to "%s" ABI because of the presence '
                'of too-recent versioned symbols. You\'ll need to compile '
                'the wheel on an older toolchain.' %
                (args.WHEEL_FILE, args.PLAT))
         p.error(msg)
 
-    if reqd_tag > get_priority_by_name(wheel_abi.ucs_tag):
+    if reqd_tag > get_priority_by_name(policies, wheel_abi.ucs_tag):
         msg = ('cannot repair "%s" to "%s" ABI because it was compiled '
                'against a UCS2 build of Python. You\'ll need to compile '
                'the wheel against a wide-unicode build of Python.' %
@@ -111,12 +113,12 @@ def execute(args, p):
 
     abis = [policy['name']] + policy['aliases']
     if not args.ONLY_PLAT:
-        if reqd_tag < get_priority_by_name(wheel_abi.overall_tag):
+        if reqd_tag < get_priority_by_name(policies, wheel_abi.overall_tag):
             logger.info(('Wheel is eligible for a higher priority tag. '
                          'You requested %s but I have found this wheel is '
                          'eligible for %s.'),
                         args.PLAT, wheel_abi.overall_tag)
-            higher_policy = get_policy_by_name(wheel_abi.overall_tag)
+            higher_policy = get_policy_by_name(policies, wheel_abi.overall_tag)
             abis = [higher_policy['name']] + higher_policy['aliases'] + abis
 
     patcher = Patchelf()

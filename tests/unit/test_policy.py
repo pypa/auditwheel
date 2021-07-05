@@ -3,7 +3,8 @@ from unittest.mock import patch
 import pytest
 
 from auditwheel.policy import get_arch_name, get_policy_name, \
-    get_priority_by_name, get_replace_platforms, _validate_pep600_compliance
+    get_priority_by_name, get_replace_platforms, _validate_pep600_compliance, \
+    load_policies, Platform, PlatformPolicies
 
 
 @patch("auditwheel.policy._platform_module.machine")
@@ -100,45 +101,57 @@ class TestPolicyAccess:
 
     def test_get_by_priority(self):
         _arch = get_arch_name()
-        assert get_policy_name(65) == f'manylinux_2_27_{_arch}'
-        assert get_policy_name(70) == f'manylinux_2_24_{_arch}'
-        assert get_policy_name(80) == f'manylinux_2_17_{_arch}'
+        policies = load_policies(Platform.Manylinux)
+        assert get_policy_name(policies, 65) == f'manylinux_2_27_{_arch}'
+        assert get_policy_name(policies, 70) == f'manylinux_2_24_{_arch}'
+        assert get_policy_name(policies, 80) == f'manylinux_2_17_{_arch}'
         if _arch in {'x86_64', 'i686'}:
-            assert get_policy_name(90) == f'manylinux_2_12_{_arch}'
-            assert get_policy_name(100) == f'manylinux_2_5_{_arch}'
-        assert get_policy_name(0) == f'linux_{_arch}'
+            assert get_policy_name(policies, 90) == f'manylinux_2_12_{_arch}'
+            assert get_policy_name(policies, 100) == f'manylinux_2_5_{_arch}'
+        assert get_policy_name(policies, 0) == f'linux_{_arch}'
 
     def test_get_by_priority_missing(self):
-        assert get_policy_name(101) is None
+        policies = load_policies(Platform.Manylinux)
+        assert get_policy_name(policies, 101) is None
 
-    @patch("auditwheel.policy._POLICIES", [
-        {"name": "duplicate", "priority": 0},
-        {"name": "duplicate", "priority": 0},
-    ])
     def test_get_by_priority_duplicate(self):
+        policies = PlatformPolicies(
+            Platform.Manylinux,
+            policies=[
+                {"name": "duplicate", "priority": 0},
+                {"name": "duplicate", "priority": 0},
+            ],
+            lowest=0,
+            highest=0)
         with pytest.raises(RuntimeError):
-            get_policy_name(0)
+            get_policy_name(policies, 0)
 
     def test_get_by_name(self):
         _arch = get_arch_name()
-        assert get_priority_by_name(f"manylinux_2_27_{_arch}") == 65
-        assert get_priority_by_name(f"manylinux_2_24_{_arch}") == 70
-        assert get_priority_by_name(f"manylinux2014_{_arch}") == 80
-        assert get_priority_by_name(f"manylinux_2_17_{_arch}") == 80
+        policies = load_policies(Platform.Manylinux)
+        assert get_priority_by_name(policies, f"manylinux_2_27_{_arch}") == 65
+        assert get_priority_by_name(policies, f"manylinux_2_24_{_arch}") == 70
+        assert get_priority_by_name(policies, f"manylinux2014_{_arch}") == 80
+        assert get_priority_by_name(policies, f"manylinux_2_17_{_arch}") == 80
         if _arch in {'x86_64', 'i686'}:
-            assert get_priority_by_name(f"manylinux2010_{_arch}") == 90
-            assert get_priority_by_name(f"manylinux_2_12_{_arch}") == 90
-            assert get_priority_by_name(f"manylinux1_{_arch}") == 100
-            assert get_priority_by_name(f"manylinux_2_5_{_arch}") == 100
+            assert get_priority_by_name(policies, f"manylinux2010_{_arch}") == 90
+            assert get_priority_by_name(policies, f"manylinux_2_12_{_arch}") == 90
+            assert get_priority_by_name(policies, f"manylinux1_{_arch}") == 100
+            assert get_priority_by_name(policies, f"manylinux_2_5_{_arch}") == 100
 
     def test_get_by_name_missing(self):
-        assert get_priority_by_name("nosuchpolicy") is None
+        policies = load_policies(Platform.Manylinux)
+        assert get_priority_by_name(policies, "nosuchpolicy") is None
 
-    @patch("auditwheel.policy._POLICIES", [
-        {"name": "duplicate", "priority": 0},
-        {"name": "duplicate", "priority": 0},
-    ])
     def test_get_by_name_duplicate(self):
+        policies = PlatformPolicies(
+            Platform.Manylinux,
+            policies=[
+                {"name": "duplicate", "priority": 0},
+                {"name": "duplicate", "priority": 0},
+            ],
+            lowest=0,
+            highest=0)
         with pytest.raises(RuntimeError):
-            get_priority_by_name("duplicate")
+            get_priority_by_name(policies, "duplicate")
 
