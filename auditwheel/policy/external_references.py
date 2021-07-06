@@ -44,7 +44,7 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str) -> Dict:
         return reqs
 
     ret = {}  # type: Dict[str, Dict[str, Any]]
-    for p in policies:
+    for p in policies.policies:
         needed_external_libs = set()  # type: Set[str]
 
         if not (p['name'] == 'linux' and p['priority'] == 0):

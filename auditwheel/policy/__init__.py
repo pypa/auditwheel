@@ -111,7 +111,7 @@ def _load_policy(path: pathlib.Path, platform: Platform):
                             highest=priority_highest)
 
 
-@functools.lru_cache
+@functools.lru_cache()
 def load_policies(policy: Platform):
     if policy == Platform.Manylinux:
         return _load_policy(_HERE / "manylinux-policy.json",

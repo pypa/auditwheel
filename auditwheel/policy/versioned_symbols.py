@@ -25,7 +25,8 @@ def versioned_symbols_policy(versioned_symbols: Dict[str, Set[str]]) -> int:
             sym_name, _, _ = symbol.partition("_")
             required_vers.setdefault(sym_name, set()).add(symbol)
     matching_policies = []  # type: List[int]
-    for p in load_policies(get_policy_platform()):
+    policies = load_policies(get_policy_platform())
+    for p in policies.policies:
         policy_sym_vers = {
             sym_name: {sym_name + '_' + version for version in versions}
             for sym_name, versions in p['symbol_versions'].items()

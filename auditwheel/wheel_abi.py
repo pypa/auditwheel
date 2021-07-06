@@ -199,10 +199,11 @@ def get_symbol_policies(versioned_symbols, external_versioned_symbols,
 
 
 def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
+    policies = load_policies(get_policy_platform())
     external_refs = {
         p['name']: {'libs': {},
                     'priority': p['priority']}
-        for p in load_policies(get_policy_platform())
+        for p in policies.policies
     }
 
     (elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2,

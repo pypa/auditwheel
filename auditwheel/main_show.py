@@ -84,7 +84,8 @@ def execute(args, p):
                'by the wheel:')
         print(json.dumps(OrderedDict(sorted(libs.items())), indent=4))
 
-    for p in sorted(load_policies(get_policy_platform()),
+    policies = load_policies(get_policy_platform())
+    for p in sorted(policies.policies,
                     key=lambda p: p['priority']):
         if p['priority'] > get_priority_by_name(winfo.overall_tag):
             printp(('In order to achieve the tag platform tag "%s" '
