@@ -2,5 +2,9 @@
 #include <crypt.h>
 
 std::string crypt_something() {
-    return std::string(crypt("will error out", NULL));
+    char const* result = crypt("will error out", "\0");
+    if (result == NULL) {
+        return std::string("*");
+    }
+    return std::string(result);
 }

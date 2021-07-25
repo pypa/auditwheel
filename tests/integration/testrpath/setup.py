@@ -8,7 +8,7 @@ subprocess.check_call(cmd.split())
 cmd = (
     "gcc -fPIC -shared -o a/liba.so "
     "-Wl,{dtags_flag} -Wl,-rpath=$ORIGIN/../b "
-    "-Ib -Lb -lb a/a.c"
+    "-Ib a/a.c -Lb -lb"
 ).format(
     dtags_flag=(
         "--enable-new-dtags"
