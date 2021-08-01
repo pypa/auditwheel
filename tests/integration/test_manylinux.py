@@ -53,7 +53,7 @@ PYTHON_IMAGE_ID = f'python:{".".join(PYTHON_MAJ_MIN)}-slim'
 DEVTOOLSET = {
     'manylinux_2_5': 'devtoolset-2',
     'manylinux_2_12': 'devtoolset-8',
-    'manylinux_2_17': 'devtoolset-9',
+    'manylinux_2_17': 'devtoolset-10',
     'manylinux_2_24': 'devtoolset-not-present',
 }
 PATH_DIRS = [
