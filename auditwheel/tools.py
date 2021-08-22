@@ -66,10 +66,14 @@ def dir2zip(in_dir: str, zip_fname: str) -> None:
     with zipfile.ZipFile(zip_fname, 'w',
                          compression=zipfile.ZIP_DEFLATED) as z:
         for root, dirs, files in os.walk(in_dir):
+            for dir in dirs:
+                dname = os.path.join(root, dir)
+                out_dname = os.path.relpath(dname, in_dir)
+                z.write(dname, out_dname)
             for file in files:
                 fname = os.path.join(root, file)
                 out_fname = os.path.relpath(fname, in_dir)
-                z.write(os.path.join(root, file), out_fname)
+                z.write(fname, out_fname)
 
 
 def tarbz2todir(tarbz2_fname: str, out_dir: str) -> None:
