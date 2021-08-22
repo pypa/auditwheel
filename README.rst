@@ -47,8 +47,7 @@ Installation
 
   $ pip3 install auditwheel
 
-It requires Python 3.6+, and runs on Linux. It requires that the shell command
-``unzip`` be available in the ``PATH``. Only systems that use `ELF
+It requires Python 3.6+, and runs on Linux. Only systems that use `ELF
 <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based linkage
 are supported (this should be essentially every Linux).
 
