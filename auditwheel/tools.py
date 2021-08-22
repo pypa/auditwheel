@@ -1,8 +1,5 @@
 import argparse
 import os
-import shutil
-from glob import glob
-from os.path import join as pjoin
 from typing import Any, Iterable, List
 import zipfile
 import subprocess
@@ -38,19 +35,18 @@ def zip2dir(zip_fname: str, out_dir: str) -> None:
     out_dir : str
         Directory path containing files to go in the zip archive
     """
-    # Use unzip command rather than zipfile module to preserve permissions
-    # http://bugs.python.org/issue15795
-    subprocess.check_output(['unzip', '-o', '-d', out_dir, zip_fname])
-
-    try:
-        # but sometimes preserving permssions is really bad, and makes it
-        # we don't have the permissions to read any of the files
-        with open(glob(pjoin(out_dir, '*.dist-info/RECORD'))[0]):
-            pass
-    except PermissionError:
-        shutil.rmtree(out_dir)
-        with zipfile.ZipFile(zip_fname) as zf:
-            zf.extractall(out_dir)
+    with zipfile.ZipFile(zip_fname, "r") as z:
+        for name in z.namelist():
+            member = z.getinfo(name)
+            extracted_path = z.extract(member, out_dir)
+            attr = member.external_attr >> 16
+            if member.is_dir():
+                # this is always rebuilt as 755 by dir2zip
+                os.chmod(extracted_path, 0o755)
+            elif attr != 0:
+                attr &= 511  # only keep permission bits
+                attr |= 6 << 6  # at least read/write for current user
+                os.chmod(extracted_path, attr)
 
 
 def dir2zip(in_dir: str, zip_fname: str) -> None:
