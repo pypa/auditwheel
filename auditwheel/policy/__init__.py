@@ -2,10 +2,16 @@ import sys
 import json
 import platform as _platform_module
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict, List, Optional, Set
 from os.path import join, dirname, abspath
 import logging
 
+from ..libc import get_libc, Libc
+from ..musllinux import find_musl_libc, get_musl_version
+
+
+_HERE = Path(__file__).parent
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +28,7 @@ def get_arch_name() -> str:
 
 
 _ARCH_NAME = get_arch_name()
+_LIBC = get_libc()
 
 
 def _validate_pep600_compliance(policies) -> None:
@@ -56,18 +63,64 @@ def _validate_pep600_compliance(policies) -> None:
             symbol_versions[arch] = symbol_versions_arch
 
 
-with open(join(dirname(abspath(__file__)), 'manylinux-policy.json')) as f:
+_POLICY_JSON_MAP = {
+    Libc.GLIBC: _HERE / 'manylinux-policy.json',
+    Libc.MUSL: _HERE / 'musllinux-policy.json',
+}
+
+
+def _get_musl_policy():
+    if _LIBC != Libc.MUSL:
+        return None
+    musl_version = get_musl_version(find_musl_libc())
+    return f'musllinux_{musl_version.major}_{musl_version.minor}'
+
+
+_MUSL_POLICY = _get_musl_policy()
+
+
+def _fixup_musl_libc_soname(whitelist):
+    if _LIBC != Libc.MUSL:
+        return whitelist
+    soname_map = {
+        "libc.so": {
+            "x86_64": "libc.musl-x86_64.so.1",
+            "i686": "libc.musl-x86.so.1",
+            "aarch64": "libc.musl-aarch64.so.1",
+            "s390x": "libc.musl-s390x.so.1",
+            "ppc64le": "libc.musl-ppc64le.so.1",
+            "armv7l": "libc.musl-armv7.so.1",
+        }
+    }
+    new_whitelist = []
+    for soname in whitelist:
+        if soname in soname_map:
+            new_soname = soname_map[soname][_ARCH_NAME]
+            logger.debug(f"Replacing whitelisted '{soname}' by '{new_soname}'")
+            new_whitelist.append(new_soname)
+        else:
+            new_whitelist.append(soname)
+    return new_whitelist
+
+
+with _POLICY_JSON_MAP[_LIBC].open() as f:
     _POLICIES = []
     _policies_temp = json.load(f)
     _validate_pep600_compliance(_policies_temp)
     for _p in _policies_temp:
+        if _MUSL_POLICY is not None and \
+                _p['name'] not in {'linux', _MUSL_POLICY}:
+            continue
         if _ARCH_NAME in _p['symbol_versions'].keys() or _p['name'] == 'linux':
             if _p['name'] != 'linux':
                 _p['symbol_versions'] = _p['symbol_versions'][_ARCH_NAME]
             _p['name'] = _p['name'] + '_' + _ARCH_NAME
             _p['aliases'] = [alias + '_' + _ARCH_NAME
                              for alias in _p['aliases']]
+            _p['lib_whitelist'] = _fixup_musl_libc_soname(_p['lib_whitelist'])
             _POLICIES.append(_p)
+    if _LIBC == Libc.MUSL:
+        assert len(_POLICIES) == 2, _POLICIES
 
 POLICY_PRIORITY_HIGHEST = max(p['priority'] for p in _POLICIES)
 POLICY_PRIORITY_LOWEST = min(p['priority'] for p in _POLICIES)
@@ -78,8 +131,8 @@ def load_policies():
 
 
 def _load_policy_schema():
-    with open(join(dirname(abspath(__file__)), 'policy-schema.json')) as f:
-        schema = json.load(f)
+    with open(join(dirname(abspath(__file__)), 'policy-schema.json')) as f_:
+        schema = json.load(f_)
     return schema
 
 
@@ -123,6 +176,8 @@ def get_replace_platforms(name: str) -> List[str]:
     if name.startswith('linux'):
         return []
     if name.startswith('manylinux_'):
+        return ['linux_' + '_'.join(name.split('_')[3:])]
+    if name.startswith('musllinux_'):
         return ['linux_' + '_'.join(name.split('_')[3:])]
     return ['linux_' + '_'.join(name.split('_')[1:])]
 
