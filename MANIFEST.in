@@ -1,2 +1,12 @@
 include README.rst
 include LICENSE
+
+exclude .coveragerc
+exclude .gitignore
+exclude .pre-commit-config.yaml
+exclude .travis.yml
+exclude noxfile.py
+
+prune .github
+prune scripts
+prune tests
