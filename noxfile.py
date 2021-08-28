@@ -9,14 +9,13 @@ import nox
 RUNNING_CI = "TRAVIS" in os.environ or "GITHUB_ACTIONS" in os.environ
 
 
-@nox.session(reuse_venv=True)
-def lint(session: nox.Session) -> str:
+@nox.session(python=["3.6"], reuse_venv=True)
+def lint(session: nox.Session) -> None:
     """
     Run linters on the codebase.
     """
-    session.install("flake8", "mypy")
-    session.run("flake8", "auditwheel")
-    session.run("mypy", "auditwheel")
+    session.install("pre-commit")
+    session.run("pre-commit", "run", "--all-files")
 
 
 @nox.session()
