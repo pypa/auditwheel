@@ -1,3 +1,13 @@
 [build-system]
 requires = ["setuptools", "wheel", "pbr"]
 build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+follow_imports = "silent"
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "auditwheel._vendor.*"
+follow_imports = "skip"
+ignore_errors = true
