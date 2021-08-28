@@ -13,12 +13,16 @@ class TestGetWheelElfdata:
             (
                 # A single invalid file
                 [os.sep.join(["purelib", "foo"])],
-                "Invalid binary wheel, found the following shared library/libraries in purelib folder:\n\tfoo\nThe wheel has to be platlib compliant in order to be repaired by auditwheel.",
+                "Invalid binary wheel, found the following shared library/libraries in"
+                " purelib folder:\n\tfoo\nThe wheel has to be platlib compliant in "
+                "order to be repaired by auditwheel.",
             ),
             (
                 # Multiple invalid files
                 [os.sep.join(["purelib", "foo"]), os.sep.join(["purelib", "bar"])],
-                "Invalid binary wheel, found the following shared library/libraries in purelib folder:\n\tfoo\n\tbar\nThe wheel has to be platlib compliant in order to be repaired by auditwheel.",
+                "Invalid binary wheel, found the following shared library/libraries in"
+                " purelib folder:\n\tfoo\n\tbar\nThe wheel has to be platlib compliant"
+                " in order to be repaired by auditwheel.",
             ),
         ],
     )

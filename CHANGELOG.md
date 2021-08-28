@@ -15,12 +15,12 @@ Released Apr. 3, 2021
 ### User-facing changes
 - [BUGFIX] Patch RPATHs of non-Python extension dependencies ([#136](https://github.com/pypa/auditwheel/issues/136), [#298](https://github.com/pypa/auditwheel/pull/298))
 - [BUGFIX] Ensure policies in `policy.json` are compliant with PEP600 ([#287](https://github.com/pypa/auditwheel/pull/287))
-  - This removes 2 non existing symbols from manylinux1 i686 policy and removes ncurses librairies from manylinux1 whitelist. 
+  - This removes 2 non existing symbols from manylinux1 i686 policy and removes ncurses librairies from manylinux1 whitelist.
 - [FEATURE] Use PEP600 policy names ([#288](https://github.com/pypa/auditwheel/pull/288), [#297](https://github.com/pypa/auditwheel/pull/297))
   - The platform tag passed to `auditwheel repair` `--plat` argument can use either the PEP600 tag or the legacy tag. The repaired wheel will get both platform tags.
   - Inform about aliases in `auditwheel repair --help`
 - [FEATURE] Always repair as a single wheel ([#289](https://github.com/pypa/auditwheel/pull/289))
-  - Add argument `--only-plat` to `auditwheel repair` for those who were keeping only the lowest priority tag wheel (i.e. the one requested by `--plat` argument). 
+  - Add argument `--only-plat` to `auditwheel repair` for those who were keeping only the lowest priority tag wheel (i.e. the one requested by `--plat` argument).
 - [FEATURE] Add manylinux_2_27 policy ([#299](https://github.com/pypa/auditwheel/issues/299), [#300](https://github.com/pypa/auditwheel/pull/300))
 - [FEATURE] Add libexpat.so.1 to whitelisted libraries starting with manylinux2010 ([#152](https://github.com/pypa/auditwheel/issues/152), [#301](https://github.com/pypa/auditwheel/pull/301))
 
@@ -63,7 +63,7 @@ Released Dec. 6, 2020
 Released Jul. 1, 2020
 
 ### User-facing changes
-- [FEATURE] Ensure that system-copied libraries are writable before running patchelf 
+- [FEATURE] Ensure that system-copied libraries are writable before running patchelf
   ([https://github.com/pypa/auditwheel/pull/237](#237))
 - [FEATURE] Preserve RPATH in extension modules ([https://github.com/pypa/auditwheel/pull/245](#245))
 
@@ -86,7 +86,7 @@ Released Apr. 25, 2020
 Released Jan. 29, 2020
 
 ### User-facing changes
-- [FEATURE] Put libraries in `$WHEELNAME.libs` to avoid vendoring multiple copies 
+- [FEATURE] Put libraries in `$WHEELNAME.libs` to avoid vendoring multiple copies
   of the same library ([#90](https://github.com/pypa/auditwheel/pull/90))
 
 ### Housekeeping
