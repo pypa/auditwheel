@@ -5,8 +5,34 @@ on:
   pull_request:
 
 jobs:
+  pre-commit:
+    name: Pre-commit checks (Black, Flake8, MyPy, ...)
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+      - uses: pre-commit/action@v2.0.3
+
+  test-dist:
+    name: Test SDist & wheel
+    needs: pre-commit
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install CPython 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+          architecture: x64
+      - name: Run tests
+        run: pipx run nox -s test-dist -- 3.9
+
   test:
     name: CPython ${{ matrix.python }}
+    needs: test-dist
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -16,23 +42,19 @@ jobs:
           - python: "3.7"
           - python: "3.8"
           - python: "3.9"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
       - name: Setup cache
         uses: actions/cache@v2
         with:
           path: ~/.cache/auditwheel_tests
           key: python${{ matrix.python }}-${{ hashFiles('**/test_manylinux.py') }}
           restore-keys: python${{ matrix.python }}-
-
       - name: Install CPython ${{ matrix.python }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
           architecture: x64
-
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
