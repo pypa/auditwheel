@@ -1,10 +1,15 @@
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from elftools.common.exceptions import ELFError
 
-from auditwheel.elfutils import elf_read_dt_needed, elf_file_filter, \
-    elf_find_versioned_symbols, elf_find_ucs2_symbols, elf_references_PyFPE_jbuf
+from auditwheel.elfutils import (
+    elf_file_filter,
+    elf_find_ucs2_symbols,
+    elf_find_versioned_symbols,
+    elf_read_dt_needed,
+    elf_references_PyFPE_jbuf,
+)
 
 
 class MockSymbol(dict):

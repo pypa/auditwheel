@@ -2,8 +2,13 @@ from unittest.mock import patch
 
 import pytest
 
-from auditwheel.policy import get_arch_name, get_policy_name, \
-    get_priority_by_name, get_replace_platforms, _validate_pep600_compliance
+from auditwheel.policy import (
+    _validate_pep600_compliance,
+    get_arch_name,
+    get_policy_name,
+    get_priority_by_name,
+    get_replace_platforms,
+)
 
 
 @patch("auditwheel.policy._platform_module.machine")

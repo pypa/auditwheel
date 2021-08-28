@@ -1,8 +1,9 @@
 import platform
 from pathlib import Path
-import pytest
-from auditwheel.wheel_abi import analyze_wheel_abi
 
+import pytest
+
+from auditwheel.wheel_abi import analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
 

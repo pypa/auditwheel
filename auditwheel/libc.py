@@ -4,7 +4,6 @@ from enum import IntEnum
 from .error import InvalidLibc
 from .musllinux import find_musl_libc
 
-
 logger = logging.getLogger(__name__)
 
 

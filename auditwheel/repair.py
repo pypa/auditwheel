@@ -3,16 +3,17 @@ import logging
 import os
 import platform
 import re
-import stat
 import shutil
+import stat
 from collections import OrderedDict
-from os.path import exists, basename, abspath, isabs, dirname
+from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from subprocess import check_call
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from auditwheel.patcher import ElfPatcher
-from .elfutils import elf_read_rpaths, elf_read_dt_needed, is_subdir
+
+from .elfutils import elf_read_dt_needed, elf_read_rpaths, is_subdir
 from .hashfile import hashfile
 from .policy import get_replace_platforms
 from .wheel_abi import get_wheel_elfdata

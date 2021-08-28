@@ -1,6 +1,7 @@
-from setuptools import setup, Extension
 import os
 import subprocess
+
+from setuptools import Extension, setup
 
 cmd = 'gcc -fPIC -shared -o b/libb.so b/b.c'
 subprocess.check_call(cmd.split())

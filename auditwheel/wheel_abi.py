@@ -1,7 +1,7 @@
+import functools
 import itertools
 import json
 import logging
-import functools
 import os
 from collections import defaultdict, namedtuple
 from collections.abc import Mapping
@@ -9,15 +9,23 @@ from copy import deepcopy
 from os.path import basename
 from typing import Dict, Set
 
+from .elfutils import (
+    elf_file_filter,
+    elf_find_ucs2_symbols,
+    elf_find_versioned_symbols,
+    elf_is_python_extension,
+    elf_references_PyFPE_jbuf,
+)
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import lddtree
-from .elfutils import (elf_file_filter, elf_find_versioned_symbols,
-                       elf_references_PyFPE_jbuf,
-                       elf_find_ucs2_symbols, elf_is_python_extension)
-from .policy import (lddtree_external_references, versioned_symbols_policy,
-                     get_policy_name, POLICY_PRIORITY_LOWEST,
-                     POLICY_PRIORITY_HIGHEST, load_policies)
-
+from .policy import (
+    POLICY_PRIORITY_HIGHEST,
+    POLICY_PRIORITY_LOWEST,
+    get_policy_name,
+    lddtree_external_references,
+    load_policies,
+    versioned_symbols_policy,
+)
 
 log = logging.getLogger(__name__)
 WheelAbIInfo = namedtuple('WheelAbIInfo',

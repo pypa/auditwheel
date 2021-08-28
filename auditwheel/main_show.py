@@ -1,5 +1,4 @@
 import logging
-
 from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
@@ -21,11 +20,16 @@ def printp(text: str) -> None:
 
 def execute(args, p):
     import json
-    from os.path import isfile, basename
-    from .policy import (load_policies, get_priority_by_name,
-                         POLICY_PRIORITY_LOWEST, POLICY_PRIORITY_HIGHEST,
-                         get_policy_name)
-    from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
+    from os.path import basename, isfile
+
+    from .policy import (
+        POLICY_PRIORITY_HIGHEST,
+        POLICY_PRIORITY_LOWEST,
+        get_policy_name,
+        get_priority_by_name,
+        load_policies,
+    )
+    from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
     fn = basename(args.WHEEL_FILE)
 
     if not isfile(args.WHEEL_FILE):

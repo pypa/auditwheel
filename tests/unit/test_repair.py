@@ -1,5 +1,5 @@
 import os
-from unittest.mock import patch, call
+from unittest.mock import call, patch
 
 from auditwheel.patcher import Patchelf
 from auditwheel.repair import append_rpath_within_wheel

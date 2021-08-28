@@ -1,10 +1,11 @@
 import os
 from os.path import basename, realpath, relpath
-from .lddtree import parse_ld_paths
+from typing import Dict, Iterator, List, Optional, Tuple
 
-from elftools.elf.elffile import ELFFile
 from elftools.common.exceptions import ELFError
-from typing import Iterator, Tuple, Optional, Dict, List
+from elftools.elf.elffile import ELFFile
+
+from .lddtree import parse_ld_paths
 
 
 def elf_read_dt_needed(fn: str) -> List[str]:

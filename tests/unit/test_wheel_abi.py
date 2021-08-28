@@ -1,7 +1,8 @@
 import os
 
-import pytest
 import pretend
+import pytest
+
 from auditwheel import wheel_abi
 
 

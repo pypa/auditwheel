@@ -1,8 +1,8 @@
 import argparse
 import os
-from typing import Any, Iterable, List
-import zipfile
 import subprocess
+import zipfile
+from typing import Any, Iterable, List
 
 
 def unique_by_index(sequence: Iterable[Any]) -> List[Any]:

@@ -1,19 +1,20 @@
 import glob
-from contextlib import contextmanager
-import docker
-from subprocess import CalledProcessError
-import pytest
 import io
+import logging
 import os
 import os.path as op
 import re
 import shutil
 import sys
-import logging
 import zipfile
-from auditwheel.policy import get_priority_by_name, get_arch_name
+from contextlib import contextmanager
+from subprocess import CalledProcessError
+
+import docker
+import pytest
 from elftools.elf.elffile import ELFFile
 
+from auditwheel.policy import get_arch_name, get_priority_by_name
 
 logger = logging.getLogger(__name__)
 

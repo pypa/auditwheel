@@ -1,15 +1,14 @@
-import sys
 import json
+import logging
 import platform as _platform_module
+import sys
 from collections import defaultdict
+from os.path import abspath, dirname, join
 from pathlib import Path
 from typing import Dict, List, Optional, Set
-from os.path import join, dirname, abspath
-import logging
 
-from ..libc import get_libc, Libc
+from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
-
 
 _HERE = Path(__file__).parent
 

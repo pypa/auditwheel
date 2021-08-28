@@ -3,25 +3,25 @@
 Tools that aren't specific to delocation
 """
 
-import os
-from os.path import (join as pjoin, abspath, relpath, exists, sep as psep,
-                     splitext, dirname, basename)
+import csv
 import glob
 import hashlib
-import csv
+import logging
+import os
+from base64 import urlsafe_b64encode
 from itertools import product
+from os.path import abspath, basename, dirname, exists
+from os.path import join as pjoin
+from os.path import relpath
+from os.path import sep as psep
+from os.path import splitext
 from types import TracebackType
 from typing import Generator, Iterable, List, Optional, Type
-import logging
 
-from base64 import urlsafe_b64encode
-from ._vendor.wheel.pkginfo import (read_pkg_info,
-                                    write_pkg_info)
+from ._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
 from ._vendor.wheel.wheelfile import WHEEL_INFO_RE
-
 from .tmpdirs import InTemporaryDirectory
-from .tools import unique_by_index, zip2dir, dir2zip
-
+from .tools import dir2zip, unique_by_index, zip2dir
 
 logger = logging.getLogger(__name__)
 

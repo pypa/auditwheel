@@ -1,7 +1,8 @@
-import setuptools.command.build_ext
-from setuptools import setup, find_packages, Distribution
-from setuptools.extension import Extension, Library
 import os
+
+import setuptools.command.build_ext
+from setuptools import Distribution, find_packages, setup
+from setuptools.extension import Extension, Library
 
 # despite its name, setuptools.command.build_ext.link_shared_object won't
 # link a shared object on Linux, but a static library and patches distutils

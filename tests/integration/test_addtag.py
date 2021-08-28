@@ -1,5 +1,5 @@
-from unittest.mock import Mock
 from pathlib import Path
+from unittest.mock import Mock
 
 from auditwheel.main_addtag import execute
 

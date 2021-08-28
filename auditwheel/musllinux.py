@@ -1,7 +1,7 @@
 import logging
 import pathlib
-import subprocess
 import re
+import subprocess
 from typing import NamedTuple
 
 from auditwheel.error import InvalidLibc

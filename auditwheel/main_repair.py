@@ -1,12 +1,17 @@
-from os.path import isfile, exists, abspath, basename
-
-from auditwheel.patcher import Patchelf
-from .policy import (load_policies, get_policy_by_name, get_policy_name,
-                     get_priority_by_name, POLICY_PRIORITY_HIGHEST)
-from .tools import EnvironmentDefault
 import argparse
 import logging
+from os.path import abspath, basename, exists, isfile
 
+from auditwheel.patcher import Patchelf
+
+from .policy import (
+    POLICY_PRIORITY_HIGHEST,
+    get_policy_by_name,
+    get_policy_name,
+    get_priority_by_name,
+    load_policies,
+)
+from .tools import EnvironmentDefault
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +80,9 @@ below.
 
 def execute(args, p):
     import os
+
     from .repair import repair_wheel
-    from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
+    from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
     if not isfile(args.WHEEL_FILE):
         p.error('cannot access %s. No such file' % args.WHEEL_FILE)

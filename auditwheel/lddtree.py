@@ -12,17 +12,17 @@ files on disk), and we parse the dependency structure as a tree rather than
  a flat list.
 """
 
-import os
-import glob
 import errno
-import logging
 import functools
+import glob
+import logging
+import os
 from pathlib import Path
-from typing import List, Dict, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from elftools.elf.elffile import ELFFile
-from .libc import get_libc, Libc
 
+from .libc import Libc, get_libc
 
 log = logging.getLogger(__name__)
 __all__ = ['lddtree']

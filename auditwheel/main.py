@@ -1,19 +1,19 @@
+import argparse
+import logging
 import os
 import pathlib
 import sys
-import logging
-import argparse
+
 try:
     from importlib import metadata
 except ImportError:
     import importlib_metadata as metadata  # type: ignore
+
 from typing import Optional
 
 import auditwheel
-from . import main_show
-from . import main_addtag
-from . import main_lddtree
-from . import main_repair
+
+from . import main_addtag, main_lddtree, main_repair, main_show
 
 
 def main() -> Optional[int]:

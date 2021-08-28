@@ -1,7 +1,7 @@
-from setuptools import setup, Extension
 import subprocess
-from os import path
-from os import getenv
+from os import getenv, path
+
+from setuptools import Extension, setup
 
 cmd = 'gcc -shared -fPIC -D_GNU_SOURCE dependency.c -o libdependency.so -lm -lc'
 subprocess.check_call(cmd.split())
