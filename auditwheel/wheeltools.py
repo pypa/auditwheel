@@ -39,14 +39,14 @@ def _dist_info_dir(bdist_dir: str) -> str:
         Path of unpacked wheel file
     """
 
-    info_dirs = glob.glob(pjoin(bdist_dir, '*.dist-info'))
+    info_dirs = glob.glob(pjoin(bdist_dir, "*.dist-info"))
     if len(info_dirs) != 1:
         raise WheelToolsError("Should be exactly one `*.dist_info` directory")
     return info_dirs[0]
 
 
 def rewrite_record(bdist_dir: str) -> None:
-    """ Rewrite RECORD file with hashes for all files in `wheel_sdir`
+    """Rewrite RECORD file with hashes for all files in `wheel_sdir`
 
     Copied from :method:`wheel.bdist_wheel.bdist_wheel.write_record`
 
@@ -58,10 +58,10 @@ def rewrite_record(bdist_dir: str) -> None:
         Path of unpacked wheel file
     """
     info_dir = _dist_info_dir(bdist_dir)
-    record_path = pjoin(info_dir, 'RECORD')
+    record_path = pjoin(info_dir, "RECORD")
     record_relpath = relpath(record_path, bdist_dir)
     # Unsign wheel - because we're invalidating the record hash
-    sig_path = pjoin(info_dir, 'RECORD.jws')
+    sig_path = pjoin(info_dir, "RECORD.jws")
     if exists(sig_path):
         os.unlink(sig_path)
 
@@ -74,26 +74,26 @@ def rewrite_record(bdist_dir: str) -> None:
         """Wheel hashes every possible file."""
         return path == record_relpath
 
-    with open(record_path, 'w+', newline='', encoding='utf-8') as record_file:
+    with open(record_path, "w+", newline="", encoding="utf-8") as record_file:
         writer = csv.writer(record_file)
         for path in walk():
             relative_path = relpath(path, bdist_dir)
             if skip(relative_path):
-                hash_ = ''
-                size = ''
+                hash_ = ""
+                size = ""
             else:
-                with open(path, 'rb') as f:
+                with open(path, "rb") as f:
                     data = f.read()
                 digest = hashlib.sha256(data).digest()
-                sha256 = urlsafe_b64encode(digest).rstrip(b'=').decode('ascii')
-                hash_ = f'sha256={sha256}'
-                size = f'{len(data)}'
-            record_path = relpath(path, bdist_dir).replace(psep, '/')
+                sha256 = urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+                hash_ = f"sha256={sha256}"
+                size = f"{len(data)}"
+            record_path = relpath(path, bdist_dir).replace(psep, "/")
             writer.writerow((record_path, hash_, size))
 
 
 class InWheel(InTemporaryDirectory):
-    """ Context manager for doing things inside wheels
+    """Context manager for doing things inside wheels
 
     On entering, you'll find yourself in the root tree of the wheel.  If you've
     asked for an output wheel, then on exit we'll rewrite the wheel record and
@@ -101,7 +101,7 @@ class InWheel(InTemporaryDirectory):
     """
 
     def __init__(self, in_wheel: str, out_wheel: Optional[str] = None) -> None:
-        """ Initialize in-wheel context manager
+        """Initialize in-wheel context manager
 
         Parameters
         ----------
@@ -119,9 +119,12 @@ class InWheel(InTemporaryDirectory):
         zip2dir(self.in_wheel, self.name)
         return super().__enter__()
 
-    def __exit__(self, exc: Optional[Type[BaseException]],
-                 value: Optional[BaseException],
-                 tb: Optional[TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc: Optional[Type[BaseException]],
+        value: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         if self.out_wheel is not None:
             rewrite_record(self.name)
             dir2zip(self.name, self.out_wheel)
@@ -129,7 +132,7 @@ class InWheel(InTemporaryDirectory):
 
 
 class InWheelCtx(InWheel):
-    """ Context manager for doing things inside wheels
+    """Context manager for doing things inside wheels
 
     On entering, you'll find yourself in the root tree of the wheel.  If you've
     asked for an output wheel, then on exit we'll rewrite the wheel record and
@@ -145,7 +148,7 @@ class InWheelCtx(InWheel):
     """
 
     def __init__(self, in_wheel: str, out_wheel: Optional[str] = None) -> None:
-        """ Init in-wheel context manager returning self from enter
+        """Init in-wheel context manager returning self from enter
 
         Parameters
         ----------
@@ -164,9 +167,8 @@ class InWheelCtx(InWheel):
 
     def iter_files(self) -> Generator[str, None, None]:
         if self.path is None:
-            raise ValueError(
-                "This function should be called from context manager")
-        record_names = glob.glob(os.path.join(self.path, '*.dist-info/RECORD'))
+            raise ValueError("This function should be called from context manager")
+        record_names = glob.glob(os.path.join(self.path, "*.dist-info/RECORD"))
         if len(record_names) != 1:
             raise ValueError("Should be exactly one `*.dist_info` directory")
 
@@ -178,8 +180,9 @@ class InWheelCtx(InWheel):
             yield filename
 
 
-def add_platforms(wheel_ctx: InWheelCtx, platforms: List[str],
-                  remove_platforms: Iterable[str] = ()) -> str:
+def add_platforms(
+    wheel_ctx: InWheelCtx, platforms: List[str], remove_platforms: Iterable[str] = ()
+) -> str:
     """Add platform tags `platforms` to a wheel
 
     Add any platform tags in `platforms` that are missing
@@ -200,67 +203,66 @@ def add_platforms(wheel_ctx: InWheelCtx, platforms: List[str],
 
     if wheel_ctx.path is None:
         raise ValueError(
-            "This function should be called from wheel_ctx context manager")
+            "This function should be called from wheel_ctx context manager"
+        )
 
-    info_fname = pjoin(_dist_info_dir(wheel_ctx.path), 'WHEEL')
+    info_fname = pjoin(_dist_info_dir(wheel_ctx.path), "WHEEL")
     info = read_pkg_info(info_fname)
     # Check what tags we have
     if wheel_ctx.out_wheel is not None:
         out_dir = dirname(wheel_ctx.out_wheel)
         wheel_fname = basename(wheel_ctx.out_wheel)
     else:
-        out_dir = '.'
+        out_dir = "."
         wheel_fname = basename(wheel_ctx.in_wheel)
 
     parsed_fname = WHEEL_INFO_RE.match(wheel_fname)
     fparts = parsed_fname.groupdict()
-    original_fname_tags = fparts['plat'].split('.')
-    logger.info('Previous filename tags: %s', ', '.join(original_fname_tags))
-    fname_tags = [tag for tag in original_fname_tags
-                  if tag not in remove_platforms]
+    original_fname_tags = fparts["plat"].split(".")
+    logger.info("Previous filename tags: %s", ", ".join(original_fname_tags))
+    fname_tags = [tag for tag in original_fname_tags if tag not in remove_platforms]
     fname_tags = unique_by_index(fname_tags + platforms)
 
     # Can't be 'any' and another platform
-    if 'any' in fname_tags and len(fname_tags) > 1:
-        fname_tags.remove('any')
-        remove_platforms.append('any')
+    if "any" in fname_tags and len(fname_tags) > 1:
+        fname_tags.remove("any")
+        remove_platforms.append("any")
         definitely_not_purelib = True
 
     if fname_tags != original_fname_tags:
-        logger.info('New filename tags: %s', ', '.join(fname_tags))
+        logger.info("New filename tags: %s", ", ".join(fname_tags))
     else:
-        logger.info('No filename tags change needed.')
+        logger.info("No filename tags change needed.")
 
     _, ext = splitext(wheel_fname)
-    fparts['plat'] = '.'.join(fname_tags)
-    fparts['ext'] = ext
+    fparts["plat"] = ".".join(fname_tags)
+    fparts["ext"] = ext
     out_wheel_fname = "{namever}-{pyver}-{abi}-{plat}{ext}".format(**fparts)
     out_wheel = pjoin(out_dir, out_wheel_fname)
 
-    in_info_tags = [tag for name, tag in info.items() if name == 'Tag']
-    logger.info('Previous WHEEL info tags: %s', ', '.join(in_info_tags))
+    in_info_tags = [tag for name, tag in info.items() if name == "Tag"]
+    logger.info("Previous WHEEL info tags: %s", ", ".join(in_info_tags))
     # Python version, C-API version combinations
-    pyc_apis = ['-'.join(tag.split('-')[:2]) for tag in in_info_tags]
+    pyc_apis = ["-".join(tag.split("-")[:2]) for tag in in_info_tags]
     # unique Python version, C-API version combinations
     pyc_apis = unique_by_index(pyc_apis)
     # Add new platform tags for each Python version, C-API combination
-    wanted_tags = ['-'.join(tup) for tup in product(pyc_apis, platforms)]
+    wanted_tags = ["-".join(tup) for tup in product(pyc_apis, platforms)]
     new_tags = [tag for tag in wanted_tags if tag not in in_info_tags]
-    unwanted_tags = ['-'.join(tup)
-                     for tup in product(pyc_apis, remove_platforms)]
+    unwanted_tags = ["-".join(tup) for tup in product(pyc_apis, remove_platforms)]
     updated_tags = [tag for tag in in_info_tags if tag not in unwanted_tags]
     updated_tags += new_tags
     if updated_tags != in_info_tags:
-        del info['Tag']
+        del info["Tag"]
         for tag in updated_tags:
-            info.add_header('Tag', tag)
+            info.add_header("Tag", tag)
 
         if definitely_not_purelib:
-            info['Root-Is-Purelib'] = 'False'
-            logger.info('Changed wheel type to Platlib')
+            info["Root-Is-Purelib"] = "False"
+            logger.info("Changed wheel type to Platlib")
 
-        logger.info('New WHEEL info tags: %s', ', '.join(info.get_all('Tag')))
+        logger.info("New WHEEL info tags: %s", ", ".join(info.get_all("Tag")))
         write_pkg_info(info_fname, info)
     else:
-        logger.info('No WHEEL info change needed.')
+        logger.info("No WHEEL info change needed.")
     return out_wheel

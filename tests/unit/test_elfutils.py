@@ -27,7 +27,6 @@ class MockSymbol(dict):
 @patch("auditwheel.elfutils.open")
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfReadDt:
-
     def test_missing_section(self, elffile_mock, open_mock):
         # GIVEN
         open_mock.return_value.__enter__.return_value = Mock()
@@ -61,7 +60,6 @@ class TestElfReadDt:
 @patch("auditwheel.elfutils.open")
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfFileFilter:
-
     def test_filter(self, elffile_mock, open_mock):
         result = elf_file_filter(["file1.so", "file2.so"])
         assert len(list(result)) == 2
@@ -82,7 +80,6 @@ class TestElfFileFilter:
 
 
 class TestElfFindVersionedSymbols:
-
     def test_find_symbols(self):
         # GIVEN
         elf = Mock()
@@ -100,7 +97,7 @@ class TestElfFindVersionedSymbols:
         # THEN
         assert symbols == [("foo-lib", "foo-lib")]
 
-    @pytest.mark.parametrize('ld_name', ['ld-linux', 'ld64.so.2', 'ld64.so.1'])
+    @pytest.mark.parametrize("ld_name", ["ld-linux", "ld64.so.2", "ld64.so.1"])
     def test_only_ld_linux(self, ld_name):
         # GIVEN
         elf = Mock()
@@ -131,14 +128,15 @@ class TestElfFindVersionedSymbols:
 
 
 class TestFindUcs2Symbols:
-
     def test_elf_find_ucs2_symbols(self):
         # GIVEN
         elf = Mock()
 
-        asunicode = MockSymbol("PyUnicodeUCS2_AsUnicode",
-                               st_shndx="SHN_UNDEF",
-                               st_info=dict(type="STT_FUNC"))
+        asunicode = MockSymbol(
+            "PyUnicodeUCS2_AsUnicode",
+            st_shndx="SHN_UNDEF",
+            st_info=dict(type="STT_FUNC"),
+        )
         symbols = (asunicode, Mock())
         symbols[1].name = "foobar"
         elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
@@ -148,7 +146,7 @@ class TestFindUcs2Symbols:
 
         # THEN
         assert len(symbols) == 1
-        assert symbols[0] == 'PyUnicodeUCS2_AsUnicode'
+        assert symbols[0] == "PyUnicodeUCS2_AsUnicode"
 
     def test_elf_find_ucs2_symbols_no_symbol(self):
         # GIVEN
@@ -163,13 +161,14 @@ class TestFindUcs2Symbols:
 
 
 class TestElfReferencesPyPFE:
-
     def test_elf_references_pyfpe_jbuf(self):
         # GIVEN
         elf = Mock()
-        symbols = (MockSymbol("PyFPE_jbuf",
-                              st_shndx="SHN_UNDEF",
-                              st_info=dict(type="STT_FUNC")),)
+        symbols = (
+            MockSymbol(
+                "PyFPE_jbuf", st_shndx="SHN_UNDEF", st_info=dict(type="STT_FUNC")
+            ),
+        )
 
         elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
 
@@ -179,9 +178,11 @@ class TestElfReferencesPyPFE:
     def test_elf_references_pyfpe_jbuf_false(self):
         # GIVEN
         elf = Mock()
-        symbols = (MockSymbol("SomeSymbol",
-                              st_shndx="SHN_UNDEF",
-                              st_info=dict(type="STT_FUNC")),)
+        symbols = (
+            MockSymbol(
+                "SomeSymbol", st_shndx="SHN_UNDEF", st_info=dict(type="STT_FUNC")
+            ),
+        )
 
         elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
 
@@ -197,4 +198,3 @@ class TestElfReferencesPyPFE:
 
         # WHEN/THEN
         assert elf_references_PyFPE_jbuf(elf) is False
-

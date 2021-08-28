@@ -1,5 +1,5 @@
-''' Contexts for *with* statement providing temporary directories
-'''
+""" Contexts for *with* statement providing temporary directories
+"""
 import os
 from tempfile import TemporaryDirectory
 from types import TracebackType
@@ -7,7 +7,7 @@ from typing import Optional, Type
 
 
 class InTemporaryDirectory:
-    ''' Create, return, and change directory to a temporary directory
+    """Create, return, and change directory to a temporary directory
 
     Examples
     --------
@@ -21,7 +21,7 @@ class InTemporaryDirectory:
     False
     >>> os.getcwd() == my_cwd
     True
-    '''
+    """
 
     def __init__(self) -> None:
         self._tmpdir = TemporaryDirectory()
@@ -35,15 +35,18 @@ class InTemporaryDirectory:
         os.chdir(self._tmpdir.name)
         return self._tmpdir.__enter__()
 
-    def __exit__(self, exc: Optional[Type[BaseException]],
-                 value: Optional[BaseException],
-                 tb: Optional[TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc: Optional[Type[BaseException]],
+        value: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         os.chdir(self._pwd)
         return self._tmpdir.__exit__(exc, value, tb)
 
 
 class InGivenDirectory:
-    """ Change directory to given directory for duration of ``with`` block
+    """Change directory to given directory for duration of ``with`` block
 
     Useful when you want to use `InTemporaryDirectory` for the final test, but
     you are still debugging.  For example, you may want to do this in the end:
@@ -67,7 +70,7 @@ class InGivenDirectory:
     """
 
     def __init__(self, path: Optional[str] = None) -> None:
-        """ Initialize directory context manager
+        """Initialize directory context manager
 
         Parameters
         ----------
@@ -86,7 +89,10 @@ class InGivenDirectory:
         os.chdir(self.name)
         return self.name
 
-    def __exit__(self, exc: Optional[Type[BaseException]],
-                 value: Optional[BaseException],
-                 tb: Optional[TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc: Optional[Type[BaseException]],
+        value: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
         os.chdir(self._pwd)

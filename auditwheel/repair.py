@@ -26,12 +26,19 @@ logger = logging.getLogger(__name__)
 WHEEL_INFO_RE = re.compile(
     r"""^(?P<namever>(?P<name>.+?)-(?P<ver>\d.*?))(-(?P<build>\d.*?))?
      -(?P<pyver>[a-z].+?)-(?P<abi>.+?)-(?P<plat>.+?)(\.whl|\.dist-info)$""",
-    re.VERBOSE).match
+    re.VERBOSE,
+).match
 
 
-def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
-                 update_tags: bool, patcher: ElfPatcher,
-                 strip: bool = False) -> Optional[str]:
+def repair_wheel(
+    wheel_path: str,
+    abis: List[str],
+    lib_sdir: str,
+    out_dir: str,
+    update_tags: bool,
+    patcher: ElfPatcher,
+    strip: bool = False,
+) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
 
@@ -50,10 +57,9 @@ def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
 
         match = WHEEL_INFO_RE(wheel_fname)
         if not match:
-            raise ValueError("Failed to parse wheel file name: %s",
-                             wheel_fname)
+            raise ValueError("Failed to parse wheel file name: %s", wheel_fname)
 
-        dest_dir = match.group('name') + lib_sdir
+        dest_dir = match.group("name") + lib_sdir
 
         if not exists(dest_dir):
             os.mkdir(dest_dir)
@@ -62,12 +68,16 @@ def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
 
-            ext_libs = v[abis[0]]['libs']  # type: Dict[str, str]
+            ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
             for soname, src_path in ext_libs.items():
                 if src_path is None:
-                    raise ValueError(('Cannot repair wheel, because required '
-                                      'library "%s" could not be located') %
-                                     soname)
+                    raise ValueError(
+                        (
+                            "Cannot repair wheel, because required "
+                            'library "%s" could not be located'
+                        )
+                        % soname
+                    )
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
@@ -75,7 +85,7 @@ def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
 
             if len(ext_libs) > 0:
                 new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
-                new_rpath = os.path.join('$ORIGIN', new_rpath)
+                new_rpath = os.path.join("$ORIGIN", new_rpath)
                 append_rpath_within_wheel(fn, new_rpath, ctx.name, patcher)
 
         # we grafted in a bunch of libraries and modified their sonames, but
@@ -89,8 +99,7 @@ def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
                     patcher.replace_needed(path, n, soname_map[n][0])
 
         if update_tags:
-            ctx.out_wheel = add_platforms(ctx, abis,
-                                          get_replace_platforms(abis[0]))
+            ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
         if strip:
             libs_to_strip = [path for (_, path) in soname_map.values()]
@@ -102,12 +111,11 @@ def repair_wheel(wheel_path: str, abis: List[str], lib_sdir: str, out_dir: str,
 
 def strip_symbols(libraries: Iterable[str]) -> None:
     for lib in libraries:
-        logger.info('Stripping symbols from %s', lib)
-        check_call(['strip', '-s', lib])
+        logger.info("Stripping symbols from %s", lib)
+        check_call(["strip", "-s", lib])
 
 
-def copylib(src_path: str, dest_dir: str,
-            patcher: ElfPatcher) -> Tuple[str, str]:
+def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> Tuple[str, str]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
@@ -120,13 +128,13 @@ def copylib(src_path: str, dest_dir: str,
     # if the library has a RUNPATH/RPATH we clear it and set RPATH to point to
     # its new location.
 
-    with open(src_path, 'rb') as f:
+    with open(src_path, "rb") as f:
         shorthash = hashfile(f)[:8]
 
     src_name = os.path.basename(src_path)
-    base, ext = src_name.split('.', 1)
-    if not base.endswith('-%s' % shorthash):
-        new_soname = f'{base}-{shorthash}.{ext}'
+    base, ext = src_name.split(".", 1)
+    if not base.endswith("-%s" % shorthash):
+        new_soname = f"{base}-{shorthash}.{ext}"
     else:
         new_soname = src_name
 
@@ -134,7 +142,7 @@ def copylib(src_path: str, dest_dir: str,
     if os.path.exists(dest_path):
         return new_soname, dest_path
 
-    logger.debug('Grafting: %s -> %s', src_path, dest_path)
+    logger.debug("Grafting: %s -> %s", src_path, dest_path)
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
     statinfo = os.stat(dest_path)
@@ -143,16 +151,15 @@ def copylib(src_path: str, dest_dir: str,
 
     patcher.set_soname(dest_path, new_soname)
 
-    if any(itertools.chain(rpaths['rpaths'], rpaths['runpaths'])):
+    if any(itertools.chain(rpaths["rpaths"], rpaths["runpaths"])):
         patcher.set_rpath(dest_path, dest_dir)
 
     return new_soname, dest_path
 
 
-def append_rpath_within_wheel(lib_name: str,
-                              rpath: str,
-                              wheel_base_dir: str,
-                              patcher: ElfPatcher) -> None:
+def append_rpath_within_wheel(
+    lib_name: str, rpath: str, wheel_base_dir: str, patcher: ElfPatcher
+) -> None:
     """Add a new rpath entry to a file while preserving as many existing
     rpath entries as possible.
 
@@ -171,44 +178,46 @@ def append_rpath_within_wheel(lib_name: str,
         return _is_valid_rpath(rpath, lib_dir, wheel_base_dir)
 
     old_rpaths = patcher.get_rpath(lib_name)
-    rpaths = filter(is_valid_rpath, old_rpaths.split(':'))
+    rpaths = filter(is_valid_rpath, old_rpaths.split(":"))
     # Remove duplicates while preserving ordering
     # Fake an OrderedSet using OrderedDict
-    rpath_set = OrderedDict([(old_rpath, '') for old_rpath in rpaths])
-    rpath_set[rpath] = ''
+    rpath_set = OrderedDict([(old_rpath, "") for old_rpath in rpaths])
+    rpath_set[rpath] = ""
 
-    patcher.set_rpath(lib_name, ':'.join(rpath_set))
+    patcher.set_rpath(lib_name, ":".join(rpath_set))
 
 
-def _is_valid_rpath(rpath: str,
-                    lib_dir: str,
-                    wheel_base_dir: str) -> bool:
+def _is_valid_rpath(rpath: str, lib_dir: str, wheel_base_dir: str) -> bool:
     full_rpath_entry = _resolve_rpath_tokens(rpath, lib_dir)
     if not isabs(full_rpath_entry):
-        logger.debug(f'rpath entry {rpath} could not be resolved to an '
-                     'absolute path -- discarding it.')
+        logger.debug(
+            f"rpath entry {rpath} could not be resolved to an "
+            "absolute path -- discarding it."
+        )
         return False
     elif not is_subdir(full_rpath_entry, wheel_base_dir):
-        logger.debug(f'rpath entry {rpath} points outside the wheel -- '
-                     'discarding it.')
+        logger.debug(
+            f"rpath entry {rpath} points outside the wheel -- " "discarding it."
+        )
         return False
     else:
-        logger.debug(f'Preserved rpath entry {rpath}')
+        logger.debug(f"Preserved rpath entry {rpath}")
         return True
 
 
-def _resolve_rpath_tokens(rpath: str,
-                          lib_base_dir: str) -> str:
+def _resolve_rpath_tokens(rpath: str, lib_base_dir: str) -> str:
     # See https://www.man7.org/linux/man-pages/man8/ld.so.8.html#DESCRIPTION
-    if platform.architecture()[0] == '64bit':
-        system_lib_dir = 'lib64'
+    if platform.architecture()[0] == "64bit":
+        system_lib_dir = "lib64"
     else:
-        system_lib_dir = 'lib'
+        system_lib_dir = "lib"
     system_processor_type = platform.machine()
-    token_replacements = {'ORIGIN': lib_base_dir,
-                          'LIB': system_lib_dir,
-                          'PLATFORM': system_processor_type}
+    token_replacements = {
+        "ORIGIN": lib_base_dir,
+        "LIB": system_lib_dir,
+        "PLATFORM": system_processor_type,
+    }
     for token, target in token_replacements.items():
-        rpath = rpath.replace(f'${token}', target)      # $TOKEN
-        rpath = rpath.replace(f'${{{token}}}', target)  # ${TOKEN}
+        rpath = rpath.replace(f"${token}", target)  # $TOKEN
+        rpath = rpath.replace(f"${{{token}}}", target)  # ${TOKEN}
     return rpath

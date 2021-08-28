@@ -17,7 +17,7 @@ class MuslVersion(NamedTuple):
 
 def find_musl_libc() -> pathlib.Path:
     try:
-        ldd = subprocess.check_output(["ldd", "/bin/ls"], errors='strict')
+        ldd = subprocess.check_output(["ldd", "/bin/ls"], errors="strict")
     except (subprocess.CalledProcessError, FileNotFoundError):
         LOG.error("Failed to determine libc version", exc_info=True)
         raise InvalidLibc
@@ -25,7 +25,8 @@ def find_musl_libc() -> pathlib.Path:
     match = re.search(
         r"libc\.musl-(?P<platform>\w+)\.so.1 "  # TODO drop the platform
         r"=> (?P<path>[/\-\w.]+)",
-        ldd)
+        ldd,
+    )
 
     if not match:
         raise InvalidLibc
@@ -36,25 +37,18 @@ def find_musl_libc() -> pathlib.Path:
 def get_musl_version(ld_path: pathlib.Path) -> MuslVersion:
     try:
         ld = subprocess.run(
-            [ld_path],
-            check=False,
-            errors='strict',
-            stderr=subprocess.PIPE
+            [ld_path], check=False, errors="strict", stderr=subprocess.PIPE
         ).stderr
     except FileNotFoundError:
         LOG.error("Failed to determine musl version", exc_info=True)
         raise InvalidLibc
 
     match = re.search(
-        r"Version "
-        r"(?P<major>\d+)."
-        r"(?P<minor>\d+)."
-        r"(?P<patch>\d+)",
-        ld)
+        r"Version " r"(?P<major>\d+)." r"(?P<minor>\d+)." r"(?P<patch>\d+)", ld
+    )
     if not match:
         raise InvalidLibc
 
     return MuslVersion(
-        int(match.group("major")),
-        int(match.group("minor")),
-        int(match.group("patch")))
+        int(match.group("major")), int(match.group("minor")), int(match.group("patch"))
+    )

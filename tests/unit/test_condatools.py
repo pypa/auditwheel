@@ -21,4 +21,3 @@ def test_in_condapkg_context(open_mock, tarbz2todir_mock):
         files = conda_pkg.iter_files()
         assert len(files) == 3
         assert "file1" and "file2" in files
-
