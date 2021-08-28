@@ -34,11 +34,5 @@ jobs:
           python-version: ${{ matrix.python }}
           architecture: x64
 
-      - name: Install/fetch dependencies
-        run: |
-          set -exuo pipefail
-          pip install --upgrade pip setuptools
-          ./tests/install.sh
-
       - name: Run tests
-        run: ./tests/travis.sh
+        run: pipx run nox -s tests-${{ matrix.python }}

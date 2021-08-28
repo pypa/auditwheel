@@ -20,14 +20,10 @@ services:
 notifications:
   email: false
 
-before_install:
-  - pip install --upgrade pip setuptools
-
 install:
-  - ./tests/install.sh
-
+  - pip install nox
 script:
-  - tests/travis.sh
+  - nox -s tests-3.8
 
 cache:
   directories:
