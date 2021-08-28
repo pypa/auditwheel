@@ -1,2 +1,0 @@
-pyelftools>=0.24
-importlib_metadata; python_version < "3.8"

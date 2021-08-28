@@ -1,6 +1,0 @@
-pytest>=3.4
-jsonschema
-pypatchelf
-pretend
-docker
-pyelftools
