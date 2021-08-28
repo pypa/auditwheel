@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from auditwheel.musllinux import find_musl_libc, get_musl_version
 from auditwheel.error import InvalidLibc
+from auditwheel.musllinux import find_musl_libc, get_musl_version
 
 
 @patch("auditwheel.musllinux.subprocess.check_output")

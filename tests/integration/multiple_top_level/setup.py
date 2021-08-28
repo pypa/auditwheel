@@ -1,5 +1,4 @@
-from setuptools import setup, Extension, find_packages
-
+from setuptools import Extension, find_packages, setup
 
 setup(
     name='multiple_top_level',

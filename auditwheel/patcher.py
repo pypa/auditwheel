@@ -1,6 +1,6 @@
 import re
 from distutils.spawn import find_executable
-from subprocess import check_call, check_output, CalledProcessError
+from subprocess import CalledProcessError, check_call, check_output
 
 
 class ElfPatcher:

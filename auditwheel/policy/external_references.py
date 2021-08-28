@@ -1,6 +1,6 @@
-import re
 import logging
-from typing import Dict, Set, Any, Generator
+import re
+from typing import Any, Dict, Generator, Set
 
 from ..elfutils import is_subdir
 from . import load_policies

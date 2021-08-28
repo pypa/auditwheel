@@ -1,5 +1,6 @@
 import os
-from auditwheel.tmpdirs import InTemporaryDirectory, InGivenDirectory
+
+from auditwheel.tmpdirs import InGivenDirectory, InTemporaryDirectory
 
 
 def test_intemporarydirectory():

@@ -1,5 +1,6 @@
-import pkg_resources
 import subprocess
+
+import pkg_resources
 
 
 def runit(x):

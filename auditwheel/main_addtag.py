@@ -1,6 +1,5 @@
-from os.path import basename, exists, join, abspath
 import logging
-
+from os.path import abspath, basename, exists, join
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +21,10 @@ def configure_parser(sub_parsers):
 
 def execute(args, p):
     import os
+
     from ._vendor.wheel.wheelfile import WHEEL_INFO_RE
-    from .wheeltools import InWheelCtx, add_platforms, WheelToolsError
-    from .wheel_abi import analyze_wheel_abi, NonPlatformWheel
+    from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
+    from .wheeltools import InWheelCtx, WheelToolsError, add_platforms
 
     try:
         wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)

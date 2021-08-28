@@ -1,11 +1,10 @@
 import argparse
 import lzma
-
 from pathlib import Path
 
 import pytest
 
-from auditwheel.tools import EnvironmentDefault, zip2dir, dir2zip
+from auditwheel.tools import EnvironmentDefault, dir2zip, zip2dir
 
 
 @pytest.mark.parametrize(
