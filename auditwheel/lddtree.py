@@ -243,7 +243,7 @@ def compatible_elfs(elf1: ELFFile, elf2: ELFFile) -> bool:
     -------
     True if compatible, False otherwise
     """
-    osabis = frozenset([e.header['e_ident']['EI_OSABI'] for e in (elf1, elf2)])
+    osabis = frozenset(e.header['e_ident']['EI_OSABI'] for e in (elf1, elf2))
     compat_sets = (frozenset('ELFOSABI_%s' % x
                              for x in ('NONE',
                                        'SYSV',
