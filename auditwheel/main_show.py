@@ -103,12 +103,26 @@ def execute(args, p):
 
     for p in sorted(load_policies(), key=lambda p: p["priority"]):
         if p["priority"] > get_priority_by_name(winfo.overall_tag):
-            printp(
-                (
-                    'In order to achieve the tag platform tag "%s" '
-                    "the following shared library dependencies "
-                    "will need to be eliminated:"
+            libs = winfo.external_refs[p["name"]]["libs"]
+            if len(libs):
+                printp(
+                    (
+                        'In order to achieve the tag platform tag "%s" '
+                        "the following shared library dependencies "
+                        "will need to be eliminated:"
+                    )
+                    % p["name"]
                 )
-                % p["name"]
-            )
-            printp(", ".join(sorted(winfo.external_refs[p["name"]]["libs"].keys())))
+                printp(", ".join(sorted(libs.keys())))
+            blacklist = winfo.external_refs[p["name"]]["blacklist"]
+            if len(blacklist):
+                printp(
+                    (
+                        'In order to achieve the tag platform tag "%s" '
+                        "the following black-listed symbol dependencies "
+                        "will need to be eliminated:"
+                    )
+                    % p["name"]
+                )
+                for key in sorted(blacklist.keys()):
+                    printp(f"From {key}: " + ", ".join(sorted(blacklist[key])))

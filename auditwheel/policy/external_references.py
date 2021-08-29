@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Any, Dict, Generator, Set
 
-from ..elfutils import is_subdir
+from ..elfutils import filter_undefined_symbols, is_subdir
 from . import load_policies
 
 log = logging.getLogger(__name__)
@@ -45,6 +45,7 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str) -> Dict:
     ret = {}  # type: Dict[str, Dict[str, Any]]
     for p in policies:
         needed_external_libs = set()  # type: Set[str]
+        blacklist = {}
 
         if not (p["name"] == "linux" and p["priority"] == 0):
             # special-case the generic linux platform here, because it
@@ -52,6 +53,9 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str) -> Dict:
             # whitelist is the complete set of all libraries. so nothing
             # is considered "external" that needs to be copied in.
             whitelist = set(p["lib_whitelist"])
+            blacklist_libs = set(p["blacklist"].keys()) & set(lddtree["needed"])
+            blacklist = {k: p["blacklist"][k] for k in blacklist_libs}
+            blacklist = filter_undefined_symbols(lddtree["realpath"], blacklist)
             needed_external_libs = get_req_external(
                 set(filter_libs(lddtree["needed"], whitelist)), whitelist
             )
@@ -66,5 +70,9 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str) -> Dict:
                 log.debug("RPATH FTW: %s", lib)
                 continue
             pol_ext_deps[lib] = lddtree["libs"][lib]["realpath"]
-        ret[p["name"]] = {"libs": pol_ext_deps, "priority": p["priority"]}
+        ret[p["name"]] = {
+            "libs": pol_ext_deps,
+            "priority": p["priority"],
+            "blacklist": blacklist,
+        }
     return ret

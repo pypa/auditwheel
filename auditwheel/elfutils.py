@@ -137,3 +137,27 @@ def is_subdir(path: str, directory: str) -> bool:
     if relative.startswith(os.pardir):
         return False
     return True
+
+
+def filter_undefined_symbols(
+    path: str, symbols: Dict[str, List[str]]
+) -> Dict[str, List[str]]:
+    if not symbols:
+        return {}
+    undef_symbols = set("*")
+    with open(path, "rb") as f:
+        elf = ELFFile(f)
+        section = elf.get_section_by_name(".dynsym")
+        if section is not None:
+            # look for all undef symbols
+            for sym in section.iter_symbols():
+                if sym["st_shndx"] == "SHN_UNDEF":
+                    undef_symbols.add(sym.name)
+
+    result = {}
+    for lib in symbols:
+        intersection = set(symbols[lib]) & undef_symbols
+        if intersection:
+            result[lib] = sorted(intersection)
+
+    return result
