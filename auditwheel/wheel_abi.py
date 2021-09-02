@@ -28,10 +28,18 @@ from .policy import (
 )
 
 log = logging.getLogger(__name__)
-WheelAbIInfo = namedtuple('WheelAbIInfo',
-                          ['overall_tag', 'external_refs', 'ref_tag',
-                           'versioned_symbols', 'sym_tag', 'ucs_tag',
-                           'pyfpe_tag'])
+WheelAbIInfo = namedtuple(
+    "WheelAbIInfo",
+    [
+        "overall_tag",
+        "external_refs",
+        "ref_tag",
+        "versioned_symbols",
+        "sym_tag",
+        "ucs_tag",
+        "pyfpe_tag",
+    ],
+)
 
 
 class WheelAbiError(Exception):
@@ -64,17 +72,17 @@ def get_wheel_elfdata(wheel_fn: str):
 
             # If this is in purelib, add it to the list of shared libraries in
             # purelib
-            if 'purelib' in so_path_split:
+            if "purelib" in so_path_split:
                 shared_libraries_in_purelib.append(so_path_split[-1])
 
             # If at least one shared library exists in purelib, this is going
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
-                log.debug('processing: %s', fn)
+                log.debug("processing: %s", fn)
                 elftree = lddtree(fn)
 
                 for key, value in elf_find_versioned_symbols(elf):
-                    log.debug('key %s, value %s', key, value)
+                    log.debug("key %s, value %s", key, value)
                     versioned_symbols[key].add(value)
 
                 is_py_ext, py_ver = elf_is_python_extension(fn, elf)
@@ -86,10 +94,11 @@ def get_wheel_elfdata(wheel_fn: str):
                     uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
                     if py_ver == 2:
                         uses_ucs2_symbols |= any(
-                            True for _ in elf_find_ucs2_symbols(elf))
+                            True for _ in elf_find_ucs2_symbols(elf)
+                        )
                     full_external_refs[fn] = lddtree_external_references(
-                        elftree,
-                        ctx.path)
+                        elftree, ctx.path
+                    )
                 else:
                     # If the ELF is not a Python extension, it might be
                     # included in the wheel already because auditwheel repair
@@ -104,20 +113,20 @@ def get_wheel_elfdata(wheel_fn: str):
         if shared_libraries_in_purelib:
             raise RuntimeError(
                 (
-                    'Invalid binary wheel, found the following shared '
-                    'library/libraries in purelib folder:\n'
-                    '\t%s\n'
-                    'The wheel has to be platlib compliant in order to be '
-                    'repaired by auditwheel.'
-                ) % '\n\t'.join(shared_libraries_in_purelib)
+                    "Invalid binary wheel, found the following shared "
+                    "library/libraries in purelib folder:\n"
+                    "\t%s\n"
+                    "The wheel has to be platlib compliant in order to be "
+                    "repaired by auditwheel."
+                )
+                % "\n\t".join(shared_libraries_in_purelib)
             )
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
             lib
-            for elf in itertools.chain(full_elftree.values(),
-                                       nonpy_elftree.values())
-            for lib in elf['needed']
+            for elf in itertools.chain(full_elftree.values(), nonpy_elftree.values())
+            for lib in elf["needed"]
         }
 
         for fn in nonpy_elftree.keys():
@@ -131,14 +140,22 @@ def get_wheel_elfdata(wheel_fn: str):
             # should include it as an external reference, because
             # it might require additional external libraries.
             full_external_refs[fn] = lddtree_external_references(
-                nonpy_elftree[fn], ctx.path)
+                nonpy_elftree[fn], ctx.path
+            )
 
-    log.debug('full_elftree:\n%s', json.dumps(full_elftree, indent=4))
-    log.debug('full_external_refs (will be repaired):\n%s',
-              json.dumps(full_external_refs, indent=4))
+    log.debug("full_elftree:\n%s", json.dumps(full_elftree, indent=4))
+    log.debug(
+        "full_external_refs (will be repaired):\n%s",
+        json.dumps(full_external_refs, indent=4),
+    )
 
-    return (full_elftree, full_external_refs, versioned_symbols,
-            uses_ucs2_symbols, uses_PyFPE_jbuf)
+    return (
+        full_elftree,
+        full_external_refs,
+        versioned_symbols,
+        uses_ucs2_symbols,
+        uses_PyFPE_jbuf,
+    )
 
 
 def get_external_libs(external_refs) -> Dict[str, str]:
@@ -151,10 +168,10 @@ def get_external_libs(external_refs) -> Dict[str, str]:
     result: Dict[str, str] = {}
     for policy in external_refs.values():
         # linux tag (priority 0) has no white-list, do not analyze it
-        if policy['priority'] == 0:
+        if policy["priority"] == 0:
             continue
         # go through all libs, retrieving their soname and realpath
-        for libname, realpath in policy['libs'].items():
+        for libname, realpath in policy["libs"].items():
             if realpath and realpath not in result.keys():
                 result[realpath] = libname
     return result
@@ -173,14 +190,13 @@ def get_versioned_symbols(libs):
         # {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
         elf_versioned_symbols = defaultdict(lambda: set())
         for key, value in elf_find_versioned_symbols(elf):
-            log.debug('path %s, key %s, value %s', path, key, value)
+            log.debug("path %s, key %s, value %s", path, key, value)
             elf_versioned_symbols[key].add(value)
         result[libs[path]] = elf_versioned_symbols
     return result
 
 
-def get_symbol_policies(versioned_symbols, external_versioned_symbols,
-                        external_refs):
+def get_symbol_policies(versioned_symbols, external_versioned_symbols, external_refs):
     """Get symbol policies
     Since white-list is different per policy, this function inspects
     versioned_symbol per policy when including external refs
@@ -193,54 +209,55 @@ def get_symbol_policies(versioned_symbols, external_versioned_symbols,
     result = []
     for policy in external_refs.values():
         # skip the linux policy
-        if policy['priority'] == 0:
+        if policy["priority"] == 0:
             continue
         policy_symbols = deepcopy(versioned_symbols)
-        for soname in policy['libs'].keys():
+        for soname in policy["libs"].keys():
             if soname not in external_versioned_symbols:
                 continue
             ext_symbols = external_versioned_symbols[soname]
             for k in iter(ext_symbols):
                 policy_symbols[k].update(ext_symbols[k])
-        result.append(
-            (versioned_symbols_policy(policy_symbols), policy_symbols))
+        result.append((versioned_symbols_policy(policy_symbols), policy_symbols))
     return result
 
 
 def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
     external_refs = {
-        p['name']: {'libs': {},
-                    'priority': p['priority']}
-        for p in load_policies()
+        p["name"]: {"libs": {}, "priority": p["priority"]} for p in load_policies()
     }
 
-    (elftree_by_fn, external_refs_by_fn, versioned_symbols, has_ucs2,
-     uses_PyFPE_jbuf) = get_wheel_elfdata(wheel_fn)
+    (
+        elftree_by_fn,
+        external_refs_by_fn,
+        versioned_symbols,
+        has_ucs2,
+        uses_PyFPE_jbuf,
+    ) = get_wheel_elfdata(wheel_fn)
 
     for fn in elftree_by_fn.keys():
         update(external_refs, external_refs_by_fn[fn])
 
-    log.debug('external reference info')
+    log.debug("external reference info")
     log.debug(json.dumps(external_refs, indent=4))
 
     external_libs = get_external_libs(external_refs)
     external_versioned_symbols = get_versioned_symbols(external_libs)
-    symbol_policies = get_symbol_policies(versioned_symbols,
-                                          external_versioned_symbols,
-                                          external_refs)
+    symbol_policies = get_symbol_policies(
+        versioned_symbols, external_versioned_symbols, external_refs
+    )
     symbol_policy = versioned_symbols_policy(versioned_symbols)
 
     # let's keep the highest priority policy and
     # corresponding versioned_symbols
     symbol_policy, versioned_symbols = max(
-        symbol_policies,
-        key=lambda x: x[0],
-        default=(symbol_policy, versioned_symbols)
+        symbol_policies, key=lambda x: x[0], default=(symbol_policy, versioned_symbols)
     )
 
     ref_policy = max(
-        (e['priority'] for e in external_refs.values() if len(e['libs']) == 0),
-        default=POLICY_PRIORITY_LOWEST)
+        (e["priority"] for e in external_refs.values() if len(e["libs"]) == 0),
+        default=POLICY_PRIORITY_LOWEST,
+    )
 
     if has_ucs2:
         ucs_policy = POLICY_PRIORITY_LOWEST
@@ -256,11 +273,19 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
     sym_tag = get_policy_name(symbol_policy)
     ucs_tag = get_policy_name(ucs_policy)
     pyfpe_tag = get_policy_name(pyfpe_policy)
-    overall_tag = get_policy_name(min(symbol_policy, ref_policy, ucs_policy,
-                                      pyfpe_policy))
+    overall_tag = get_policy_name(
+        min(symbol_policy, ref_policy, ucs_policy, pyfpe_policy)
+    )
 
-    return WheelAbIInfo(overall_tag, external_refs, ref_tag, versioned_symbols,
-                        sym_tag, ucs_tag, pyfpe_tag)
+    return WheelAbIInfo(
+        overall_tag,
+        external_refs,
+        ref_tag,
+        versioned_symbols,
+        sym_tag,
+        ucs_tag,
+        pyfpe_tag,
+    )
 
 
 def update(d, u):
@@ -271,5 +296,5 @@ def update(d, u):
         elif isinstance(v, (str, int, float, type(None))):
             d[k] = u[k]
         else:
-            raise RuntimeError('!', d, k)
+            raise RuntimeError("!", d, k)
     return d

@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 class Libc(IntEnum):
-    GLIBC = 1,
-    MUSL = 2,
+    GLIBC = (1,)
+    MUSL = (2,)
 
 
 def get_libc() -> Libc:
