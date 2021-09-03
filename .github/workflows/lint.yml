@@ -8,16 +8,9 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-20.04
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Install CPython 3.8
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
         with:
-          python-version: 3.8
-          architecture: x64
-
-      - name: Run linter
-        run: pipx run nox -s lint
+          python-version: 3.6
+      - uses: pre-commit/action@v2.0.3

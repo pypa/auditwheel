@@ -1,26 +1,24 @@
 import os
 import sys
-
 from pathlib import Path
+from typing import List
 
 import nox
-
 
 RUNNING_CI = "TRAVIS" in os.environ or "GITHUB_ACTIONS" in os.environ
 
 
-@nox.session(reuse_venv=True)
-def lint(session: nox.Session) -> str:
+@nox.session(python=["3.6"], reuse_venv=True)
+def lint(session: nox.Session) -> None:
     """
     Run linters on the codebase.
     """
-    session.install("flake8", "mypy")
-    session.run("flake8", "auditwheel")
-    session.run("mypy", "auditwheel")
+    session.install("pre-commit")
+    session.run("pre-commit", "run", "--all-files")
 
 
 @nox.session()
-def coverage(session: nox.Session) -> str:
+def coverage(session: nox.Session) -> None:
     """
     Run coverage using unit tests.
     """
@@ -31,11 +29,11 @@ def coverage(session: nox.Session) -> str:
         "pytest",
         "tests/unit",
         "--cov=auditwheel",
-        "--cov-report=term-missing"
+        "--cov-report=term-missing",
     )
 
 
-def _docker_images(session):
+def _docker_images(session: nox.Session) -> List[str]:
     tmp_dir = Path(session.create_tmp())
     script = tmp_dir / "list_images.py"
     images_file = tmp_dir / "images.lst"
@@ -52,7 +50,7 @@ Path(r"{images_file}").write_text(images)
 
 
 @nox.session(python=["3.6", "3.7", "3.8", "3.9"])
-def tests(session: nox.Session) -> str:
+def tests(session: nox.Session) -> None:
     """
     Run tests.
     """

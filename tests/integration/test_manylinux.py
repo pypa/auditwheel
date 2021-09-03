@@ -329,7 +329,8 @@ def test_build_wheel_with_binary_executable(
         [
             "bash",
             "-c",
-            "cd /auditwheel_src/tests/integration/testpackage && python -m pip wheel --no-deps -w /io .",
+            "cd /auditwheel_src/tests/integration/testpackage && "
+            "python -m pip wheel --no-deps -w /io .",
         ],
     )
 
@@ -391,7 +392,8 @@ def test_build_wheel_with_image_dependencies(
     assert "manylinux" not in orig_wheel
 
     repair_command = (
-        "LD_LIBRARY_PATH=/auditwheel_src/tests/integration/testdependencies:$LD_LIBRARY_PATH "
+        "LD_LIBRARY_PATH="
+        "/auditwheel_src/tests/integration/testdependencies:$LD_LIBRARY_PATH "
         "auditwheel -v repair --plat {policy} -w /io /io/{orig_wheel}"
     )
 
@@ -522,7 +524,8 @@ def test_build_wheel_depending_on_library_with_rpath(
         [
             "bash",
             "-c",
-            "LD_LIBRARY_PATH=/auditwheel_src/tests/integration/testrpath/a:$LD_LIBRARY_PATH "
+            "LD_LIBRARY_PATH="
+            "/auditwheel_src/tests/integration/testrpath/a:$LD_LIBRARY_PATH "
             + repair_command,
         ],
     )

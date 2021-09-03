@@ -24,7 +24,7 @@ int main(int argc, char **argv)
         fputs("Expected command line argument to be a float\n", stderr);
         return EXIT_FAILURE;
     }
-    
+
     x = gsl_pow_2(x);
     printf("%g\n", x);
     return EXIT_SUCCESS;

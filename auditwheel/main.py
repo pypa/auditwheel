@@ -4,10 +4,10 @@ import os
 import pathlib
 import sys
 
-try:
+if sys.version_info[:2] >= (3, 8):
     from importlib import metadata
-except ImportError:
-    import importlib_metadata as metadata  # type: ignore
+else:
+    import importlib_metadata as metadata
 
 from typing import Optional
 

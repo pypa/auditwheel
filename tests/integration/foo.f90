@@ -2,7 +2,7 @@
 
 subroutine selectedrealkind(p, r, res)
   implicit none
-  
+
   integer, intent(in) :: p, r
   !f2py integer :: r=0
   integer, intent(out) :: res

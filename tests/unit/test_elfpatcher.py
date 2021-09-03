@@ -1,4 +1,3 @@
-import os
 from subprocess import CalledProcessError
 from unittest.mock import call, patch
 
