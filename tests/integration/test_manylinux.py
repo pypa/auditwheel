@@ -846,3 +846,55 @@ def test_nonpy_rpath(any_manylinux_container, docker_python, io_folder):
             "import nonpy_rpath; assert nonpy_rpath.crypt_something().startswith('*')",
         ],
     )
+
+
+def test_rpath(any_manylinux_container, docker_python, io_folder):
+    policy, tag, manylinux_ctr = any_manylinux_container
+    if policy != 'manylinux_2_17_x86_64':
+        pytest.skip('This test can only run on manylinux_2_17_x86_64')
+    orig_wheel = f'gepetto_example_adder-3.0.2-{PYTHON_ABI}-linux_x86_64.whl'
+    # decompress dependencies
+    docker_exec(manylinux_ctr, [
+        'bash', '-c',
+        'xz -d -c /auditwheel_src/tests/integration/gepetto_example_adder/'
+        f'libboost_python{PYTHON_ABI_MAJ_MIN}.so.1.72.0.xz > '
+        f'/usr/local/lib/libboost_python{PYTHON_ABI_MAJ_MIN}.so.1.72.0'
+    ])
+    docker_exec(manylinux_ctr, [
+        'bash', '-c',
+        'xz -d -c /auditwheel_src/tests/integration/gepetto_example_adder/'
+        'libexample-adder.so.3.0.2-6-gd319.xz > '
+        '/usr/local/lib/libexample-adder.so.3.0.2-6-gd319'
+    ])
+
+    # check the original wheel is not compliant
+    output = docker_exec(manylinux_ctr, [
+        'auditwheel', 'show',
+        f'/auditwheel_src/tests/integration/gepetto_example_adder/{orig_wheel}'
+    ])
+    assert (
+        f'{orig_wheel} is consistent with the following platform tag: '
+        f'"linux_{PLATFORM}"'
+    ) in output.replace('\n', ' ')
+
+    # repair
+    docker_exec(manylinux_ctr, [
+        'auditwheel', '-v', 'repair', '-w', '/io',
+        f'/auditwheel_src/tests/integration/gepetto_example_adder/{orig_wheel}'
+    ])
+    filenames = os.listdir(io_folder)
+    assert len(filenames) == 1
+    repaired_wheels = [fn for fn in filenames if policy in fn]
+    expected_wheel_name = \
+        f'gepetto_example_adder-3.0.2-{PYTHON_ABI}-{tag}.whl'
+    assert repaired_wheels == [expected_wheel_name]
+    repaired_wheel = repaired_wheels[0]
+    assert_show_output(manylinux_ctr, expected_wheel_name, policy, False)
+
+    docker_exec(docker_python, ['pip', 'install', f'/io/{repaired_wheel}'])
+    with pytest.raises(CalledProcessError):
+        docker_exec(docker_python, [
+            'python', '-c',
+             'import example_adder as exa; assert exa.add(4, 3) == 7'
+        ])
+    pytest.xfail('Bad RPATH')
