@@ -155,8 +155,8 @@ def filter_undefined_symbols(
                     undef_symbols.add(sym.name)
 
     result = {}
-    for lib in symbols:
-        intersection = set(symbols[lib]) & undef_symbols
+    for lib, sym_list in symbols:
+        intersection = set(sym_list) & undef_symbols
         if intersection:
             result[lib] = sorted(intersection)
 
