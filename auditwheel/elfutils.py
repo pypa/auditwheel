@@ -1,6 +1,6 @@
 import os
 from os.path import basename, realpath, relpath
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Set, Tuple
 
 from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
@@ -139,12 +139,8 @@ def is_subdir(path: str, directory: str) -> bool:
     return True
 
 
-def filter_undefined_symbols(
-    path: str, symbols: Dict[str, List[str]]
-) -> Dict[str, List[str]]:
-    if not symbols:
-        return {}
-    undef_symbols = set("*")
+def get_undefined_symbols(path: str) -> Set[str]:
+    undef_symbols = set()
     with open(path, "rb") as f:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynsym")
@@ -153,11 +149,18 @@ def filter_undefined_symbols(
             for sym in section.iter_symbols():
                 if sym["st_shndx"] == "SHN_UNDEF":
                     undef_symbols.add(sym.name)
+    return undef_symbols
 
+
+def filter_undefined_symbols(
+    path: str, symbols: Dict[str, List[str]]
+) -> Dict[str, List[str]]:
+    if not symbols:
+        return {}
+    undef_symbols = set("*") | get_undefined_symbols(path)
     result = {}
     for lib, sym_list in symbols.items():
         intersection = set(sym_list) & undef_symbols
         if intersection:
             result[lib] = sorted(intersection)
-
     return result
