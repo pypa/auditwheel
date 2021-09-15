@@ -135,6 +135,13 @@ def execute(args, p):
         )
         p.error(msg)
 
+    if reqd_tag > get_priority_by_name(wheel_abi.blacklist_tag):
+        msg = (
+            'cannot repair "%s" to "%s" ABI because it depends on '
+            "black-listed symbols." % (args.WHEEL_FILE, args.PLAT)
+        )
+        p.error(msg)
+
     abis = [policy["name"]] + policy["aliases"]
     if not args.ONLY_PLAT:
         if reqd_tag < get_priority_by_name(wheel_abi.overall_tag):

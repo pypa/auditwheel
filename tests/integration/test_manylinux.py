@@ -846,3 +846,37 @@ def test_nonpy_rpath(any_manylinux_container, docker_python, io_folder):
             "import nonpy_rpath; assert nonpy_rpath.crypt_something().startswith('*')",
         ],
     )
+
+
+def test_zlib_blacklist(any_manylinux_container, docker_python, io_folder):
+    policy, tag, manylinux_ctr = any_manylinux_container
+    if policy.startswith("manylinux_2_17_"):
+        pytest.skip(f"{policy} image has no blacklist symbols in libz.so.1")
+    if policy.startswith("manylinux_2_24_"):
+        docker_exec(manylinux_ctr, "apt-get update")
+        docker_exec(
+            manylinux_ctr, "apt-get install -y --no-install-recommends libz-dev"
+        )
+    else:
+        docker_exec(manylinux_ctr, "yum install -y zlib-devel")
+    docker_exec(
+        manylinux_ctr,
+        [
+            "bash",
+            "-c",
+            "cd /auditwheel_src/tests/integration/testzlib "
+            "&& python -m pip wheel --no-deps -w /io .",
+        ],
+    )
+
+    orig_wheel, *_ = os.listdir(io_folder)
+    assert orig_wheel.startswith("testzlib-0.0.1")
+
+    # Repair the wheel using the appropriate manylinux container
+    repair_command = f"auditwheel repair --plat {policy} -w /io /io/{orig_wheel}"
+    with pytest.raises(CalledProcessError):
+        docker_exec(manylinux_ctr, repair_command)
+
+    # Check auditwheel show warns about the black listed symbols
+    output = docker_exec(manylinux_ctr, f"auditwheel -v show /io/{orig_wheel}")
+    assert "black-listed symbol dependencies" in output.replace("\n", " ")

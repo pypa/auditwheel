@@ -38,6 +38,7 @@ WheelAbIInfo = namedtuple(
         "sym_tag",
         "ucs_tag",
         "pyfpe_tag",
+        "blacklist_tag",
     ],
 )
 
@@ -224,7 +225,8 @@ def get_symbol_policies(versioned_symbols, external_versioned_symbols, external_
 
 def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
     external_refs = {
-        p["name"]: {"libs": {}, "priority": p["priority"]} for p in load_policies()
+        p["name"]: {"libs": {}, "blacklist": {}, "priority": p["priority"]}
+        for p in load_policies()
     }
 
     (
@@ -259,6 +261,11 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
         default=POLICY_PRIORITY_LOWEST,
     )
 
+    blacklist_policy = max(
+        (e["priority"] for e in external_refs.values() if len(e["blacklist"]) == 0),
+        default=POLICY_PRIORITY_LOWEST,
+    )
+
     if has_ucs2:
         ucs_policy = POLICY_PRIORITY_LOWEST
     else:
@@ -273,8 +280,9 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
     sym_tag = get_policy_name(symbol_policy)
     ucs_tag = get_policy_name(ucs_policy)
     pyfpe_tag = get_policy_name(pyfpe_policy)
+    blacklist_tag = get_policy_name(blacklist_policy)
     overall_tag = get_policy_name(
-        min(symbol_policy, ref_policy, ucs_policy, pyfpe_policy)
+        min(symbol_policy, ref_policy, ucs_policy, pyfpe_policy, blacklist_policy)
     )
 
     return WheelAbIInfo(
@@ -285,12 +293,19 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
         sym_tag,
         ucs_tag,
         pyfpe_tag,
+        blacklist_tag,
     )
 
 
 def update(d, u):
     for k, v in u.items():
-        if isinstance(v, Mapping):
+        if k == "blacklist":
+            for lib, symbols in v.items():
+                if lib not in d[k]:
+                    d[k][lib] = list(symbols)
+                else:
+                    d[k][lib] = sorted(set(d[k][lib]) | set(symbols))
+        elif isinstance(v, Mapping):
             r = update(d.get(k, {}), v)
             d[k] = r
         elif isinstance(v, (str, int, float, type(None))):
