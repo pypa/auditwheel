@@ -2,6 +2,27 @@
 
 ## HEAD
 
+## 5.0.0
+
+Released Sep. 18, 2021
+
+### User-facing changes
+- [BUGFIX] Remove undeclared dependency on pkg_resources ([#307](https://github.com/pypa/auditwheel/pull/307))
+- [BUGFIX] Don't installs self in tox deps ([#319](https://github.com/pypa/auditwheel/pull/319))
+- [FEATURE] Add support for musllinux ([#305](https://github.com/pypa/auditwheel/issues/305), [#311](https://github.com/pypa/auditwheel/pull/311), [#315](https://github.com/pypa/auditwheel/pull/315))
+- [FEATURE] Replace `unzip` usage with Python's `zipfile` ([#258](https://github.com/pypa/auditwheel/issues/258), [#324](https://github.com/pypa/auditwheel/pull/324))
+- [FEATURE] `libz.so.1` is now whitelisted (with some symbols blacklisted) ([#152](https://github.com/pypa/auditwheel/issues/152), [#161](https://github.com/pypa/auditwheel/issues/161), [#334](https://github.com/pypa/auditwheel/pull/334))
+
+### Housekeeping
+- Use python slim images to run tests ([#308](https://github.com/pypa/auditwheel/pull/308))
+- Manylinux2014 now uses devtoolset-10 ([#316](https://github.com/pypa/auditwheel/pull/316))
+- Use pre-commit to lint the code base ([#331](https://github.com/pypa/auditwheel/pull/331))
+  - Run pyupgrade --py36-plus ([#325](https://github.com/pypa/auditwheel/pull/325))
+  - Run isort --py 36 --profile black ([#328](https://github.com/pypa/auditwheel/pull/328))
+  - Run black ([#329](https://github.com/pypa/auditwheel/pull/329))
+- Move mypy config to pyproject.toml ([#326](https://github.com/pypa/auditwheel/pull/326))
+- Move to an `src` layout ([#332](https://github.com/pypa/auditwheel/pull/332))
+
 ## 4.0.0
 
 Released May. 5, 2021
