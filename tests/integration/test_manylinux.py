@@ -77,7 +77,7 @@ ORIGINAL_SIX_WHEEL = "six-1.11.0-py2.py3-none-any.whl"
 def find_src_folder():
     candidate = op.abspath(op.join(op.dirname(__file__), "../.."))
     contents = os.listdir(candidate)
-    if "setup.py" in contents and "auditwheel" in contents:
+    if "setup.py" in contents and "src" in contents:
         return candidate
 
 

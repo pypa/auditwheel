@@ -22,7 +22,7 @@ def coverage(session: nox.Session) -> None:
     """
     Run coverage using unit tests.
     """
-    session.install("-r", "test-requirements.txt", "pytest-cov")
+    session.install("-r", "test-requirements.txt", "pytest-cov", ".")
     session.run(
         "python",
         "-m",
@@ -39,8 +39,10 @@ def _docker_images(session: nox.Session) -> List[str]:
     images_file = tmp_dir / "images.lst"
     script.write_text(
         fr"""
+import sys
 from pathlib import Path
-from tests.integration.test_manylinux import MANYLINUX_IMAGES
+sys.path.append("./tests/integration")
+from test_manylinux import MANYLINUX_IMAGES
 images = "\n".join(MANYLINUX_IMAGES.values())
 Path(r"{images_file}").write_text(images)
 """
