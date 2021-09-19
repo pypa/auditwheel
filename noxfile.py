@@ -132,3 +132,9 @@ def build(session: nox.Session) -> None:
     Make an SDist and a wheel.
     """
     _build(session, Path("dist"))
+
+
+@nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True)
+def develop(session: nox.Session) -> None:
+    session.run("python", "-m", "pip", "install", "--upgrade", "pip", "setuptools")
+    session.install("-e", ".[develop]")
