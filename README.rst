@@ -1,7 +1,7 @@
 auditwheel
 ==========
 
-.. image:: https://travis-ci.org/pypa/auditwheel.svg?branch=master
+.. image:: https://travis-ci.org/pypa/auditwheel.svg?branch=main
     :target: https://travis-ci.org/pypa/auditwheel
 .. image:: https://badge.fury.io/py/auditwheel.svg
     :target: https://pypi.org/project/auditwheel
