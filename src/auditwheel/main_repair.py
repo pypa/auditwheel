@@ -31,7 +31,10 @@ below.
             epilog += f" (aliased by {', '.join(p['aliases'])})"
         epilog += "\n"
     highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)
-    help = "Vendor in external shared library dependencies of a wheel."
+    help = """Vendor in external shared library dependencies of a wheel.
+If multiple wheels are specified, an error processing one
+wheel will abort processing of subsequent wheels.
+"""
     p = sub_parsers.add_parser(
         "repair",
         help=help,
@@ -39,7 +42,7 @@ below.
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("WHEEL_FILE", help="Path to wheel file.")
+    p.add_argument("WHEEL_FILE", help="Path to wheel file.", nargs="+")
     p.add_argument(
         "--plat",
         action=EnvironmentDefault,
@@ -101,72 +104,73 @@ def execute(args, p):
     from .repair import repair_wheel
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
-    if not isfile(args.WHEEL_FILE):
-        p.error("cannot access %s. No such file" % args.WHEEL_FILE)
+    for wheel_file in args.WHEEL_FILE:
+        if not isfile(wheel_file):
+            p.error("cannot access %s. No such file" % wheel_file)
 
-    logger.info("Repairing %s", basename(args.WHEEL_FILE))
+        logger.info("Repairing %s", basename(wheel_file))
 
-    if not exists(args.WHEEL_DIR):
-        os.makedirs(args.WHEEL_DIR)
+        if not exists(args.WHEEL_DIR):
+            os.makedirs(args.WHEEL_DIR)
 
-    try:
-        wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
-    except NonPlatformWheel:
-        logger.info("This does not look like a platform wheel")
-        return 1
+        try:
+            wheel_abi = analyze_wheel_abi(wheel_file)
+        except NonPlatformWheel:
+            logger.info("This does not look like a platform wheel")
+            return 1
 
-    policy = get_policy_by_name(args.PLAT)
-    reqd_tag = policy["priority"]
+        policy = get_policy_by_name(args.PLAT)
+        reqd_tag = policy["priority"]
 
-    if reqd_tag > get_priority_by_name(wheel_abi.sym_tag):
-        msg = (
-            'cannot repair "%s" to "%s" ABI because of the presence '
-            "of too-recent versioned symbols. You'll need to compile "
-            "the wheel on an older toolchain." % (args.WHEEL_FILE, args.PLAT)
-        )
-        p.error(msg)
-
-    if reqd_tag > get_priority_by_name(wheel_abi.ucs_tag):
-        msg = (
-            'cannot repair "%s" to "%s" ABI because it was compiled '
-            "against a UCS2 build of Python. You'll need to compile "
-            "the wheel against a wide-unicode build of Python."
-            % (args.WHEEL_FILE, args.PLAT)
-        )
-        p.error(msg)
-
-    if reqd_tag > get_priority_by_name(wheel_abi.blacklist_tag):
-        msg = (
-            'cannot repair "%s" to "%s" ABI because it depends on '
-            "black-listed symbols." % (args.WHEEL_FILE, args.PLAT)
-        )
-        p.error(msg)
-
-    abis = [policy["name"]] + policy["aliases"]
-    if not args.ONLY_PLAT:
-        if reqd_tag < get_priority_by_name(wheel_abi.overall_tag):
-            logger.info(
-                (
-                    "Wheel is eligible for a higher priority tag. "
-                    "You requested %s but I have found this wheel is "
-                    "eligible for %s."
-                ),
-                args.PLAT,
-                wheel_abi.overall_tag,
+        if reqd_tag > get_priority_by_name(wheel_abi.sym_tag):
+            msg = (
+                'cannot repair "%s" to "%s" ABI because of the presence '
+                "of too-recent versioned symbols. You'll need to compile "
+                "the wheel on an older toolchain." % (wheel_file, args.PLAT)
             )
-            higher_policy = get_policy_by_name(wheel_abi.overall_tag)
-            abis = [higher_policy["name"]] + higher_policy["aliases"] + abis
+            p.error(msg)
 
-    patcher = Patchelf()
-    out_wheel = repair_wheel(
-        args.WHEEL_FILE,
-        abis=abis,
-        lib_sdir=args.LIB_SDIR,
-        out_dir=args.WHEEL_DIR,
-        update_tags=args.UPDATE_TAGS,
-        patcher=patcher,
-        strip=args.STRIP,
-    )
+        if reqd_tag > get_priority_by_name(wheel_abi.ucs_tag):
+            msg = (
+                'cannot repair "%s" to "%s" ABI because it was compiled '
+                "against a UCS2 build of Python. You'll need to compile "
+                "the wheel against a wide-unicode build of Python."
+                % (wheel_file, args.PLAT)
+            )
+            p.error(msg)
 
-    if out_wheel is not None:
-        logger.info("\nFixed-up wheel written to %s", out_wheel)
+        if reqd_tag > get_priority_by_name(wheel_abi.blacklist_tag):
+            msg = (
+                'cannot repair "%s" to "%s" ABI because it depends on '
+                "black-listed symbols." % (wheel_file, args.PLAT)
+            )
+            p.error(msg)
+
+        abis = [policy["name"]] + policy["aliases"]
+        if not args.ONLY_PLAT:
+            if reqd_tag < get_priority_by_name(wheel_abi.overall_tag):
+                logger.info(
+                    (
+                        "Wheel is eligible for a higher priority tag. "
+                        "You requested %s but I have found this wheel is "
+                        "eligible for %s."
+                    ),
+                    args.PLAT,
+                    wheel_abi.overall_tag,
+                )
+                higher_policy = get_policy_by_name(wheel_abi.overall_tag)
+                abis = [higher_policy["name"]] + higher_policy["aliases"] + abis
+
+        patcher = Patchelf()
+        out_wheel = repair_wheel(
+            wheel_file,
+            abis=abis,
+            lib_sdir=args.LIB_SDIR,
+            out_dir=args.WHEEL_DIR,
+            update_tags=args.UPDATE_TAGS,
+            patcher=patcher,
+            strip=args.STRIP,
+        )
+
+        if out_wheel is not None:
+            logger.info("\nFixed-up wheel written to %s", out_wheel)
