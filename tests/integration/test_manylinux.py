@@ -314,6 +314,7 @@ class Anylinux:
                 "bash",
                 "-c",
                 "cd /auditwheel_src/tests/integration/testpackage && "
+                "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
                 "python -m pip wheel --no-deps -w /io .",
             ],
         )
@@ -393,9 +394,9 @@ class Anylinux:
                 "bash",
                 "-c",
                 (
-                    "cd /auditwheel_src/tests/integration/testrpath "
-                    "&& rm -rf build "
-                    f"&& DTAG={dtag} python setup.py bdist_wheel -d /io"
+                    "cd /auditwheel_src/tests/integration/testrpath &&"
+                    "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+                    f"DTAG={dtag} python setup.py bdist_wheel -d /io"
                 ),
             ],
         )
@@ -477,9 +478,10 @@ class Anylinux:
             [
                 "bash",
                 "-c",
-                "cd /auditwheel_src/tests/integration/multiple_top_level "
-                "&& make clean all "
-                "&& pip wheel . -w /io",
+                "cd /auditwheel_src/tests/integration/multiple_top_level && "
+                "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+                "make clean all && "
+                "pip wheel . -w /io",
             ],
         )
 
@@ -545,10 +547,11 @@ class Anylinux:
             [
                 "bash",
                 "-c",
-                "cd /auditwheel_src/tests/integration/internal_rpath "
-                "&& make clean all "
-                "&& mv lib-src/a/liba.so internal_rpath "
-                "&& pip wheel . -w /io",
+                "cd /auditwheel_src/tests/integration/internal_rpath && "
+                "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+                "make clean all && "
+                "mv lib-src/a/liba.so internal_rpath && "
+                "pip wheel . -w /io",
             ],
         )
 
@@ -608,8 +611,9 @@ class Anylinux:
             [
                 "bash",
                 "-c",
-                "cd /auditwheel_src/tests/integration/sample_extension "
-                "&& python -m pip wheel --no-deps -w /io .",
+                "cd /auditwheel_src/tests/integration/sample_extension && "
+                "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+                "python -m pip wheel --no-deps -w /io .",
             ],
         )
 
@@ -644,8 +648,9 @@ class Anylinux:
             [
                 "bash",
                 "-c",
-                "cd /auditwheel_src/tests/integration/nonpy_rpath "
-                "&& python -m pip wheel --no-deps -w /io .",
+                "cd /auditwheel_src/tests/integration/nonpy_rpath && "
+                "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+                "python -m pip wheel --no-deps -w /io .",
             ],
         )
 
