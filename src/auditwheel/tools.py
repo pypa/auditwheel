@@ -2,7 +2,8 @@ import argparse
 import os
 import subprocess
 import zipfile
-from typing import Any, Iterable, List
+from datetime import datetime, timezone
+from typing import Any, Iterable, List, Optional
 
 
 def unique_by_index(sequence: Iterable[Any]) -> List[Any]:
@@ -49,7 +50,7 @@ def zip2dir(zip_fname: str, out_dir: str) -> None:
                 os.chmod(extracted_path, attr)
 
 
-def dir2zip(in_dir: str, zip_fname: str) -> None:
+def dir2zip(in_dir: str, zip_fname: str, date_time: Optional[datetime] = None) -> None:
     """Make a zip file `zip_fname` with contents of directory `in_dir`
 
     The recorded filenames are relative to `in_dir`, so doing a standard zip
@@ -62,17 +63,28 @@ def dir2zip(in_dir: str, zip_fname: str) -> None:
         Directory path containing files to go in the zip archive
     zip_fname : str
         Filename of zip archive to write
+    date_time : Optional[datetime]
+        Time stamp to set on each file in the archive
     """
+    if date_time is None:
+        st = os.stat(in_dir)
+        date_time = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+    date_time_args = date_time.timetuple()[:6]
     with zipfile.ZipFile(zip_fname, "w", compression=zipfile.ZIP_DEFLATED) as z:
         for root, dirs, files in os.walk(in_dir):
             for dir in dirs:
                 dname = os.path.join(root, dir)
-                out_dname = os.path.relpath(dname, in_dir)
-                z.write(dname, out_dname)
+                out_dname = os.path.relpath(dname, in_dir) + "/"
+                zinfo = zipfile.ZipInfo(out_dname, date_time=date_time_args)
+                zinfo.external_attr = os.stat(dname).st_mode << 16
+                z.writestr(zinfo, "")
             for file in files:
                 fname = os.path.join(root, file)
                 out_fname = os.path.relpath(fname, in_dir)
-                z.write(fname, out_fname)
+                zinfo = zipfile.ZipInfo(out_fname, date_time=date_time_args)
+                zinfo.external_attr = os.stat(fname).st_mode << 16
+                with open(fname, "rb") as fp:
+                    z.writestr(zinfo, fp.read())
 
 
 def tarbz2todir(tarbz2_fname: str, out_dir: str) -> None:
