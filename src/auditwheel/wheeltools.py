@@ -9,6 +9,7 @@ import hashlib
 import logging
 import os
 from base64 import urlsafe_b64encode
+from datetime import datetime, timezone
 from itertools import product
 from os.path import abspath, basename, dirname, exists
 from os.path import join as pjoin
@@ -127,7 +128,11 @@ class InWheel(InTemporaryDirectory):
     ) -> None:
         if self.out_wheel is not None:
             rewrite_record(self.name)
-            dir2zip(self.name, self.out_wheel)
+            date_time = None
+            timestamp = os.environ.get("SOURCE_DATE_EPOCH")
+            if timestamp:
+                date_time = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
+            dir2zip(self.name, self.out_wheel, date_time)
         return super().__exit__(exc, value, tb)
 
 
