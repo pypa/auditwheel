@@ -74,7 +74,14 @@ PATH_DIRS = [
 ]
 PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser("~/.cache/auditwheel_tests")
-NUMPY_VERSION = "1.19.2"
+NUMPY_VERSION_MAP = {
+    "36": "1.19.2",
+    "37": "1.19.2",
+    "38": "1.19.2",
+    "39": "1.19.2",
+    "310": "1.21.4",
+}
+NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
 ORIGINAL_SIX_WHEEL = "six-1.11.0-py2.py3-none-any.whl"
 SHOW_RE = re.compile(
@@ -698,6 +705,8 @@ class TestManylinux(Anylinux):
         Plus up-to-date pip, setuptools and pytest-cov
         """
         policy = request.param
+        if policy == "manylinux_2_5" and PYTHON_ABI_MAJ_MIN in {"310"}:
+            pytest.skip(f"manylinux_2_5 images do not support cp{PYTHON_ABI_MAJ_MIN}")
         base = MANYLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
         with tmp_docker_image(
