@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class AuditwheelException(Exception):
     pass
 

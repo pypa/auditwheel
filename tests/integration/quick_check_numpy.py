@@ -1,5 +1,7 @@
 # Sample numpy program that requires some BLAS and LAPACK routines to work
 # properly
+from __future__ import annotations
+
 import numpy as np
 
 rng = np.random.RandomState(0)

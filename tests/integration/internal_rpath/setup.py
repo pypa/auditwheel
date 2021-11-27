@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from setuptools import Extension, find_packages, setup
 
 package_name = "internal_rpath"

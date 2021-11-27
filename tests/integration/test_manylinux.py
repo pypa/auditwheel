@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import glob
 import io
 import logging
@@ -80,7 +82,6 @@ PATH_DIRS = [
 PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser("~/.cache/auditwheel_tests")
 NUMPY_VERSION_MAP = {
-    "36": "1.19.2",
     "37": "1.19.2",
     "38": "1.19.2",
     "39": "1.19.2",
@@ -805,7 +806,7 @@ class TestManylinux(Anylinux):
         Plus up-to-date pip, setuptools and pytest-cov
         """
         policy = request.param
-        if policy == "manylinux_2_5" and PYTHON_ABI_MAJ_MIN in {"310"}:
+        if policy == "manylinux_2_5" and PYTHON_ABI_MAJ_MIN not in {"37", "38", "39"}:
             pytest.skip(f"manylinux_2_5 images do not support cp{PYTHON_ABI_MAJ_MIN}")
         base = MANYLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}

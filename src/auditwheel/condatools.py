@@ -1,8 +1,9 @@
 """Context managers like those in wheeltools.py for unpacking
 conda packages.
 """
+from __future__ import annotations
+
 import os
-from typing import List, Optional
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import tarbz2todir
@@ -22,13 +23,13 @@ class InCondaPkg(InTemporaryDirectory):
 class InCondaPkgCtx(InCondaPkg):
     def __init__(self, in_conda_pkg: str) -> None:
         super().__init__(in_conda_pkg)
-        self.path: Optional[str] = None
+        self.path: str | None = None
 
     def __enter__(self):
         self.path = super().__enter__()
         return self
 
-    def iter_files(self) -> List[str]:
+    def iter_files(self) -> list[str]:
         if self.path is None:
             raise ValueError("This function should be called from context manager")
         files = os.path.join(self.path, "info", "files")

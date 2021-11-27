@@ -1,17 +1,18 @@
+from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
-from typing import List
 
 import nox
 
 nox.options.sessions = ["lint", "test-dist"]
 
-PYTHON_ALL_VERSIONS = ["3.6", "3.7", "3.8", "3.9", "3.10"]
+PYTHON_ALL_VERSIONS = ["3.7", "3.8", "3.9", "3.10"]
 RUNNING_CI = "TRAVIS" in os.environ or "GITHUB_ACTIONS" in os.environ
 
 
-@nox.session(python=["3.6"], reuse_venv=True)
+@nox.session(python=["3.7"], reuse_venv=True)
 def lint(session: nox.Session) -> None:
     """
     Run linters on the codebase.
@@ -36,7 +37,7 @@ def coverage(session: nox.Session) -> None:
     )
 
 
-def _docker_images(session: nox.Session) -> List[str]:
+def _docker_images(session: nox.Session) -> list[str]:
     tmp_dir = Path(session.create_tmp())
     script = tmp_dir / "list_images.py"
     images_file = tmp_dir / "images.lst"

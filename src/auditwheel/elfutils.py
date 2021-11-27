@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 from os.path import basename, realpath, relpath
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List
 
 from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
@@ -8,7 +10,7 @@ from elftools.elf.elffile import ELFFile
 from .lddtree import parse_ld_paths
 
 
-def elf_read_dt_needed(fn: str) -> List[str]:
+def elf_read_dt_needed(fn: str) -> list[str]:
     needed = []
     with open(fn, "rb") as f:
         elf = ELFFile(f)
@@ -23,7 +25,7 @@ def elf_read_dt_needed(fn: str) -> List[str]:
     return needed
 
 
-def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
+def elf_file_filter(paths: Iterator[str]) -> Iterator[tuple[str, ELFFile]]:
     """Filter through an iterator of filenames and load up only ELF
     files
     """
@@ -41,7 +43,7 @@ def elf_file_filter(paths: Iterator[str]) -> Iterator[Tuple[str, ELFFile]]:
                 continue
 
 
-def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[Tuple[str, str]]:
+def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[tuple[str, str]]:
     section = elf.get_section_by_name(".gnu.version_r")
 
     if section is not None:
@@ -84,7 +86,7 @@ def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
     return False
 
 
-def elf_is_python_extension(fn: str, elf: ELFFile) -> Tuple[bool, Optional[int]]:
+def elf_is_python_extension(fn: str, elf: ELFFile) -> tuple[bool, int | None]:
     modname = basename(fn).split(".", 1)[0]
     module_init_f = {
         "init" + modname: 2,
@@ -108,7 +110,7 @@ def elf_is_python_extension(fn: str, elf: ELFFile) -> Tuple[bool, Optional[int]]
     return False, None
 
 
-def elf_read_rpaths(fn: str) -> Dict[str, List[str]]:
+def elf_read_rpaths(fn: str) -> dict[str, list[str]]:
     result = {"rpaths": [], "runpaths": []}  # type: Dict[str, List[str]]
 
     with open(fn, "rb") as f:
@@ -139,7 +141,7 @@ def is_subdir(path: str, directory: str) -> bool:
     return True
 
 
-def get_undefined_symbols(path: str) -> Set[str]:
+def get_undefined_symbols(path: str) -> set[str]:
     undef_symbols = set()
     with open(path, "rb") as f:
         elf = ELFFile(f)
@@ -153,8 +155,8 @@ def get_undefined_symbols(path: str) -> Set[str]:
 
 
 def filter_undefined_symbols(
-    path: str, symbols: Dict[str, List[str]]
-) -> Dict[str, List[str]]:
+    path: str, symbols: dict[str, list[str]]
+) -> dict[str, list[str]]:
     if not symbols:
         return {}
     undef_symbols = set("*") | get_undefined_symbols(path)

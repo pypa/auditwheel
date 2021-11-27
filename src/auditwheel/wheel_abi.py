@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import itertools
 import json
@@ -165,14 +167,14 @@ def get_wheel_elfdata(wheel_fn: str):
     )
 
 
-def get_external_libs(external_refs) -> Dict[str, str]:
+def get_external_libs(external_refs) -> dict[str, str]:
     """Get external library dependencies for all policies excluding the default
     linux policy
     :param external_refs: external references for all policies
     :return: {realpath: soname} e.g.
     {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
     """
-    result: Dict[str, str] = {}
+    result: dict[str, str] = {}
     for policy in external_refs.values():
         # linux tag (priority 0) has no white-list, do not analyze it
         if policy["priority"] == 0:

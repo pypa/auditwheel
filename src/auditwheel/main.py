@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import logging
 import os
@@ -9,14 +11,12 @@ if sys.version_info[:2] >= (3, 8):
 else:
     import importlib_metadata as metadata
 
-from typing import Optional
-
 import auditwheel
 
 from . import main_addtag, main_lddtree, main_repair, main_show
 
 
-def main() -> Optional[int]:
+def main() -> int | None:
     if sys.platform != "linux":
         print("Error: This tool only supports Linux")
         return 1

@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 import re
 from distutils.spawn import find_executable
 from itertools import chain
 from subprocess import CalledProcessError, check_call, check_output
-from typing import Tuple
 
 
 class ElfPatcher:
-    def replace_needed(self, file_name: str, *old_new_pairs: Tuple[str, str]) -> None:
+    def replace_needed(self, file_name: str, *old_new_pairs: tuple[str, str]) -> None:
         raise NotImplementedError
 
     def set_soname(self, file_name: str, new_so_name: str) -> None:
@@ -43,7 +44,7 @@ class Patchelf(ElfPatcher):
     def __init__(self) -> None:
         _verify_patchelf()
 
-    def replace_needed(self, file_name: str, *old_new_pairs: Tuple[str, str]) -> None:
+    def replace_needed(self, file_name: str, *old_new_pairs: tuple[str, str]) -> None:
         check_call(
             [
                 "patchelf",
