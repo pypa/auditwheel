@@ -19,7 +19,7 @@ def find_musl_libc() -> pathlib.Path:
     try:
         (dl_path,) = list(pathlib.Path("/lib").glob("libc.musl-*.so.1"))
     except ValueError:
-        LOG.error("Failed to determine libc version", exc_info=True)
+        LOG.debug("musl libc not detected")
         raise InvalidLibc
 
     return dl_path
