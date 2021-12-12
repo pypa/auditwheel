@@ -7,25 +7,18 @@ from auditwheel.error import InvalidLibc
 from auditwheel.musllinux import find_musl_libc, get_musl_version
 
 
-@patch("auditwheel.musllinux.subprocess.check_output")
-def test_find_musllinux_no_ldd(check_output_mock):
-    check_output_mock.side_effect = FileNotFoundError()
+@patch("auditwheel.musllinux.pathlib.Path")
+def test_find_musllinux_not_found(path_mock):
+    path_mock.return_value.glob.return_value = []
     with pytest.raises(InvalidLibc):
         find_musl_libc()
 
 
-@patch("auditwheel.musllinux.subprocess.check_output")
-def test_find_musllinux_ldd_error(check_output_mock):
-    check_output_mock.side_effect = subprocess.CalledProcessError(1, "ldd")
-    with pytest.raises(InvalidLibc):
-        find_musl_libc()
-
-
-@patch("auditwheel.musllinux.subprocess.check_output")
-def test_find_musllinux_not_found(check_output_mock):
-    check_output_mock.return_value = ""
-    with pytest.raises(InvalidLibc):
-        find_musl_libc()
+@patch("auditwheel.musllinux.pathlib.Path")
+def test_find_musllinux_found(path_mock):
+    path_mock.return_value.glob.return_value = ["/lib/ld-musl-x86_64.so.1"]
+    musl = find_musl_libc()
+    assert musl
 
 
 def test_get_musl_version_invalid_path():

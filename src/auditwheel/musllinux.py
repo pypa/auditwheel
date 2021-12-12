@@ -17,21 +17,12 @@ class MuslVersion(NamedTuple):
 
 def find_musl_libc() -> pathlib.Path:
     try:
-        ldd = subprocess.check_output(["ldd", "/bin/ls"], errors="strict")
-    except (subprocess.CalledProcessError, FileNotFoundError):
+        (dl_path,) = list(pathlib.Path("/lib").glob("libc.musl-*.so.1"))
+    except ValueError:
         LOG.error("Failed to determine libc version", exc_info=True)
         raise InvalidLibc
 
-    match = re.search(
-        r"libc\.musl-(?P<platform>\w+)\.so.1 "  # TODO drop the platform
-        r"=> (?P<path>[/\-\w.]+)",
-        ldd,
-    )
-
-    if not match:
-        raise InvalidLibc
-
-    return pathlib.Path(match.group("path"))
+    return dl_path
 
 
 def get_musl_version(ld_path: pathlib.Path) -> MuslVersion:
