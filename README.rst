@@ -37,17 +37,13 @@ will be picked up at runtime. This accomplishes a similar result as if the libra
 been statically linked without requiring changes to the build system. Packagers are
 advised that bundling, like static linking, may implicate copyright concerns.
 
-
-Installation
+Requirements
 ------------
+- OS: Linux
+- Python: 3.6+
+- `patchelf <https://github.com/NixOS/patchelf>`_
 
-``auditwheel`` can be installed using pip:
-
-.. code:: bash
-
-  $ pip3 install auditwheel
-
-It requires Python 3.6+, and runs on Linux. Only systems that use `ELF
+Only systems that use `ELF
 <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based linkage
 are supported (this should be essentially every Linux).
 
@@ -59,6 +55,14 @@ machine, so we recommend using the pre-built manylinux `Docker images
 
   $ docker run -i -t -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 /bin/bash
 
+Installation
+------------
+
+``auditwheel`` can be installed using pip:
+
+.. code:: bash
+
+  $ pip3 install auditwheel
 
 Examples
 --------
