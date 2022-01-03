@@ -4,6 +4,8 @@ include CHANGELOG.md
 include src/auditwheel/policy/*.json
 include src/auditwheel/_vendor/wheel/LICENSE.txt
 
+graft tests
+
 exclude .coveragerc
 exclude .gitignore
 exclude .git-blame-ignore-revs
@@ -13,4 +15,3 @@ exclude noxfile.py
 
 prune .github
 prune scripts
-prune tests
