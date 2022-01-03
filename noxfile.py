@@ -25,7 +25,7 @@ def coverage(session: nox.Session) -> None:
     """
     Run coverage using unit tests.
     """
-    session.install("-r", "test-requirements.txt", "pytest-cov", ".")
+    session.install(".[coverage]")
     session.run(
         "python",
         "-m",
@@ -60,9 +60,10 @@ def tests(session: nox.Session) -> None:
     Run tests.
     """
     posargs = session.posargs
-    session.install("-r", "test-requirements.txt", "-e", ".")
+    extras = "coverage" if RUNNING_CI else "test"
+    session.install("-e", f".[{extras}]")
     if RUNNING_CI:
-        session.install("pytest-cov", "codecov")
+        session.install("codecov")
         posargs.extend(["--cov", "auditwheel", "--cov-branch"])
         # pull manylinux images that will be used.
         # this helps passing tests which would otherwise timeout.
@@ -105,7 +106,7 @@ def test_dist(session: nox.Session) -> None:
 
 def _test_dist(session: nox.Session, path: str, pattern: str) -> None:
     (dist_path,) = Path(path).glob(pattern)
-    session.install("-r", "test-requirements.txt", str(dist_path))
+    session.install(f"{str(dist_path)}[test]")
     session.run("pytest", "tests/unit")
 
 
