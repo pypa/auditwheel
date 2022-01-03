@@ -2,6 +2,14 @@
 
 ## HEAD
 
+## 5.1.1
+
+Released Jan. 03, 2022
+
+### User-facing changes
+- [BUGFIX] building from a github archive fails ([#321](https://github.com/pypa/auditwheel/issues/321), [#361](https://github.com/pypa/auditwheel/pull/361))
+- [BUGFIX] include tests in SDist ([#321](https://github.com/pypa/auditwheel/issues/321), [#362](https://github.com/pypa/auditwheel/pull/362))
+
 ## 5.1.0
 
 Released Jan. 03, 2022
