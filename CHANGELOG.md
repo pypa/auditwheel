@@ -2,6 +2,27 @@
 
 ## HEAD
 
+## 5.1.0
+
+Released Jan. 03, 2022
+
+### User-facing changes
+- [BUGFIX] libc version failed to be detected on CentOS8 based docker image ([#352](https://github.com/pypa/auditwheel/issues/352), [#353](https://github.com/pypa/auditwheel/pull/353))
+- [FEATURE] Add support for `SOURCE_DATE_EPOCH` ([#346](https://github.com/pypa/auditwheel/issues/346), [#348](https://github.com/pypa/auditwheel/pull/348))
+- [FEATURE] Add `manylinux_2_28` & `manylinux_2_31` policies ([#356](https://github.com/pypa/auditwheel/pull/356))
+- [DOC] Reflect dependency on patchelf in README ([#355](https://github.com/pypa/auditwheel/pull/355))
+
+### Housekeeping
+- Fix setuptools warnings seen during builds (deprecation notices) ([#337](https://github.com/pypa/auditwheel/pull/337))
+- Fix SDist includes files it shouldn't include ([#338](https://github.com/pypa/auditwheel/pull/338))
+- Add `build` & `test-dist` nox sessions ([#336](https://github.com/pypa/auditwheel/pull/336))
+- Add musllinux integration tests ([#317](https://github.com/pypa/auditwheel/pull/317))
+- Rename the default branch from master to main ([#342](https://github.com/pypa/auditwheel/pull/342))
+- Clean before build in test_manylinux ([#347](https://github.com/pypa/auditwheel/pull/347))
+- Test with python 3.10 ([#345](https://github.com/pypa/auditwheel/pull/345))
+- Move from `pbr` to `setuptools_scm`  ([#358](https://github.com/pypa/auditwheel/pull/358))
+- Add nox `develop` session  ([#359](https://github.com/pypa/auditwheel/pull/359))
+
 ## 5.0.0
 
 Released Sep. 18, 2021
