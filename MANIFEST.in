@@ -1,8 +1,12 @@
 include README.rst
 include LICENSE
+include CHANGELOG.md
+include src/auditwheel/policy/*.json
+include src/auditwheel/_vendor/wheel/LICENSE.txt
 
 exclude .coveragerc
 exclude .gitignore
+exclude .git-blame-ignore-revs
 exclude .pre-commit-config.yaml
 exclude .travis.yml
 exclude noxfile.py
