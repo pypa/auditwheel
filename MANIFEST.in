@@ -15,3 +15,8 @@ exclude noxfile.py
 
 prune .github
 prune scripts
+prune tests/**/__pycache__
+prune tests/**/*.egg-info
+prune tests/**/build
+
+global-exclude *.so
