@@ -2,6 +2,13 @@
 
 ## HEAD
 
+## 5.1.2
+
+Released Jan. 08, 2022
+
+### User-facing changes
+- [BUGFIX] wheels are not compressed with ZIP_DEFLATED ([#366](https://github.com/pypa/auditwheel/issues/366), [#367](https://github.com/pypa/auditwheel/pull/367))
+
 ## 5.1.1
 
 Released Jan. 03, 2022
