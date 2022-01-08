@@ -87,3 +87,14 @@ def test_zip2dir_round_trip_permissions(tmp_path):
     dir2zip(str(tmp_path / "unzip1"), str(tmp_path / "tmp.zip"))
     zip2dir(str(tmp_path / "tmp.zip"), str(extract_path))
     _check_permissions(extract_path)
+
+
+def test_dir2zip_deflate(tmp_path):
+    buffer = b"\0" * 1024 * 1024
+    input_dir = tmp_path / "input_dir"
+    input_dir.mkdir()
+    input_file = input_dir / "zeros.bin"
+    input_file.write_bytes(buffer)
+    output_file = tmp_path / "ouput.zip"
+    dir2zip(str(input_dir), str(output_file))
+    assert output_file.stat().st_size < len(buffer) / 4
