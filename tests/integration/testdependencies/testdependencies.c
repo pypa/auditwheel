@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 28)
+#include <threads.h>
+#endif
 #endif
 #include <Python.h>
 
@@ -20,6 +23,8 @@ run(PyObject *self, PyObject *args)
 
 #ifdef WITH_DEPENDENCY
     res = dep_run();
+#elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 28)
+    res = thrd_equal(thrd_current(), thrd_current()) ? 0 : 1;
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 24)
     res = (int)nextupf(0.0F);
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 17)
