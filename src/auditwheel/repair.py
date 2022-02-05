@@ -37,6 +37,7 @@ def repair_wheel(
     out_dir: str,
     update_tags: bool,
     patcher: ElfPatcher,
+    exclude: List[str],
     strip: bool = False,
 ) -> Optional[str]:
 
@@ -70,6 +71,11 @@ def repair_wheel(
             ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
             replacements = []  # type: List[Tuple[str, str]]
             for soname, src_path in ext_libs.items():
+
+                if soname in exclude:
+                    logger.info(f"Excluding {soname}")
+                    continue
+
                 if src_path is None:
                     raise ValueError(
                         (
