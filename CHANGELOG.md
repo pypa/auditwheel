@@ -121,8 +121,8 @@ Released Jul. 1, 2020
 
 ### User-facing changes
 - [FEATURE] Ensure that system-copied libraries are writable before running patchelf
-  ([https://github.com/pypa/auditwheel/pull/237](#237))
-- [FEATURE] Preserve RPATH in extension modules ([https://github.com/pypa/auditwheel/pull/245](#245))
+  ([#237](https://github.com/pypa/auditwheel/pull/237))
+- [FEATURE] Preserve RPATH in extension modules ([#245](https://github.com/pypa/auditwheel/pull/245))
 
 ## 3.1.1
 
