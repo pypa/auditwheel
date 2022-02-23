@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 from os.path import abspath, basename, exists, isfile
 
 from auditwheel.patcher import Patchelf
@@ -92,6 +93,12 @@ below.
         help="Do not check for higher policy compatibility",
         default=False,
     )
+    p.add_argument(
+        "--add-path",
+        dest="PATHS",
+        default="",
+        help=f"Additional path(s) to search for libraries, {os.pathsep!r}-delimited",
+    )
     p.set_defaults(func=execute)
 
 
@@ -105,6 +112,12 @@ def execute(args, p):
         p.error("cannot access %s. No such file" % args.WHEEL_FILE)
 
     logger.info("Repairing %s", basename(args.WHEEL_FILE))
+
+    if args.PATHS:
+        library_path = args.PATHS
+        if "LD_LIBRARY_PATH" in os.environ:
+            library_path += os.pathsep + os.environ["LD_LIBRARY_PATH"]
+        os.environ["LD_LIBRARY_PATH"] = library_path
 
     if not exists(args.WHEEL_DIR):
         os.makedirs(args.WHEEL_DIR)
