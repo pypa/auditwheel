@@ -51,6 +51,25 @@ class TestPatchElf:
             ["patchelf", "--replace-needed", soname_old, soname_new, filename]
         )
 
+    def test_replace_needed_multiple(self, check_call, _0, _1):
+        patcher = Patchelf()
+        filename = "test.so"
+        replacements = [
+            ("TEST_OLD1", "TEST_NEW1"),
+            ("TEST_OLD2", "TEST_NEW2"),
+        ]
+        patcher.replace_needed_multiple(filename, replacements)
+        check_call.assert_called_once_with(
+            [
+                "patchelf",
+                "--replace-needed",
+                *replacements[0],
+                "--replace-needed",
+                *replacements[1],
+                filename,
+            ]
+        )
+
     def test_set_soname(self, check_call, _0, _1):
         patcher = Patchelf()
         filename = "test.so"
