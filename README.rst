@@ -127,7 +127,7 @@ Limitations
 Testing
 -------
 
-The tests can be run with ``tox``, which will automatically install
+The tests can be run with ``nox``, which will automatically install
 test dependencies.
 
 Some of the integration tests also require a running and accessible Docker
