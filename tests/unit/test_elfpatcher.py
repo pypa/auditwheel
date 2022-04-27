@@ -41,24 +41,24 @@ def test_patchelf_version_check_fail(check_output, version):
 class TestPatchElf:
     """ "Validate that patchelf is invoked with the correct arguments."""
 
-    def test_replace_needed(self, check_call, _0, _1):
+    def test_replace_needed_one(self, check_call, _0, _1):
         patcher = Patchelf()
         filename = "test.so"
         soname_old = "TEST_OLD"
         soname_new = "TEST_NEW"
-        patcher.replace_needed(filename, soname_old, soname_new)
+        patcher.replace_needed(filename, (soname_old, soname_new))
         check_call.assert_called_once_with(
             ["patchelf", "--replace-needed", soname_old, soname_new, filename]
         )
 
-    def test_replace_needed_multiple(self, check_call, _0, _1):
+    def test_replace_needed_multple(self, check_call, _0, _1):
         patcher = Patchelf()
         filename = "test.so"
         replacements = [
             ("TEST_OLD1", "TEST_NEW1"),
             ("TEST_OLD2", "TEST_NEW2"),
         ]
-        patcher.replace_needed_multiple(filename, replacements)
+        patcher.replace_needed(filename, *replacements)
         check_call.assert_called_once_with(
             [
                 "patchelf",

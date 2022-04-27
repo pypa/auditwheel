@@ -83,7 +83,7 @@ def repair_wheel(
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
             if replacements:
-                patcher.replace_needed_multiple(fn, replacements)
+                patcher.replace_needed(fn, *replacements)
 
             if len(ext_libs) > 0:
                 new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
@@ -101,7 +101,7 @@ def repair_wheel(
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
-                patcher.replace_needed_multiple(path, replacements)
+                patcher.replace_needed(path, *replacements)
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))

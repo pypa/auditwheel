@@ -2,16 +2,11 @@ import re
 from distutils.spawn import find_executable
 from itertools import chain
 from subprocess import CalledProcessError, check_call, check_output
-from typing import Iterable, Tuple
+from typing import Tuple
 
 
 class ElfPatcher:
-    def replace_needed(self, file_name: str, so_name: str, new_so_name: str) -> None:
-        raise NotImplementedError
-
-    def replace_needed_multiple(
-        self, file_name: str, so_name_pairs: Iterable[Tuple[str, str]]
-    ) -> None:
+    def replace_needed(self, file_name: str, *old_new_pairs: Tuple[str, str]) -> None:
         raise NotImplementedError
 
     def set_soname(self, file_name: str, new_so_name: str) -> None:
@@ -48,17 +43,12 @@ class Patchelf(ElfPatcher):
     def __init__(self) -> None:
         _verify_patchelf()
 
-    def replace_needed(self, file_name: str, so_name: str, new_so_name: str) -> None:
-        check_call(["patchelf", "--replace-needed", so_name, new_so_name, file_name])
-
-    def replace_needed_multiple(
-        self, file_name: str, so_name_pairs: Iterable[Tuple[str, str]]
-    ) -> None:
+    def replace_needed(self, file_name: str, *old_new_pairs: Tuple[str, str]) -> None:
         check_call(
             [
                 "patchelf",
                 *chain.from_iterable(
-                    ("--replace-needed", *pair) for pair in so_name_pairs
+                    ("--replace-needed", *pair) for pair in old_new_pairs
                 ),
                 file_name,
             ]
