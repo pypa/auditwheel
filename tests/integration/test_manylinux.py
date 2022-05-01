@@ -712,6 +712,7 @@ class TestManylinux(Anylinux):
         with tmp_docker_image(
             base,
             [
+                'git config --global --add safe.directory "/auditwheel_src"',
                 "pip install -U pip setuptools pytest-cov",
                 "pip install -U -e /auditwheel_src",
             ],
@@ -935,6 +936,7 @@ class TestMusllinux(Anylinux):
         with tmp_docker_image(
             base,
             [
+                'git config --global --add safe.directory "/auditwheel_src"',
                 "pip install -U pip setuptools pytest-cov",
                 "pip install -U -e /auditwheel_src",
             ],
