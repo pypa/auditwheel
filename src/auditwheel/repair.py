@@ -67,8 +67,8 @@ def repair_wheel(
         # here, fn is a path to a python extension library in
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
-
             ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
+            replacements = []  # type: List[Tuple[str, str]]
             for soname, src_path in ext_libs.items():
                 if src_path is None:
                     raise ValueError(
@@ -81,7 +81,9 @@ def repair_wheel(
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
-                patcher.replace_needed(fn, soname, new_soname)
+                replacements.append((soname, new_soname))
+            if replacements:
+                patcher.replace_needed(fn, *replacements)
 
             if len(ext_libs) > 0:
                 new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
@@ -94,9 +96,12 @@ def repair_wheel(
         # name of the other.
         for old_soname, (new_soname, path) in soname_map.items():
             needed = elf_read_dt_needed(path)
+            replacements = []
             for n in needed:
                 if n in soname_map:
-                    patcher.replace_needed(path, n, soname_map[n][0])
+                    replacements.append((n, soname_map[n][0]))
+            if replacements:
+                patcher.replace_needed(path, *replacements)
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
