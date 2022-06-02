@@ -25,12 +25,14 @@ MANYLINUX1_IMAGE_ID = f"quay.io/pypa/manylinux1_{PLATFORM}:latest"
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
 MANYLINUX_2_24_IMAGE_ID = f"quay.io/pypa/manylinux_2_24_{PLATFORM}:latest"
+MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
         "manylinux_2_5": MANYLINUX1_IMAGE_ID,
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
         "manylinux_2_24": MANYLINUX_2_24_IMAGE_ID,
+        "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
     }
     POLICY_ALIASES = {
         "manylinux_2_5": ["manylinux1"],
@@ -42,6 +44,8 @@ else:
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
         "manylinux_2_24": MANYLINUX_2_24_IMAGE_ID,
     }
+    if PLATFORM in {"aarch64", "ppc64le"}:
+        MANYLINUX_IMAGES["manylinux_2_28"] = MANYLINUX_2_28_IMAGE_ID
     POLICY_ALIASES = {
         "manylinux_2_17": ["manylinux2014"],
     }
@@ -60,6 +64,7 @@ DEVTOOLSET = {
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
     "manylinux_2_24": "devtoolset-not-present",
+    "manylinux_2_28": "gcc-toolset-11",
     "musllinux_1_1": "devtoolset-not-present",
 }
 PATH_DIRS = [
@@ -685,6 +690,46 @@ class Anylinux:
                 "-c",
                 "import nonpy_rpath\n"
                 "assert nonpy_rpath.crypt_something().startswith('*')",
+            ],
+        )
+
+    def test_glibcxx_3_4_25(self, any_manylinux_container, docker_python, io_folder):
+        policy, tag, manylinux_ctr = any_manylinux_container
+        docker_exec(
+            manylinux_ctr,
+            [
+                "bash",
+                "-c",
+                "cd /auditwheel_src/tests/integration/test_glibcxx_3_4_25 && "
+                "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+                "python -m pip wheel --no-deps -w /io .",
+            ],
+        )
+
+        orig_wheel, *_ = os.listdir(io_folder)
+        assert orig_wheel.startswith("testentropy-0.0.1")
+
+        # Repair the wheel using the appropriate manylinux container
+        repair_command = f"auditwheel repair --plat {policy} -w /io /io/{orig_wheel}"
+        if policy.startswith("manylinux_2_28_"):
+            with pytest.raises(CalledProcessError):
+                docker_exec(manylinux_ctr, repair_command)
+            # TODO if a "permissive" mode is implemented, add the relevant flag to the
+            # repair_command here and drop the return statement below
+            return
+
+        docker_exec(manylinux_ctr, repair_command)
+
+        repaired_wheel, *_ = glob.glob(f"{io_folder}/*{policy}*.whl")
+        repaired_wheel = os.path.basename(repaired_wheel)
+
+        docker_exec(docker_python, "pip install /io/" + repaired_wheel)
+        docker_exec(
+            docker_python,
+            [
+                "python",
+                "-c",
+                "from testentropy import run; exit(run())",
             ],
         )
 
