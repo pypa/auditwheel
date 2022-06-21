@@ -2,7 +2,7 @@ import json
 import logging
 import platform as _platform_module
 import sys
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from os.path import abspath, dirname, join
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -102,7 +102,7 @@ def _fixup_musl_libc_soname(whitelist):
 
 with _POLICY_JSON_MAP[_LIBC].open() as f:
     _POLICIES = []
-    _policies_temp = json.load(f)
+    _policies_temp = json.load(f, object_pairs_hook=OrderedDict)
     _validate_pep600_compliance(_policies_temp)
     for _p in _policies_temp:
         if _MUSL_POLICY is not None and _p["name"] not in {"linux", _MUSL_POLICY}:
