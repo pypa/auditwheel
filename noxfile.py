@@ -41,7 +41,7 @@ def _docker_images(session: nox.Session) -> List[str]:
     script = tmp_dir / "list_images.py"
     images_file = tmp_dir / "images.lst"
     script.write_text(
-        fr"""
+        rf"""
 import sys
 from pathlib import Path
 sys.path.append("./tests/integration")
