@@ -312,6 +312,65 @@ class Anylinux:
         # at once in the same Python program:
         docker_exec(docker_python, ["python", "-c", "'import numpy; import foo'"])
 
+    @pytest.mark.skipif(
+        PLATFORM != "x86_64", reason="Only needs checking on one platform"
+    )
+    def test_repair_exclude(self, io_folder):
+        """Test the --exclude argument to avoid grafting certain libraries."""
+
+        policy = "manylinux_2_12"
+        policy_plat = f"{policy}_{PLATFORM}"
+        base = MANYLINUX_IMAGES[policy]
+        env = {"PATH": PATH[policy]}
+
+        with tmp_docker_image(
+            base,
+            [
+                'git config --global --add safe.directory "/auditwheel_src"',
+                "pip install -U pip setuptools pytest-cov",
+                "pip install -U -e /auditwheel_src",
+            ],
+            env,
+        ) as tmp_img:
+            with docker_container_ctx(tmp_img, io_folder, env) as container:
+                platform_tag = ".".join(
+                    [
+                        f"{p}_{PLATFORM}"
+                        for p in [policy] + POLICY_ALIASES.get(policy, [])
+                    ]
+                )
+
+                orig_wheel = build_numpy(container, policy_plat, io_folder)
+                assert orig_wheel == ORIGINAL_NUMPY_WHEEL
+                assert "manylinux" not in orig_wheel
+
+                # Exclude libgfortran from grafting into the wheel
+                output = docker_exec(
+                    container,
+                    [
+                        "auditwheel",
+                        "repair",
+                        "--plat",
+                        policy_plat,
+                        "--exclude",
+                        "libgfortran.so.5",
+                        "--only-plat",
+                        "-w",
+                        "/io",
+                        f"/io/{orig_wheel}",
+                    ],
+                )
+
+        assert "Excluding libgfortran" in output
+        filenames = os.listdir(io_folder)
+        assert len(filenames) == 2
+        repaired_wheel = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{platform_tag}.whl"
+        assert repaired_wheel in filenames
+
+        # Make sure we don't have libatlas in the result
+        contents = zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)).namelist()
+        assert not any(x for x in contents if x.startswith("libatlas"))
+
     def test_build_wheel_with_binary_executable(
         self, any_manylinux_container, docker_python, io_folder
     ):
