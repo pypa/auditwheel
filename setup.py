@@ -1,7 +1,7 @@
 from setuptools import setup
 
 extras = {
-    "test": ["pytest>=3.4", "jsonschema", "pypatchelf", "pretend", "docker"],
+    "test": ["pytest>=3.4", "jsonschema", "pretend", "docker"],
     "coverage": ["pytest-cov"],
 }
 extras["develop"] = sum(extras.values(), [])
