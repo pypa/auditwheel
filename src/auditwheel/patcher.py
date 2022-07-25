@@ -9,6 +9,9 @@ class ElfPatcher:
     def replace_needed(self, file_name: str, *old_new_pairs: Tuple[str, str]) -> None:
         raise NotImplementedError
 
+    def get_soname(self, file_name: str) -> str:
+        raise NotImplementedError
+
     def set_soname(self, file_name: str, new_so_name: str) -> None:
         raise NotImplementedError
 
@@ -52,6 +55,13 @@ class Patchelf(ElfPatcher):
                 ),
                 file_name,
             ]
+        )
+
+    def get_soname(self, file_name: str) -> str:
+        return (
+            check_output(["patchelf", "--print-soname", file_name])
+            .decode("utf-8")
+            .strip()
         )
 
     def set_soname(self, file_name: str, new_so_name: str) -> None:

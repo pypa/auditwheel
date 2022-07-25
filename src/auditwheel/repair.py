@@ -5,11 +5,11 @@ import platform
 import re
 import shutil
 import stat
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from subprocess import check_call
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from auditwheel.patcher import ElfPatcher
 
@@ -69,6 +69,8 @@ def repair_wheel(
         for fn, v in external_refs_by_fn.items():
             ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
             replacements = []  # type: List[Tuple[str, str]]
+            src_path_to_real_sonames = {}  # type: Dict[str, str]
+            same_soname_libs = defaultdict(set)  # type: Dict[str, Set[str]]
             for soname, src_path in ext_libs.items():
                 if src_path is None:
                     raise ValueError(
@@ -78,16 +80,36 @@ def repair_wheel(
                         )
                         % soname
                     )
+                real_soname = patcher.get_soname(src_path)
+                src_path_to_real_sonames[soname] = real_soname
+                same_soname_libs[real_soname].add(soname)
+
+            for soname, src_path in ext_libs.items():
+                if "site-packages" in str(src_path).split(os.path.sep):
+                    try:
+                        del same_soname_libs[src_path_to_real_sonames[soname]]
+                    except KeyError:
+                        pass
+
+            for real_soname, sonames in same_soname_libs.items():
+                if len(sonames) == 0:
+                    continue
+                soname = sonames.pop()  # only keep one .so file (remove duplicates)
+                src_path = ext_libs[soname]
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
+
             if replacements:
                 patcher.replace_needed(fn, *replacements)
 
             if len(ext_libs) > 0:
-                new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
-                new_rpath = os.path.join("$ORIGIN", new_rpath)
+                if len(soname_map) > 0:
+                    new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
+                    new_rpath = os.path.join("$ORIGIN", new_rpath)
+                else:
+                    new_rpath = None  # no new .so files are copied
                 append_rpath_within_wheel(fn, new_rpath, ctx.name, patcher)
 
         # we grafted in a bunch of libraries and modified their sonames, but
@@ -106,10 +128,13 @@ def repair_wheel(
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
-        if strip:
-            libs_to_strip = [path for (_, path) in soname_map.values()]
-            extensions = external_refs_by_fn.keys()
-            strip_symbols(itertools.chain(libs_to_strip, extensions))
+        if len(soname_map) > 0:
+            if strip:
+                libs_to_strip = [path for (_, path) in soname_map.values()]
+                extensions = external_refs_by_fn.keys()
+                strip_symbols(itertools.chain(libs_to_strip, extensions))
+        else:
+            shutil.rmtree(dest_dir, ignore_errors=True)  # move unnecessary directory
 
     return ctx.out_wheel
 
@@ -163,7 +188,7 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> Tuple[str, str
 
 
 def append_rpath_within_wheel(
-    lib_name: str, rpath: str, wheel_base_dir: str, patcher: ElfPatcher
+    lib_name: str, rpath: Optional[str], wheel_base_dir: str, patcher: ElfPatcher
 ) -> None:
     """Add a new rpath entry to a file while preserving as many existing
     rpath entries as possible.
@@ -182,12 +207,23 @@ def append_rpath_within_wheel(
     def is_valid_rpath(rpath: str) -> bool:
         return _is_valid_rpath(rpath, lib_dir, wheel_base_dir)
 
+    site_packages = os.path.join("$ORIGIN", os.path.relpath(wheel_base_dir, lib_dir))
+
     old_rpaths = patcher.get_rpath(lib_name)
-    rpaths = filter(is_valid_rpath, old_rpaths.split(":"))
+    rpaths = [rp for rp in old_rpaths.split(":") if is_valid_rpath(rp)]
+    rpaths = [
+        rp
+        if "site-packages" not in rp.split(os.path.sep)
+        else os.path.join(
+            site_packages, rp.rpartition("site-packages" + os.path.sep)[-1]
+        )
+        for rp in rpaths
+    ]
     # Remove duplicates while preserving ordering
     # Fake an OrderedSet using OrderedDict
     rpath_set = OrderedDict([(old_rpath, "") for old_rpath in rpaths])
-    rpath_set[rpath] = ""
+    if rpath is not None:
+        rpath_set[rpath] = ""
 
     patcher.set_rpath(lib_name, ":".join(rpath_set))
 
@@ -201,6 +237,16 @@ def _is_valid_rpath(rpath: str, lib_dir: str, wheel_base_dir: str) -> bool:
         )
         return False
     elif not is_subdir(full_rpath_entry, wheel_base_dir):
+        if "site-packages" in full_rpath_entry.split(os.path.sep):
+            site_packages = os.path.join(
+                "$ORIGIN",
+                os.path.relpath(wheel_base_dir, lib_dir),
+            )
+            new_rpath = os.path.join(
+                site_packages, rpath.rpartition("site-packages" + os.path.sep)[-1]
+            )
+            logger.debug(f"Preserved rpath entry {rpath} as {new_rpath}")
+            return True
         logger.debug(
             f"rpath entry {rpath} points outside the wheel -- " "discarding it."
         )
