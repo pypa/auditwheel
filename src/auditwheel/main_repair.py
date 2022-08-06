@@ -95,6 +95,17 @@ wheel will abort processing of subsequent wheels.
         help="Do not check for higher policy compatibility",
         default=False,
     )
+    p.add_argument(
+        "--no-copy-site-libs",
+        dest="COPY_SITE_LIBS",
+        action="store_false",
+        help=(
+            "Do not copy libraries located in the site-packages directory from "
+            "other packages (update rpath only). The developer will need to ensure "
+            "that the skipped libraries are listed the package install dependencies."
+        ),
+        default=True,
+    )
     p.set_defaults(func=execute)
 
 
@@ -170,6 +181,7 @@ def execute(args, p):
             update_tags=args.UPDATE_TAGS,
             patcher=patcher,
             strip=args.STRIP,
+            copy_site_libs=args.COPY_SITE_LIBS,
         )
 
         if out_wheel is not None:

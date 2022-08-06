@@ -38,6 +38,7 @@ def repair_wheel(
     update_tags: bool,
     patcher: ElfPatcher,
     strip: bool = False,
+    copy_site_libs: bool = True,
 ) -> Optional[str]:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
@@ -84,12 +85,13 @@ def repair_wheel(
                 src_path_to_real_sonames[soname] = real_soname
                 same_soname_libs[real_soname].add(soname)
 
-            for soname, src_path in ext_libs.items():
-                if "site-packages" in str(src_path).split(os.path.sep):
-                    try:
-                        del same_soname_libs[src_path_to_real_sonames[soname]]
-                    except KeyError:
-                        pass
+            if not copy_site_libs:
+                for soname, src_path in ext_libs.items():
+                    if "site-packages" in str(src_path).split(os.path.sep):
+                        try:
+                            del same_soname_libs[src_path_to_real_sonames[soname]]
+                        except KeyError:
+                            pass
 
             for real_soname, sonames in same_soname_libs.items():
                 if len(sonames) == 0:
@@ -110,7 +112,13 @@ def repair_wheel(
                     new_rpath = os.path.join("$ORIGIN", new_rpath)
                 else:
                     new_rpath = None  # no new .so files are copied
-                append_rpath_within_wheel(fn, new_rpath, ctx.name, patcher)
+                append_rpath_within_wheel(
+                    fn,
+                    new_rpath,
+                    ctx.name,
+                    patcher,
+                    copy_site_libs=copy_site_libs,
+                )
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
@@ -188,7 +196,12 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> Tuple[str, str
 
 
 def append_rpath_within_wheel(
-    lib_name: str, rpath: Optional[str], wheel_base_dir: str, patcher: ElfPatcher
+    lib_name: str,
+    rpath: Optional[str],
+    wheel_base_dir: str,
+    patcher: ElfPatcher,
+    *,
+    copy_site_libs: bool = True,
 ) -> None:
     """Add a new rpath entry to a file while preserving as many existing
     rpath entries as possible.
@@ -205,7 +218,9 @@ def append_rpath_within_wheel(
         wheel_base_dir = abspath(wheel_base_dir)
 
     def is_valid_rpath(rpath: str) -> bool:
-        return _is_valid_rpath(rpath, lib_dir, wheel_base_dir)
+        return _is_valid_rpath(
+            rpath, lib_dir, wheel_base_dir, copy_site_libs=copy_site_libs
+        )
 
     site_packages = os.path.join("$ORIGIN", os.path.relpath(wheel_base_dir, lib_dir))
 
@@ -213,9 +228,10 @@ def append_rpath_within_wheel(
     rpaths = [rp for rp in old_rpaths.split(":") if is_valid_rpath(rp)]
     rpaths = [
         rp
-        if "site-packages" not in rp.split(os.path.sep)
+        if copy_site_libs or "site-packages" not in rp.split(os.path.sep)
         else os.path.join(
-            site_packages, rp.rpartition("site-packages" + os.path.sep)[-1]
+            site_packages,
+            rp.rpartition(os.path.sep + "site-packages" + os.path.sep)[-1],
         )
         for rp in rpaths
     ]
@@ -228,32 +244,44 @@ def append_rpath_within_wheel(
     patcher.set_rpath(lib_name, ":".join(rpath_set))
 
 
-def _is_valid_rpath(rpath: str, lib_dir: str, wheel_base_dir: str) -> bool:
+def _is_valid_rpath(
+    rpath: str,
+    lib_dir: str,
+    wheel_base_dir: str,
+    *,
+    copy_site_libs: bool = True,
+) -> bool:
     full_rpath_entry = _resolve_rpath_tokens(rpath, lib_dir)
+
     if not isabs(full_rpath_entry):
         logger.debug(
             f"rpath entry {rpath} could not be resolved to an "
             "absolute path -- discarding it."
         )
         return False
-    elif not is_subdir(full_rpath_entry, wheel_base_dir):
-        if "site-packages" in full_rpath_entry.split(os.path.sep):
+
+    if not is_subdir(full_rpath_entry, wheel_base_dir):
+        if not copy_site_libs and "site-packages" in full_rpath_entry.split(
+            os.path.sep
+        ):
             site_packages = os.path.join(
                 "$ORIGIN",
                 os.path.relpath(wheel_base_dir, lib_dir),
             )
             new_rpath = os.path.join(
-                site_packages, rpath.rpartition("site-packages" + os.path.sep)[-1]
+                site_packages,
+                rpath.rpartition(os.path.sep + "site-packages" + os.path.sep)[-1],
             )
             logger.debug(f"Preserved rpath entry {rpath} as {new_rpath}")
             return True
+
         logger.debug(
             f"rpath entry {rpath} points outside the wheel -- " "discarding it."
         )
         return False
-    else:
-        logger.debug(f"Preserved rpath entry {rpath}")
-        return True
+
+    logger.debug(f"Preserved rpath entry {rpath}")
+    return True
 
 
 def _resolve_rpath_tokens(rpath: str, lib_base_dir: str) -> str:
