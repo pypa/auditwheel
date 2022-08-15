@@ -111,7 +111,8 @@ def repair_wheel(
                     new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
                     new_rpath = os.path.join("$ORIGIN", new_rpath)
                 else:
-                    new_rpath = None  # no new .so files are copied
+                    # no new .so files are copied
+                    new_rpath = None  # type: ignore
                 append_rpath_within_wheel(
                     fn,
                     new_rpath,
