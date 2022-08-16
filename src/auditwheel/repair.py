@@ -5,11 +5,11 @@ import platform
 import re
 import shutil
 import stat
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from subprocess import check_call
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from auditwheel.patcher import ElfPatcher
 
@@ -63,15 +63,16 @@ def repair_wheel(
         dest_dir = match.group("name") + lib_sdir
 
         if not exists(dest_dir):
+            keep_dest_dir = False
             os.mkdir(dest_dir)
+        else:
+            keep_dest_dir = True
 
         # here, fn is a path to a python extension library in
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
             ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
             replacements = []  # type: List[Tuple[str, str]]
-            src_path_to_real_sonames = {}  # type: Dict[str, str]
-            same_soname_libs = defaultdict(set)  # type: Dict[str, Set[str]]
             for soname, src_path in ext_libs.items():
                 if src_path is None:
                     raise ValueError(
@@ -81,23 +82,11 @@ def repair_wheel(
                         )
                         % soname
                     )
-                real_soname = patcher.get_soname(src_path)
-                src_path_to_real_sonames[soname] = real_soname
-                same_soname_libs[real_soname].add(soname)
 
-            if not copy_site_libs:
-                for soname, src_path in ext_libs.items():
-                    if "site-packages" in str(src_path).split(os.path.sep):
-                        try:
-                            del same_soname_libs[src_path_to_real_sonames[soname]]
-                        except KeyError:
-                            pass
-
-            for real_soname, sonames in same_soname_libs.items():
-                if len(sonames) == 0:
+                if not copy_site_libs and "site-packages" in str(src_path).split(
+                    os.path.sep
+                ):
                     continue
-                soname = sonames.pop()  # only keep one .so file (remove duplicates)
-                src_path = ext_libs[soname]
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
@@ -137,12 +126,12 @@ def repair_wheel(
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
-        if len(soname_map) > 0:
-            if strip:
-                libs_to_strip = [path for (_, path) in soname_map.values()]
-                extensions = external_refs_by_fn.keys()
-                strip_symbols(itertools.chain(libs_to_strip, extensions))
-        else:
+        if strip:
+            libs_to_strip = [path for (_, path) in soname_map.values()]
+            extensions = external_refs_by_fn.keys()
+            strip_symbols(itertools.chain(libs_to_strip, extensions))
+
+        if not (len(soname_map) > 0 or keep_dest_dir):
             shutil.rmtree(dest_dir, ignore_errors=True)  # move unnecessary directory
 
     return ctx.out_wheel
