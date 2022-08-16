@@ -187,7 +187,7 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> Tuple[str, str
 
 def append_rpath_within_wheel(
     lib_name: str,
-    rpath: Optional[str],
+    new_rpath: Optional[str],
     wheel_base_dir: str,
     patcher: ElfPatcher,
     *,
@@ -225,13 +225,13 @@ def append_rpath_within_wheel(
         )
         for rp in rpaths
     ]
+    if new_rpath is not None:
+        rpaths.append(new_rpath)
     # Remove duplicates while preserving ordering
     # Fake an OrderedSet using OrderedDict
-    rpath_set = OrderedDict([(old_rpath, "") for old_rpath in rpaths])
-    if rpath is not None:
-        rpath_set[rpath] = ""
+    rpaths = list(OrderedDict.fromkeys(rpaths))
 
-    patcher.set_rpath(lib_name, ":".join(rpath_set))
+    patcher.set_rpath(lib_name, ":".join(rpaths))
 
 
 def _is_valid_rpath(
