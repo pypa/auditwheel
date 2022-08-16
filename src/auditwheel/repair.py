@@ -5,11 +5,11 @@ import platform
 import re
 import shutil
 import stat
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from subprocess import check_call
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from auditwheel.patcher import ElfPatcher
 
@@ -73,6 +73,8 @@ def repair_wheel(
         for fn, v in external_refs_by_fn.items():
             ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
             replacements = []  # type: List[Tuple[str, str]]
+            src_path_to_real_sonames = {}  # type: Dict[str, str]
+            same_soname_libs = defaultdict(set)  # type: Dict[str, Set[str]]
             for soname, src_path in ext_libs.items():
                 if src_path is None:
                     raise ValueError(
@@ -83,10 +85,23 @@ def repair_wheel(
                         % soname
                     )
 
-                if not copy_site_libs and "site-packages" in str(src_path).split(
-                    os.path.sep
-                ):
+                real_soname = patcher.get_soname(src_path)
+                src_path_to_real_sonames[soname] = real_soname
+                same_soname_libs[real_soname].add(soname)
+
+            if not copy_site_libs:
+                for soname, src_path in ext_libs.items():
+                    if "site-packages" in str(src_path).split(os.path.sep):
+                        try:
+                            del same_soname_libs[src_path_to_real_sonames[soname]]
+                        except KeyError:
+                            pass
+
+            for real_soname, sonames in same_soname_libs.items():
+                if len(sonames) == 0:
                     continue
+                soname = sonames.pop()  # only keep one .so file (remove duplicates)
+                src_path = ext_libs[soname]
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
