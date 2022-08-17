@@ -73,7 +73,7 @@ def repair_wheel(
         for fn, v in external_refs_by_fn.items():
             ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
             replacements = []  # type: List[Tuple[str, str]]
-            src_path_to_real_sonames = {}  # type: Dict[str, str]
+            src_path_real_soname_map = {}  # type: Dict[str, str]
             same_soname_libs = defaultdict(set)  # type: Dict[str, Set[str]]
             for soname, src_path in ext_libs.items():
                 if src_path is None:
@@ -86,16 +86,13 @@ def repair_wheel(
                     )
 
                 real_soname = patcher.get_soname(src_path)
-                src_path_to_real_sonames[soname] = real_soname
+                src_path_real_soname_map[real_soname] = src_path
                 same_soname_libs[real_soname].add(soname)
 
             if not copy_site_libs:
                 for soname, src_path in ext_libs.items():
                     if "site-packages" in str(src_path).split(os.path.sep):
-                        try:
-                            del same_soname_libs[src_path_to_real_sonames[soname]]
-                        except KeyError:
-                            pass
+                        same_soname_libs.pop(src_path_real_soname_map[src_path], None)
 
             for real_soname, sonames in same_soname_libs.items():
                 if len(sonames) == 0:
