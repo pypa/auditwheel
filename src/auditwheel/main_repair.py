@@ -105,8 +105,8 @@ wheel will abort processing of subsequent wheels.
         help=(
             "Do not copy libraries located in the site-packages directory from "
             "other packages. Just update the `rpath` only. The developer will "
-            "need to ensure that the skipped libraries are listed the package "
-            "install dependencies."
+            "need to ensure that the skipped libraries are listed in the "
+            "package install dependencies."
         ),
         default=True,  # default: COPY_SITE_LIBS=True
     )
