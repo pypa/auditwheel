@@ -13,7 +13,7 @@ def configure_parser(sub_parsers):
         "-w",
         "--wheel-dir",
         dest="WHEEL_DIR",
-        help=("Directory to store new wheel file (default:" ' "wheelhouse/")'),
+        help="Directory to store new wheel file (default: %(default)r)",
         type=abspath,
         default="wheelhouse/",
     )

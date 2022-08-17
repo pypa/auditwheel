@@ -49,8 +49,10 @@ wheel will abort processing of subsequent wheels.
         metavar="PLATFORM",
         env="AUDITWHEEL_PLAT",
         dest="PLAT",
-        help="Desired target platform. See the available platforms under the "
-        f'PLATFORMS section below. (default: "{highest_policy}")',
+        help=(
+            "Desired target platform. See the available platforms under the "
+            "PLATFORMS section below. (default: %(default)r)"
+        ),
         choices=policy_names,
         default=highest_policy,
     )
@@ -59,7 +61,8 @@ wheel will abort processing of subsequent wheels.
         "--lib-sdir",
         dest="LIB_SDIR",
         help=(
-            "Subdirectory in packages to store copied libraries." ' (default: ".libs")'
+            "Subdirectory in packages to store copied libraries. "
+            "(default: %(default)r)"
         ),
         default=".libs",
     )
@@ -68,7 +71,7 @@ wheel will abort processing of subsequent wheels.
         "--wheel-dir",
         dest="WHEEL_DIR",
         type=abspath,
-        help=("Directory to store delocated wheels (default:" ' "wheelhouse/")'),
+        help="Directory to store delocated wheels (default: %(default)r)",
         default="wheelhouse/",
     )
     p.add_argument(
@@ -79,7 +82,7 @@ wheel will abort processing of subsequent wheels.
             "Do not update the wheel filename tags and WHEEL info"
             " to match the repaired platform tag."
         ),
-        default=True,
+        default=True,  # default: UPDATE_TAGS=True
     )
     p.add_argument(
         "--strip",
@@ -101,10 +104,11 @@ wheel will abort processing of subsequent wheels.
         action="store_false",
         help=(
             "Do not copy libraries located in the site-packages directory from "
-            "other packages (update rpath only). The developer will need to ensure "
-            "that the skipped libraries are listed the package install dependencies."
+            "other packages. Just update the `rpath` only. The developer will "
+            "need to ensure that the skipped libraries are listed the package "
+            "install dependencies."
         ),
-        default=True,
+        default=True,  # default: COPY_SITE_LIBS=True
     )
     p.set_defaults(func=execute)
 
