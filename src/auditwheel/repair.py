@@ -5,11 +5,11 @@ import platform
 import re
 import shutil
 import stat
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from subprocess import check_call
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from auditwheel.patcher import ElfPatcher
 
@@ -73,8 +73,7 @@ def repair_wheel(
         for fn, v in external_refs_by_fn.items():
             ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
             replacements = []  # type: List[Tuple[str, str]]
-            src_path_real_soname_map = {}  # type: Dict[str, str]
-            same_soname_libs = defaultdict(set)  # type: Dict[str, Set[str]]
+            copied_ext_libs = {}  # type: Dict[str, str]
             for soname, src_path in ext_libs.items():
                 if src_path is None:
                     raise ValueError(
@@ -85,21 +84,14 @@ def repair_wheel(
                         % soname
                     )
 
-                real_soname = patcher.get_soname(src_path)
-                src_path_real_soname_map[real_soname] = src_path
-                same_soname_libs[real_soname].add(soname)
-
-            if not copy_site_libs:
-                for soname, src_path in ext_libs.items():
-                    if "site-packages" in str(src_path).split(os.path.sep):
-                        same_soname_libs.pop(src_path_real_soname_map[src_path], None)
-
-            for real_soname, sonames in same_soname_libs.items():
-                if len(sonames) == 0:
+                if not copy_site_libs and "site-packages" in str(src_path).split(
+                    os.path.sep
+                ):
                     continue
-                soname = sonames.pop()  # only keep one .so file (remove duplicates)
-                src_path = ext_libs[soname]
 
+                copied_ext_libs[soname] = src_path
+
+            for soname, src_path in copied_ext_libs.items():
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
