@@ -39,7 +39,10 @@ def execute(args, p):
     try:
         winfo = analyze_wheel_abi(args.WHEEL_FILE)
     except NonPlatformWheel:
-        logger.info("This does not look like a platform wheel")
+        logger.info(
+            "This does not look like a platform wheel"
+            ", no compiled extension file found in the wheel archive"
+        )
         return 1
 
     libs_with_versions = [

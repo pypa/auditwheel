@@ -116,7 +116,10 @@ def execute(args, p):
         try:
             wheel_abi = analyze_wheel_abi(wheel_file)
         except NonPlatformWheel:
-            logger.info("This does not look like a platform wheel")
+            logger.info(
+                "This does not look like a platform wheel"
+                ", no compiled extension file found in the wheel archive"
+            )
             return 1
 
         policy = get_policy_by_name(args.PLAT)
