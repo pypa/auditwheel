@@ -116,7 +116,7 @@ def execute(args, p):
         try:
             wheel_abi = analyze_wheel_abi(wheel_file)
         except NonPlatformWheel:
-            logger.info(NonPlatformWheel.LogMessage)
+            logger.info(NonPlatformWheel.LOG_MESSAGE)
             return 1
 
         policy = get_policy_by_name(args.PLAT)

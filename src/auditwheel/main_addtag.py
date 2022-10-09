@@ -30,7 +30,7 @@ def execute(args, p):
     try:
         wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
     except NonPlatformWheel:
-        logger.info(NonPlatformWheel.LogMessage)
+        logger.info(NonPlatformWheel.LOG_MESSAGE)
         return 1
 
     parsed_fname = WHEEL_INFO_RE.search(basename(args.WHEEL_FILE))

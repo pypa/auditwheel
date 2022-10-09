@@ -50,7 +50,7 @@ class WheelAbiError(Exception):
 class NonPlatformWheel(WheelAbiError):
     """No ELF binaries in the wheel"""
 
-    LogMessage = (
+    LOG_MESSAGE = (
         "This does not look like a platform wheel, no ELF executable "
         "or shared library file (including compiled Python C extension) "
         "found in the wheel archive"
