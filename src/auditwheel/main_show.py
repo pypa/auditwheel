@@ -29,7 +29,11 @@ def execute(args, p):
         get_priority_by_name,
         load_policies,
     )
-    from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
+    from .wheel_abi import (
+        NOT_PLATFORM_WHEEL_MESSAGE,
+        NonPlatformWheel,
+        analyze_wheel_abi,
+    )
 
     fn = basename(args.WHEEL_FILE)
 
@@ -39,10 +43,7 @@ def execute(args, p):
     try:
         winfo = analyze_wheel_abi(args.WHEEL_FILE)
     except NonPlatformWheel:
-        logger.info(
-            "This does not look like a platform wheel"
-            ", no compiled extension file found in the wheel archive"
-        )
+        logger.info(NOT_PLATFORM_WHEEL_MESSAGE)
         return 1
 
     libs_with_versions = [

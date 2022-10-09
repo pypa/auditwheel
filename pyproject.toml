@@ -7,9 +7,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.black]
 target-version = ["py36", "py37", "py38", "py39"]
+extend-exclude = "src/auditwheel/_vendor"
 
 [tool.isort]
 profile = "black"
+extend_skip_glob = "src/auditwheel/_vendor/**/*.py"
 
 [tool.mypy]
 follow_imports = "silent"
