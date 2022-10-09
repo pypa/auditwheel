@@ -50,6 +50,12 @@ class WheelAbiError(Exception):
 class NonPlatformWheel(WheelAbiError):
     """No ELF binaries in the wheel"""
 
+    LOG_MESSAGE = (
+        "This does not look like a platform wheel, no ELF executable "
+        "or shared library file (including compiled Python C extension) "
+        "found in the wheel archive"
+    )
+
 
 @functools.lru_cache()
 def get_wheel_elfdata(wheel_fn: str):
