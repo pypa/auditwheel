@@ -24,17 +24,13 @@ def execute(args, p):
     import os
 
     from ._vendor.wheel.wheelfile import WHEEL_INFO_RE
-    from .wheel_abi import (
-        NOT_PLATFORM_WHEEL_MESSAGE,
-        NonPlatformWheel,
-        analyze_wheel_abi,
-    )
+    from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
     from .wheeltools import InWheelCtx, WheelToolsError, add_platforms
 
     try:
         wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
     except NonPlatformWheel:
-        logger.info(NOT_PLATFORM_WHEEL_MESSAGE)
+        logger.info(NonPlatformWheel.LogMessage)
         return 1
 
     parsed_fname = WHEEL_INFO_RE.search(basename(args.WHEEL_FILE))

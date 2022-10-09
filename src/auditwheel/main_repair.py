@@ -102,11 +102,7 @@ def execute(args, p):
     import os
 
     from .repair import repair_wheel
-    from .wheel_abi import (
-        NOT_PLATFORM_WHEEL_MESSAGE,
-        NonPlatformWheel,
-        analyze_wheel_abi,
-    )
+    from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
     for wheel_file in args.WHEEL_FILE:
         if not isfile(wheel_file):
@@ -120,7 +116,7 @@ def execute(args, p):
         try:
             wheel_abi = analyze_wheel_abi(wheel_file)
         except NonPlatformWheel:
-            logger.info(NOT_PLATFORM_WHEEL_MESSAGE)
+            logger.info(NonPlatformWheel.LogMessage)
             return 1
 
         policy = get_policy_by_name(args.PLAT)
