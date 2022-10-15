@@ -15,7 +15,7 @@ _HERE = Path(__file__).parent
 logger = logging.getLogger(__name__)
 
 # https://docs.python.org/3/library/platform.html#platform.architecture
-bits = 8 * (8 if sys.maxsize > 2 ** 32 else 4)
+bits = 8 * (8 if sys.maxsize > 2**32 else 4)
 
 
 def get_arch_name() -> str:
