@@ -315,61 +315,49 @@ class Anylinux:
     @pytest.mark.skipif(
         PLATFORM != "x86_64", reason="Only needs checking on one platform"
     )
-    def test_repair_exclude(self, io_folder):
+    def test_repair_exclude(self, any_manylinux_container, io_folder):
         """Test the --exclude argument to avoid grafting certain libraries."""
 
-        policy = "manylinux_2_12"
-        policy_plat = f"{policy}_{PLATFORM}"
-        base = MANYLINUX_IMAGES[policy]
-        env = {"PATH": PATH[policy]}
+        policy, tag, manylinux_ctr = any_manylinux_container
 
-        with tmp_docker_image(
-            base,
-            [
-                'git config --global --add safe.directory "/auditwheel_src"',
-                "pip install -U pip setuptools pytest-cov",
-                "pip install -U -e /auditwheel_src",
-            ],
-            env,
-        ) as tmp_img:
-            with docker_container_ctx(tmp_img, io_folder, env) as container:
-                platform_tag = ".".join(
-                    [
-                        f"{p}_{PLATFORM}"
-                        for p in [policy] + POLICY_ALIASES.get(policy, [])
-                    ]
-                )
+        orig_wheel = build_numpy(manylinux_ctr, policy, io_folder)
+        assert orig_wheel == ORIGINAL_NUMPY_WHEEL
+        assert "manylinux" not in orig_wheel
 
-                orig_wheel = build_numpy(container, policy_plat, io_folder)
-                assert orig_wheel == ORIGINAL_NUMPY_WHEEL
-                assert "manylinux" not in orig_wheel
+        # Exclude libgfortran from grafting into the wheel
+        excludes = {
+            "manylinux_2_5_x86_64": ["libgfortran.so.1", "libgfortran.so.3"],
+            "manylinux_2_12_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
+            "manylinux_2_17_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
+            "manylinux_2_24_x86_64": ["libgfortran.so.3"],
+            "manylinux_2_28_x86_64": ["libgfortran.so.5"],
+            "musllinux_1_1_x86_64": ["libgfortran.so.5"],
+        }[policy]
 
-                # Exclude libgfortran from grafting into the wheel
-                output = docker_exec(
-                    container,
-                    [
-                        "auditwheel",
-                        "repair",
-                        "--plat",
-                        policy_plat,
-                        "--exclude",
-                        "libgfortran.so.5",
-                        "--only-plat",
-                        "-w",
-                        "/io",
-                        f"/io/{orig_wheel}",
-                    ],
-                )
+        repair_command = [
+            "auditwheel",
+            "repair",
+            "--plat",
+            policy,
+            "--only-plat",
+            "-w",
+            "/io",
+        ]
+        for exclude in excludes:
+            repair_command.extend(["--exclude", exclude])
+        repair_command.append(f"/io/{orig_wheel}")
+        output = docker_exec(manylinux_ctr, repair_command)
 
-        assert "Excluding libgfortran" in output
+        for exclude in excludes:
+            assert f"Excluding {exclude}" in output
         filenames = os.listdir(io_folder)
         assert len(filenames) == 2
-        repaired_wheel = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{platform_tag}.whl"
+        repaired_wheel = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{tag}.whl"
         assert repaired_wheel in filenames
 
-        # Make sure we don't have libatlas in the result
+        # Make sure we don't have libgfortran in the result
         contents = zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)).namelist()
-        assert not any(x for x in contents if x.startswith("libatlas"))
+        assert not any(x for x in contents if "/libgfortran" in x)
 
     def test_build_wheel_with_binary_executable(
         self, any_manylinux_container, docker_python, io_folder
