@@ -2,6 +2,23 @@
 
 ## HEAD
 
+## 5.2.0
+
+Released Oct. 22, 2022
+
+### User-facing changes
+- [FEATURE] Allow `auditwheel repair` to process multiple wheels ([#343](https://github.com/pypa/auditwheel/pull/343), [#62](https://github.com/pypa/auditwheel/issues/62))
+- [FEATURE] Add `--exclude` option ([#368](https://github.com/pypa/auditwheel/pull/368), , [#76](https://github.com/pypa/auditwheel/issues/76), [#241](https://github.com/pypa/auditwheel/issues/241), [#391](https://github.com/pypa/auditwheel/issues/391))
+- [FEATURE] Update `replace_needed` to reduce total calls to `patchelf` ([#376](https://github.com/pypa/auditwheel/pull/376))
+- [FEATURE] Improve log message in case of NonPlatformWheel error ([#393](https://github.com/pypa/auditwheel/pull/393))
+- [DOC] Update testing instructions ([#377](https://github.com/pypa/auditwheel/pull/377))
+
+### Housekeeping
+- fix: add `/auditwheel_src` to git safe directories ([#378](https://github.com/pypa/auditwheel/pull/378))
+- test: add `manylinux_2_28` tests ([#369](https://github.com/pypa/auditwheel/pull/369))
+- Updated action versions ([#384](https://github.com/pypa/auditwheel/pull/384))
+- Update pre-commit hooks ([#399](https://github.com/pypa/auditwheel/pull/399))
+
 ## 5.1.2
 
 Released Jan. 08, 2022

@@ -19,4 +19,4 @@ prune tests/**/__pycache__
 prune tests/**/*.egg-info
 prune tests/**/build
 
-global-exclude *.so
+global-exclude *.so .DS_Store
