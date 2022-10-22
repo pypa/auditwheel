@@ -200,6 +200,45 @@ def assert_show_output(manylinux_ctr, wheel, expected_tag, strict):
         assert actual_glibc <= expected_glibc
 
 
+def build_numpy(container, policy, output_dir):
+    """Helper to build numpy from source using the specified container, into
+    output_dir."""
+
+    if policy.startswith("musllinux_"):
+        docker_exec(container, "apk add openblas-dev")
+    elif policy.startswith("manylinux_2_24_"):
+        docker_exec(container, "apt-get update")
+        docker_exec(
+            container, "apt-get install -y --no-install-recommends libatlas-dev"
+        )
+    else:
+        docker_exec(container, "yum install -y atlas atlas-devel")
+
+    if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
+        # If numpy has already been built and put in cache, let's reuse this.
+        shutil.copy2(
+            op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL),
+            op.join(output_dir, ORIGINAL_NUMPY_WHEEL),
+        )
+    else:
+        # otherwise build the original linux_x86_64 numpy wheel from source
+        # and put the result in the cache folder to speed-up future build.
+        # This part of the build is independent of the auditwheel code-base
+        # so it's safe to put it in cache.
+
+        docker_exec(
+            container,
+            f"pip wheel -w /io --no-binary=:all: numpy=={NUMPY_VERSION}",
+        )
+        os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
+        shutil.copy2(
+            op.join(output_dir, ORIGINAL_NUMPY_WHEEL),
+            op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL),
+        )
+    orig_wheel, *_ = os.listdir(output_dir)
+    return orig_wheel
+
+
 class Anylinux:
     @pytest.fixture()
     def io_folder(self, tmp_path):
@@ -230,43 +269,12 @@ class Anylinux:
         self, any_manylinux_container, docker_python, io_folder
     ):
         # Integration test: repair numpy built from scratch
+        policy, tag, manylinux_ctr = any_manylinux_container
 
         # First build numpy from source as a naive linux wheel that is tied
         # to system libraries (atlas, libgfortran...)
-        policy, tag, manylinux_ctr = any_manylinux_container
-        if policy.startswith("musllinux_"):
-            docker_exec(manylinux_ctr, "apk add openblas-dev")
-        elif policy.startswith("manylinux_2_24_"):
-            docker_exec(manylinux_ctr, "apt-get update")
-            docker_exec(
-                manylinux_ctr, "apt-get install -y --no-install-recommends libatlas-dev"
-            )
-        else:
-            docker_exec(manylinux_ctr, "yum install -y atlas atlas-devel")
-
-        if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
-            # If numpy has already been built and put in cache, let's reuse this.
-            shutil.copy2(
-                op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL),
-                op.join(io_folder, ORIGINAL_NUMPY_WHEEL),
-            )
-        else:
-            # otherwise build the original linux_x86_64 numpy wheel from source
-            # and put the result in the cache folder to speed-up future build.
-            # This part of the build is independent of the auditwheel code-base
-            # so it's safe to put it in cache.
-            docker_exec(
-                manylinux_ctr,
-                f"pip wheel -w /io --no-binary=:all: numpy=={NUMPY_VERSION}",
-            )
-            os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
-            shutil.copy2(
-                op.join(io_folder, ORIGINAL_NUMPY_WHEEL),
-                op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL),
-            )
-        filenames = os.listdir(io_folder)
-        assert filenames == [ORIGINAL_NUMPY_WHEEL]
-        orig_wheel = filenames[0]
+        orig_wheel = build_numpy(manylinux_ctr, policy, io_folder)
+        assert orig_wheel == ORIGINAL_NUMPY_WHEEL
         assert "manylinux" not in orig_wheel
 
         # Repair the wheel using the manylinux container
@@ -303,6 +311,53 @@ class Anylinux:
         # Check that the 2 fortran runtimes are well isolated and can be loaded
         # at once in the same Python program:
         docker_exec(docker_python, ["python", "-c", "'import numpy; import foo'"])
+
+    @pytest.mark.skipif(
+        PLATFORM != "x86_64", reason="Only needs checking on one platform"
+    )
+    def test_repair_exclude(self, any_manylinux_container, io_folder):
+        """Test the --exclude argument to avoid grafting certain libraries."""
+
+        policy, tag, manylinux_ctr = any_manylinux_container
+
+        orig_wheel = build_numpy(manylinux_ctr, policy, io_folder)
+        assert orig_wheel == ORIGINAL_NUMPY_WHEEL
+        assert "manylinux" not in orig_wheel
+
+        # Exclude libgfortran from grafting into the wheel
+        excludes = {
+            "manylinux_2_5_x86_64": ["libgfortran.so.1", "libgfortran.so.3"],
+            "manylinux_2_12_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
+            "manylinux_2_17_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
+            "manylinux_2_24_x86_64": ["libgfortran.so.3"],
+            "manylinux_2_28_x86_64": ["libgfortran.so.5"],
+            "musllinux_1_1_x86_64": ["libgfortran.so.5"],
+        }[policy]
+
+        repair_command = [
+            "auditwheel",
+            "repair",
+            "--plat",
+            policy,
+            "--only-plat",
+            "-w",
+            "/io",
+        ]
+        for exclude in excludes:
+            repair_command.extend(["--exclude", exclude])
+        repair_command.append(f"/io/{orig_wheel}")
+        output = docker_exec(manylinux_ctr, repair_command)
+
+        for exclude in excludes:
+            assert f"Excluding {exclude}" in output
+        filenames = os.listdir(io_folder)
+        assert len(filenames) == 2
+        repaired_wheel = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{tag}.whl"
+        assert repaired_wheel in filenames
+
+        # Make sure we don't have libgfortran in the result
+        contents = zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)).namelist()
+        assert not any(x for x in contents if "/libgfortran" in x)
 
     def test_build_wheel_with_binary_executable(
         self, any_manylinux_container, docker_python, io_folder
