@@ -11,7 +11,7 @@ concurrency:
 jobs:
   pre-commit:
     name: Pre-commit checks (Black, Flake8, MyPy, ...)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -22,7 +22,7 @@ jobs:
   test-dist:
     name: Test SDist & wheel
     needs: pre-commit
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -37,7 +37,7 @@ jobs:
   test:
     name: CPython ${{ matrix.python }}
     needs: test-dist
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +46,7 @@ jobs:
           - python: "3.8"
           - python: "3.9"
           - python: "3.10"
+          - python: "3.11"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
