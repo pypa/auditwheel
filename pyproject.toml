@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # enable version inference
 
 [tool.black]
-target-version = ["py37", "py38", "py39", "py310"]
+target-version = ["py37", "py38", "py39", "py310", "py311"]
 extend-exclude = "src/auditwheel/_vendor"
 
 [tool.isort]

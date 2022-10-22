@@ -86,6 +86,7 @@ NUMPY_VERSION_MAP = {
     "38": "1.19.2",
     "39": "1.19.2",
     "310": "1.21.4",
+    "311": "1.23.4",
 }
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
@@ -806,8 +807,14 @@ class TestManylinux(Anylinux):
         Plus up-to-date pip, setuptools and pytest-cov
         """
         policy = request.param
-        if policy == "manylinux_2_5" and PYTHON_ABI_MAJ_MIN not in {"37", "38", "39"}:
-            pytest.skip(f"manylinux_2_5 images do not support cp{PYTHON_ABI_MAJ_MIN}")
+        support_check_map = {
+            "manylinux_2_5": {"37", "38", "39"},
+            "manylinux_2_12": {"37", "38", "39", "310"},
+        }
+        check_set = support_check_map.get(policy, None)
+        if check_set and PYTHON_ABI_MAJ_MIN not in check_set:
+            pytest.skip(f"{policy} images do not support cp{PYTHON_ABI_MAJ_MIN}")
+
         base = MANYLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
         with tmp_docker_image(
