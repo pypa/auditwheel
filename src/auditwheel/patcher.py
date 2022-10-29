@@ -32,10 +32,10 @@ def _verify_patchelf() -> None:
         raise ValueError("Could not call `patchelf` binary")
 
     m = re.match(r"patchelf\s+(\d+(.\d+)?)", version)
-    if m and tuple(int(x) for x in m.group(1).split(".")) >= (0, 9):
+    if m and tuple(int(x) for x in m.group(1).split(".")) >= (0, 14):
         return
     raise ValueError(
-        ("patchelf %s found. auditwheel repair requires " "patchelf >= 0.9.") % version
+        f"patchelf {version} found. auditwheel repair requires " "patchelf >= 0.14."
     )
 
 
