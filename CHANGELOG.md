@@ -2,6 +2,13 @@
 
 ## HEAD
 
+## 5.2.1
+
+Released Oct. 30, 2022
+
+### User-facing changes
+- [BUGFIX] Require `patchelf >= 0.14` to handle features from 5.2.0 properly ([#403](https://github.com/pypa/auditwheel/pull/403), [#401](https://github.com/pypa/auditwheel/issues/401))
+
 ## 5.2.0
 
 Released Oct. 22, 2022

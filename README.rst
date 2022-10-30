@@ -41,7 +41,7 @@ Requirements
 ------------
 - OS: Linux
 - Python: 3.6+
-- `patchelf <https://github.com/NixOS/patchelf>`_
+- `patchelf <https://github.com/NixOS/patchelf>`_: 0.14+
 
 Only systems that use `ELF
 <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based linkage
