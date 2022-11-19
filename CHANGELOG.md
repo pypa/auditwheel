@@ -2,6 +2,13 @@
 
 ## HEAD
 
+## 5.3.0
+
+Released Nov. 19, 2022
+
+### User-facing changes
+- [FEATURE] Add `manylinux_2_34` & `manylinux_2_35` policies ([#405](https://github.com/pypa/auditwheel/pull/405), [#388](https://github.com/pypa/auditwheel/issues/388))
+
 ## 5.2.1
 
 Released Oct. 30, 2022
