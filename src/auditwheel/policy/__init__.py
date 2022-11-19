@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import platform as _platform_module
@@ -5,7 +7,6 @@ import sys
 from collections import defaultdict
 from os.path import abspath, dirname, join
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
@@ -31,8 +32,8 @@ _LIBC = get_libc()
 
 
 def _validate_pep600_compliance(policies) -> None:
-    symbol_versions: Dict[str, Dict[str, Set[str]]] = {}
-    lib_whitelist: Set[str] = set()
+    symbol_versions: dict[str, dict[str, set[str]]] = {}
+    lib_whitelist: set[str] = set()
     for policy in sorted(policies, key=lambda x: x["priority"], reverse=True):
         if policy["name"] == "linux":
             continue
@@ -131,7 +132,7 @@ def _load_policy_schema():
     return schema
 
 
-def get_policy_by_name(name: str) -> Optional[Dict]:
+def get_policy_by_name(name: str) -> dict | None:
     matches = [p for p in _POLICIES if p["name"] == name or name in p["aliases"]]
     if len(matches) == 0:
         return None
@@ -140,7 +141,7 @@ def get_policy_by_name(name: str) -> Optional[Dict]:
     return matches[0]
 
 
-def get_policy_name(priority: int) -> Optional[str]:
+def get_policy_name(priority: int) -> str | None:
     matches = [p["name"] for p in _POLICIES if p["priority"] == priority]
     if len(matches) == 0:
         return None
@@ -149,12 +150,12 @@ def get_policy_name(priority: int) -> Optional[str]:
     return matches[0]
 
 
-def get_priority_by_name(name: str) -> Optional[int]:
+def get_priority_by_name(name: str) -> int | None:
     policy = get_policy_by_name(name)
     return None if policy is None else policy["priority"]
 
 
-def get_replace_platforms(name: str) -> List[str]:
+def get_replace_platforms(name: str) -> list[str]:
     """Extract platform tag replacement rules from policy
 
     >>> get_replace_platforms('linux_x86_64')

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from subprocess import CalledProcessError
 from unittest.mock import call, patch
 

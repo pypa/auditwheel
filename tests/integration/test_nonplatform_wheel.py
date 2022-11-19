@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pathlib
 import subprocess
 
@@ -12,7 +14,7 @@ def test_non_platform_wheel_repair(mode):
     proc = subprocess.run(
         ["auditwheel", mode, str(wheel)],
         stderr=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
     )
     assert proc.returncode == 1
     assert "This does not look like a platform wheel" in proc.stderr

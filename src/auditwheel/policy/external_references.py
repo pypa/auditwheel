@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import re
 from typing import Any, Dict, Generator, Set
@@ -9,12 +11,12 @@ log = logging.getLogger(__name__)
 LIBPYTHON_RE = re.compile(r"^libpython\d\.\dm?.so(.\d)*$")
 
 
-def lddtree_external_references(lddtree: Dict, wheel_path: str) -> Dict:
+def lddtree_external_references(lddtree: dict, wheel_path: str) -> dict:
     # XXX: Document the lddtree structure, or put it in something
     # more stable than a big nested dict
     policies = load_policies()
 
-    def filter_libs(libs: Set[str], whitelist: Set[str]) -> Generator[str, None, None]:
+    def filter_libs(libs: set[str], whitelist: set[str]) -> Generator[str, None, None]:
         for lib in libs:
             if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
                 # always exclude ELF dynamic linker/loader
@@ -30,7 +32,7 @@ def lddtree_external_references(lddtree: Dict, wheel_path: str) -> Dict:
                 continue
             yield lib
 
-    def get_req_external(libs: Set[str], whitelist: Set[str]) -> Set[str]:
+    def get_req_external(libs: set[str], whitelist: set[str]) -> set[str]:
         # get all the required external libraries
         libs = libs.copy()
         reqs = set()

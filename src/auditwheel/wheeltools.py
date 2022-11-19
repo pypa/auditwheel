@@ -3,6 +3,8 @@
 Tools that aren't specific to delocation
 """
 
+from __future__ import annotations
+
 import csv
 import glob
 import hashlib
@@ -17,7 +19,7 @@ from os.path import relpath
 from os.path import sep as psep
 from os.path import splitext
 from types import TracebackType
-from typing import Generator, Iterable, List, Optional, Type
+from typing import Generator, Iterable
 
 from ._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
 from ._vendor.wheel.wheelfile import WHEEL_INFO_RE
@@ -101,7 +103,7 @@ class InWheel(InTemporaryDirectory):
     pack stuff up for you.
     """
 
-    def __init__(self, in_wheel: str, out_wheel: Optional[str] = None) -> None:
+    def __init__(self, in_wheel: str, out_wheel: str | None = None) -> None:
         """Initialize in-wheel context manager
 
         Parameters
@@ -122,9 +124,9 @@ class InWheel(InTemporaryDirectory):
 
     def __exit__(
         self,
-        exc: Optional[Type[BaseException]],
-        value: Optional[BaseException],
-        tb: Optional[TracebackType],
+        exc: type[BaseException] | None,
+        value: BaseException | None,
+        tb: TracebackType | None,
     ) -> None:
         if self.out_wheel is not None:
             rewrite_record(self.name)
@@ -152,7 +154,7 @@ class InWheelCtx(InWheel):
     ``wheel_path``.
     """
 
-    def __init__(self, in_wheel: str, out_wheel: Optional[str] = None) -> None:
+    def __init__(self, in_wheel: str, out_wheel: str | None = None) -> None:
         """Init in-wheel context manager returning self from enter
 
         Parameters
@@ -186,7 +188,7 @@ class InWheelCtx(InWheel):
 
 
 def add_platforms(
-    wheel_ctx: InWheelCtx, platforms: List[str], remove_platforms: Iterable[str] = ()
+    wheel_ctx: InWheelCtx, platforms: list[str], remove_platforms: Iterable[str] = ()
 ) -> str:
     """Add platform tags `platforms` to a wheel
 

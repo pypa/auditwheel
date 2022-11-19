@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 import logging
 import os
@@ -9,7 +11,7 @@ from collections import OrderedDict
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from subprocess import check_call
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 from auditwheel.patcher import ElfPatcher
 
@@ -32,14 +34,14 @@ WHEEL_INFO_RE = re.compile(
 
 def repair_wheel(
     wheel_path: str,
-    abis: List[str],
+    abis: list[str],
     lib_sdir: str,
     out_dir: str,
     update_tags: bool,
     patcher: ElfPatcher,
-    exclude: List[str],
+    exclude: list[str],
     strip: bool = False,
-) -> Optional[str]:
+) -> str | None:
 
     external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
 
@@ -126,7 +128,7 @@ def strip_symbols(libraries: Iterable[str]) -> None:
         check_call(["strip", "-s", lib])
 
 
-def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> Tuple[str, str]:
+def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
