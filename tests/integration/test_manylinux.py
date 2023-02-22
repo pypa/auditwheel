@@ -314,10 +314,13 @@ class Anylinux:
         # at once in the same Python program:
         docker_exec(docker_python, ["python", "-c", "'import numpy; import foo'"])
 
+    @pytest.mark.parametrize("exclude_with_wildcard", (True, False))
     @pytest.mark.skipif(
         PLATFORM != "x86_64", reason="Only needs checking on one platform"
     )
-    def test_repair_exclude(self, any_manylinux_container, io_folder):
+    def test_repair_exclude(
+        self, any_manylinux_container, io_folder, exclude_with_wildcard
+    ):
         """Test the --exclude argument to avoid grafting certain libraries."""
 
         policy, tag, manylinux_ctr = any_manylinux_container
@@ -327,14 +330,19 @@ class Anylinux:
         assert "manylinux" not in orig_wheel
 
         # Exclude libgfortran from grafting into the wheel
-        excludes = {
+        excludes_map = {
             "manylinux_2_5_x86_64": ["libgfortran.so.1", "libgfortran.so.3"],
             "manylinux_2_12_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
             "manylinux_2_17_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
             "manylinux_2_24_x86_64": ["libgfortran.so.3"],
             "manylinux_2_28_x86_64": ["libgfortran.so.5"],
             "musllinux_1_1_x86_64": ["libgfortran.so.5"],
-        }[policy]
+        }
+
+        excludes = exclude_args = excludes_map[policy]
+
+        if exclude_with_wildcard:
+            exclude_args = ["libgfortran*"]
 
         repair_command = [
             "auditwheel",
@@ -345,7 +353,7 @@ class Anylinux:
             "-w",
             "/io",
         ]
-        for exclude in excludes:
+        for exclude in exclude_args:
             repair_command.extend(["--exclude", exclude])
         repair_command.append(f"/io/{orig_wheel}")
         output = docker_exec(manylinux_ctr, repair_command)
