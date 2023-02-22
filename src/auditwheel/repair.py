@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import itertools
 import logging
 import os
@@ -73,8 +74,7 @@ def repair_wheel(
             ext_libs = v[abis[0]]["libs"]  # type: Dict[str, str]
             replacements = []  # type: List[Tuple[str, str]]
             for soname, src_path in ext_libs.items():
-
-                if soname in exclude:
+                if any(fnmatch.fnmatch(soname, e) for e in exclude):
                     logger.info(f"Excluding {soname}")
                     continue
 
