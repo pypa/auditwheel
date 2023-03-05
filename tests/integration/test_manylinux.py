@@ -66,7 +66,7 @@ DEVTOOLSET = {
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
     "manylinux_2_24": "devtoolset-not-present",
-    "manylinux_2_28": "gcc-toolset-11",
+    "manylinux_2_28": "gcc-toolset-12",
     "musllinux_1_1": "devtoolset-not-present",
 }
 PATH_DIRS = [
