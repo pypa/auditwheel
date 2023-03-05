@@ -9,7 +9,6 @@ from collections import defaultdict, namedtuple
 from collections.abc import Mapping
 from copy import deepcopy
 from os.path import basename
-from typing import Dict, Set
 
 from .elfutils import (
     elf_file_filter,
@@ -64,7 +63,7 @@ def get_wheel_elfdata(wheel_fn: str):
     full_elftree = {}
     nonpy_elftree = {}
     full_external_refs = {}
-    versioned_symbols = defaultdict(lambda: set())  # type: Dict[str, Set[str]]
+    versioned_symbols: dict[str, set[str]] = defaultdict(lambda: set())
     uses_ucs2_symbols = False
     uses_PyFPE_jbuf = False
 

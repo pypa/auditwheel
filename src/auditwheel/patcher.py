@@ -59,12 +59,10 @@ class Patchelf(ElfPatcher):
         check_call(["patchelf", "--set-soname", new_so_name, file_name])
 
     def set_rpath(self, file_name: str, rpath: str) -> None:
-
         check_call(["patchelf", "--remove-rpath", file_name])
         check_call(["patchelf", "--force-rpath", "--set-rpath", rpath, file_name])
 
     def get_rpath(self, file_name: str) -> str:
-
         return (
             check_output(["patchelf", "--print-rpath", file_name])
             .decode("utf-8")

@@ -10,6 +10,7 @@ target-version = ["py37", "py38", "py39", "py310", "py311"]
 extend-exclude = "src/auditwheel/_vendor"
 
 [tool.isort]
+py_version = 37
 profile = "black"
 extend_skip_glob = "src/auditwheel/_vendor/**/*.py"
 

@@ -21,10 +21,11 @@ bits = 8 * (8 if sys.maxsize > 2**32 else 4)
 
 def get_arch_name() -> str:
     machine = _platform_module.machine()
+    if sys.platform == "darwin" and machine == "arm64":
+        return "aarch64"
     if machine not in {"x86_64", "i686"}:
         return machine
-    else:
-        return {64: "x86_64", 32: "i686"}[bits]
+    return {64: "x86_64", 32: "i686"}[bits]
 
 
 _ARCH_NAME = get_arch_name()
