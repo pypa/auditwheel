@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, Generator, Set
+from typing import Any, Generator
 
 from ..elfutils import filter_undefined_symbols, is_subdir
 from . import load_policies
@@ -44,9 +44,9 @@ def lddtree_external_references(lddtree: dict, wheel_path: str) -> dict:
                     libs.add(dep)
         return reqs
 
-    ret = {}  # type: Dict[str, Dict[str, Any]]
+    ret: dict[str, dict[str, Any]] = {}
     for p in policies:
-        needed_external_libs = set()  # type: Set[str]
+        needed_external_libs: set[str] = set()
         blacklist = {}
 
         if not (p["name"] == "linux" and p["priority"] == 0):

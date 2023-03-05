@@ -539,7 +539,6 @@ class Anylinux:
     def test_build_repair_multiple_top_level_modules_wheel(
         self, any_manylinux_container, docker_python, io_folder
     ):
-
         policy, tag, manylinux_ctr = any_manylinux_container
 
         docker_exec(

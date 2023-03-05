@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from os.path import basename, realpath, relpath
-from typing import Dict, Iterator, List
+from typing import Iterator
 
 from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
@@ -67,7 +67,6 @@ def elf_find_ucs2_symbols(elf: ELFFile) -> Iterator[str]:
                 and sym["st_shndx"] == "SHN_UNDEF"
                 and sym["st_info"]["type"] == "STT_FUNC"
             ):
-
                 yield sym.name
 
 
@@ -104,14 +103,13 @@ def elf_is_python_extension(fn: str, elf: ELFFile) -> tuple[bool, int | None]:
             and sym["st_shndx"] != "SHN_UNDEF"
             and sym["st_info"]["type"] == "STT_FUNC"
         ):
-
             return True, module_init_f[sym.name]
 
     return False, None
 
 
 def elf_read_rpaths(fn: str) -> dict[str, list[str]]:
-    result = {"rpaths": [], "runpaths": []}  # type: Dict[str, List[str]]
+    result: dict[str, list[str]] = {"rpaths": [], "runpaths": []}
 
     with open(fn, "rb") as f:
         elf = ELFFile(f)

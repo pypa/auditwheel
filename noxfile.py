@@ -12,7 +12,7 @@ PYTHON_ALL_VERSIONS = ["3.7", "3.8", "3.9", "3.10", "3.11"]
 RUNNING_CI = "TRAVIS" in os.environ or "GITHUB_ACTIONS" in os.environ
 
 
-@nox.session(python=["3.7"], reuse_venv=True)
+@nox.session(python=["3.8"], reuse_venv=True)
 def lint(session: nox.Session) -> None:
     """
     Run linters on the codebase.

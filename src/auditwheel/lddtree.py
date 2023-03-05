@@ -20,7 +20,7 @@ import glob
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from elftools.elf.elffile import ELFFile
 
@@ -76,7 +76,7 @@ def readlink(path: str, root: str, prefixed: bool = False) -> str:
 
 def dedupe(items: list[str]) -> list[str]:
     """Remove all duplicates from ``items`` (keeping order)"""
-    seen = {}  # type: Dict[str, str]
+    seen: dict[str, str] = {}
     return [seen.setdefault(x, x) for x in items if x not in seen]
 
 
@@ -101,7 +101,7 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
     -------
         list of processed paths
     """
-    ldpaths = []  # type: List[str]
+    ldpaths: list[str] = []
     for ldpath in str_ldpaths.split(":"):
         if ldpath == "":
             # The ldso treats "" paths as $PWD.
@@ -133,7 +133,7 @@ def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> li
     -------
     list of paths found
     """
-    paths = []  # type: List[str]
+    paths: list[str] = []
 
     dbg_pfx = "" if _first else "  "
     try:
@@ -183,7 +183,7 @@ def load_ld_paths(root: str = "/", prefix: str = "") -> dict[str, list[str]]:
     -------
     dict containing library paths to search
     """
-    ldpaths = {"conf": [], "env": [], "interp": []}  # type: Dict
+    ldpaths: dict = {"conf": [], "env": [], "interp": []}
 
     # Load up $LD_LIBRARY_PATH.
     env_ldpath = os.environ.get("LD_LIBRARY_PATH")
@@ -271,7 +271,7 @@ def find_lib(
         The elf which the library should be compatible with (ELF wise)
     lib : str
         The library (basename) to search for
-    ldpaths : List[str]
+    ldpaths : list[str]
         A list of paths to search
     root : str
        The root path to resolve symlinks
@@ -349,7 +349,7 @@ def lddtree(
     if _first:
         _all_libs = {}
 
-    ret = {
+    ret: dict[str, Any] = {
         "interp": None,
         "path": path if display is None else display,
         "realpath": path,
@@ -357,7 +357,7 @@ def lddtree(
         "rpath": [],
         "runpath": [],
         "libs": _all_libs,
-    }  # type: Dict[str, Any]
+    }
 
     log.debug("lddtree(%s)" % path)
 
@@ -389,9 +389,9 @@ def lddtree(
                 break
 
         # Parse the ELF's dynamic tags.
-        libs = []  # type: List[str]
-        rpaths = []  # type: List[str]
-        runpaths = []  # type: List[str]
+        libs: list[str] = []
+        rpaths: list[str] = []
+        runpaths: list[str] = []
         for segment in elf.iter_segments():
             if segment.header.p_type != "PT_DYNAMIC":
                 continue
@@ -422,7 +422,7 @@ def lddtree(
         ret["needed"] = libs
 
         # Search for the libs this ELF uses.
-        all_ldpaths = None  # type: Optional[List[str]]
+        all_ldpaths: list[str] | None = None
         for lib in libs:
             if lib in _all_libs:
                 continue
