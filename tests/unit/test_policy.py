@@ -20,6 +20,8 @@ from auditwheel.policy import (
     [
         ("armv6l", "armv6l"),
         ("armv7l", "armv7l"),
+        ("armv8l", "armv7l"),
+        ("aarch64", "armv7l"),
         ("i686", "i686"),
         ("x86_64", "i686"),
     ],
@@ -35,8 +37,10 @@ def test_32bits_arch_name(machine_mock, reported_arch, expected_arch):
 @pytest.mark.parametrize(
     "reported_arch,expected_arch",
     [
+        ("armv8l", "aarch64"),
         ("aarch64", "aarch64"),
         ("ppc64le", "ppc64le"),
+        ("i686", "x86_64"),
         ("x86_64", "x86_64"),
     ],
 )
