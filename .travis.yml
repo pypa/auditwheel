@@ -14,6 +14,11 @@ jobs:
   allow_failures:
   - arch: ppc64le
 
+addons:
+  apt:
+    packages:
+    - qemu-user-binfmt
+
 services:
   - docker
 
@@ -27,7 +32,7 @@ install:
   - curl -fsSLo ${HOME}/codecov.SHA256SUM.sig https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
   - curl -fsSLo ${HOME}/codecov https://uploader.codecov.io/latest/linux/codecov
   - gpgv ${HOME}/codecov.SHA256SUM.sig ${HOME}/codecov.SHA256SUM
-  - cd ${HOME} && shasum -a 256 -c codecov.SHA256SUM
+  - pushd ${HOME} && shasum -a 256 -c codecov.SHA256SUM && popd
   - pwd
   - chmod +x ${HOME}/codecov
   - ${HOME}/codecov --version
