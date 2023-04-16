@@ -35,14 +35,14 @@ install:
   - pushd ${HOME} && shasum -a 256 -c codecov.SHA256SUM && popd
   - pwd
   - chmod +x ${HOME}/codecov
-  - qemu-user-static ${HOME}/codecov --version
+  - qemu-x86_64-static ${HOME}/codecov --version
   - pip install nox
 
 script:
   - nox -s tests-3.9
 
 after_success:
-  - qemu-user-static ${HOME}/codecov
+  - qemu-x86_64-static ${HOME}/codecov
 
 cache:
   directories:
