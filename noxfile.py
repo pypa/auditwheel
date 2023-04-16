@@ -64,7 +64,6 @@ def tests(session: nox.Session) -> None:
     extras = "coverage" if RUNNING_CI else "test"
     session.install("-e", f".[{extras}]")
     if RUNNING_CI:
-        session.install("codecov")
         posargs.extend(["--cov", "auditwheel", "--cov-branch"])
         # pull manylinux images that will be used.
         # this helps passing tests which would otherwise timeout.
@@ -74,10 +73,7 @@ def tests(session: nox.Session) -> None:
     session.run("pytest", "-s", *posargs)
     if RUNNING_CI:
         session.run("auditwheel", "lddtree", sys.executable)
-        try:
-            session.run("codecov")
-        except nox.command.CommandFailed:
-            pass  # Ignore failures from codecov tool
+        session.run("coverage", "xml", "-ocoverage.xml")
 
 
 def _build(session: nox.Session, dist: Path) -> None:

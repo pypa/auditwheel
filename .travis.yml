@@ -14,6 +14,11 @@ jobs:
   allow_failures:
   - arch: ppc64le
 
+addons:
+  apt:
+    packages:
+    - qemu-user-static
+
 services:
   - docker
 
@@ -21,10 +26,21 @@ notifications:
   email: false
 
 install:
+  - curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --no-default-keyring --keyring trustedkeys.gpg --import
+  - curl -fsSLo ${HOME}/codecov.SHA256SUM https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
+  - curl -fsSLo ${HOME}/codecov.SHA256SUM.sig https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
+  - curl -fsSLo ${HOME}/codecov https://uploader.codecov.io/latest/linux/codecov
+  - gpgv ${HOME}/codecov.SHA256SUM.sig ${HOME}/codecov.SHA256SUM
+  - pushd ${HOME} && shasum -a 256 -c codecov.SHA256SUM && popd
+  - chmod +x ${HOME}/codecov
+  - if [ "$(uname -m)" != "aarch64" ]; then qemu-x86_64-static ${HOME}/codecov --version; fi
   - pip install nox
 
 script:
   - nox -s tests-3.9
+
+after_success:
+  - if [ "$(uname -m)" != "aarch64" ]; then qemu-x86_64-static ${HOME}/codecov; fi
 
 cache:
   directories:

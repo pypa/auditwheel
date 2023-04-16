@@ -63,3 +63,5 @@ jobs:
           architecture: x64
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v3
