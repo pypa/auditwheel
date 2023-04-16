@@ -21,12 +21,14 @@ notifications:
   email: false
 
 install:
+  - pwd
   - curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --no-default-keyring --keyring trustedkeys.gpg --import
   - curl -fsSLo ${HOME}/codecov.SHA256SUM https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
   - curl -fsSLo ${HOME}/codecov.SHA256SUM.sig https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
   - curl -fsSLo ${HOME}/codecov https://uploader.codecov.io/latest/linux/codecov
   - gpgv ${HOME}/codecov.SHA256SUM.sig ${HOME}/codecov.SHA256SUM
-  - shasum -a 256 -c ${HOME}/codecov.SHA256SUM
+  - cd ${HOME} && shasum -a 256 -c codecov.SHA256SUM
+  - pwd
   - chmod +x ${HOME}/codecov
   - ${HOME}/codecov --version
   - pip install nox
