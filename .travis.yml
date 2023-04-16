@@ -18,7 +18,6 @@ addons:
   apt:
     packages:
     - qemu-user-static
-    - binfmt-support
 
 services:
   - docker
@@ -27,7 +26,6 @@ notifications:
   email: false
 
 install:
-  - update-binfmts --display
   - pwd
   - curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --no-default-keyring --keyring trustedkeys.gpg --import
   - curl -fsSLo ${HOME}/codecov.SHA256SUM https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
@@ -37,14 +35,14 @@ install:
   - pushd ${HOME} && shasum -a 256 -c codecov.SHA256SUM && popd
   - pwd
   - chmod +x ${HOME}/codecov
-  - ${HOME}/codecov --version
+  - qemu-user-static ${HOME}/codecov --version
   - pip install nox
 
 script:
   - nox -s tests-3.9
 
 after_success:
-  - ${HOME}/codecov
+  - qemu-user-static ${HOME}/codecov
 
 cache:
   directories:
