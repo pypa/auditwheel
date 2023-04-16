@@ -17,7 +17,8 @@ jobs:
 addons:
   apt:
     packages:
-    - qemu-user-binfmt
+    - qemu-user-static
+    - binfmt-support
 
 services:
   - docker
@@ -26,6 +27,7 @@ notifications:
   email: false
 
 install:
+  - update-binfmts --display
   - pwd
   - curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --no-default-keyring --keyring trustedkeys.gpg --import
   - curl -fsSLo ${HOME}/codecov.SHA256SUM https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
