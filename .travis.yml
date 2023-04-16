@@ -33,14 +33,14 @@ install:
   - gpgv ${HOME}/codecov.SHA256SUM.sig ${HOME}/codecov.SHA256SUM
   - pushd ${HOME} && shasum -a 256 -c codecov.SHA256SUM && popd
   - chmod +x ${HOME}/codecov
-  - [[ "$(uname -m)" != "aarch64" ]] && qemu-x86_64-static ${HOME}/codecov --version
+  - if [ "$(uname -m)" != "aarch64" ]; then qemu-x86_64-static ${HOME}/codecov --version; fi
   - pip install nox
 
 script:
   - nox -s tests-3.9
 
 after_success:
-  - [[ "$(uname -m)" != "aarch64" ]] && qemu-x86_64-static ${HOME}/codecov
+  - if [ "$(uname -m)" != "aarch64" ]; then qemu-x86_64-static ${HOME}/codecov; fi
 
 cache:
   directories:
