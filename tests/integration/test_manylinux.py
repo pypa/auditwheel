@@ -26,14 +26,12 @@ PLATFORM = get_arch_name()
 MANYLINUX1_IMAGE_ID = f"quay.io/pypa/manylinux1_{PLATFORM}:latest"
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
-MANYLINUX_2_24_IMAGE_ID = f"quay.io/pypa/manylinux_2_24_{PLATFORM}:latest"
 MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
         "manylinux_2_5": MANYLINUX1_IMAGE_ID,
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
-        "manylinux_2_24": MANYLINUX_2_24_IMAGE_ID,
         "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
     }
     POLICY_ALIASES = {
@@ -44,10 +42,8 @@ if PLATFORM in {"i686", "x86_64"}:
 else:
     MANYLINUX_IMAGES = {
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
-        "manylinux_2_24": MANYLINUX_2_24_IMAGE_ID,
+        "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
     }
-    if PLATFORM in {"aarch64", "ppc64le"}:
-        MANYLINUX_IMAGES["manylinux_2_28"] = MANYLINUX_2_28_IMAGE_ID
     POLICY_ALIASES = {
         "manylinux_2_17": ["manylinux2014"],
     }
@@ -65,7 +61,6 @@ DEVTOOLSET = {
     "manylinux_2_5": "devtoolset-2",
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
-    "manylinux_2_24": "devtoolset-not-present",
     "manylinux_2_28": "gcc-toolset-12",
     "musllinux_1_1": "devtoolset-not-present",
 }
@@ -208,11 +203,6 @@ def build_numpy(container, policy, output_dir):
 
     if policy.startswith("musllinux_"):
         docker_exec(container, "apk add openblas-dev")
-    elif policy.startswith("manylinux_2_24_"):
-        docker_exec(container, "apt-get update")
-        docker_exec(
-            container, "apt-get install -y --no-install-recommends libatlas-dev"
-        )
     else:
         docker_exec(container, "yum install -y atlas atlas-devel")
 
@@ -331,7 +321,6 @@ class Anylinux:
             "manylinux_2_5_x86_64": ["libgfortran.so.1", "libgfortran.so.3"],
             "manylinux_2_12_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
             "manylinux_2_17_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
-            "manylinux_2_24_x86_64": ["libgfortran.so.3"],
             "manylinux_2_28_x86_64": ["libgfortran.so.5"],
             "musllinux_1_1_x86_64": ["libgfortran.so.5"],
         }[policy]
@@ -369,11 +358,6 @@ class Anylinux:
         policy, tag, manylinux_ctr = any_manylinux_container
         if policy.startswith("musllinux_"):
             docker_exec(manylinux_ctr, "apk add gsl-dev")
-        elif policy.startswith("manylinux_2_24_"):
-            docker_exec(manylinux_ctr, "apt-get update")
-            docker_exec(
-                manylinux_ctr, "apt-get install -y --no-install-recommends libgsl-dev"
-            )
         else:
             docker_exec(manylinux_ctr, "yum install -y gsl-devel")
 
