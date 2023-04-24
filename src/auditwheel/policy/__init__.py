@@ -23,9 +23,12 @@ def get_arch_name() -> str:
     machine = _platform_module.machine()
     if sys.platform == "darwin" and machine == "arm64":
         return "aarch64"
-    if machine not in {"x86_64", "i686"}:
-        return machine
-    return {64: "x86_64", 32: "i686"}[bits]
+    if machine in {"x86_64", "i686"}:
+        return {64: "x86_64", 32: "i686"}[bits]
+    if machine in {"aarch64", "armv8l"}:
+        # use armv7l policy for 64-bit arm kernel in 32-bit mode (armv8l)
+        return {64: "aarch64", 32: "armv7l"}[bits]
+    return machine
 
 
 _ARCH_NAME = get_arch_name()
