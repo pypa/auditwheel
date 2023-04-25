@@ -6,6 +6,7 @@ import pytest
 
 from auditwheel.policy import (
     _validate_pep600_compliance,
+    lddtree_external_references,
     get_arch_name,
     get_policy_name,
     get_priority_by_name,
@@ -202,3 +203,32 @@ class TestPolicyAccess:
     def test_get_by_name_duplicate(self):
         with pytest.raises(RuntimeError):
             get_priority_by_name("duplicate")
+
+
+class TestLddTreeExternalReferences:
+    """Tests for lddtree_external_references."""
+
+    def test_filter_libs(self):
+        """Test the nested filter_libs function."""
+        filtered_libs = [
+            "ld-linux-x86_64.so.1",
+            "ld64.so.1",
+            "ld64.so.2",
+            "libpython3.7m.so.1.0",
+            "libpython3.9.so.1.0",
+            "libpython3.10.so.1.0",
+            "libpython999.999.so.1.0",
+        ]
+        unfiltered_libs = ["libfoo.so.1.0", "libbar.so.999.999.999"]
+        libs = filtered_libs + unfiltered_libs
+
+        lddtree = {
+            "realpath": "/path/to/lib",
+            "needed": libs,
+            "libs": {lib: {"needed": [], "realpath": "/path/to/lib"} for lib in libs},
+        }
+        full_external_refs = lddtree_external_references(lddtree, "/path/to/wheel")
+
+        # Assert that each policy only has the unfiltered libs.
+        for policy in full_external_refs:
+            assert set(full_external_refs[policy]["libs"]) == set(unfiltered_libs)
