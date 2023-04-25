@@ -6,11 +6,11 @@ import pytest
 
 from auditwheel.policy import (
     _validate_pep600_compliance,
-    lddtree_external_references,
     get_arch_name,
     get_policy_name,
     get_priority_by_name,
     get_replace_platforms,
+    lddtree_external_references,
 )
 
 
