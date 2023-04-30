@@ -8,7 +8,7 @@ from ..elfutils import filter_undefined_symbols, is_subdir
 from . import load_policies
 
 log = logging.getLogger(__name__)
-LIBPYTHON_RE = re.compile(r"^libpython\d\.\dm?.so(.\d)*$")
+LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
 
 
 def lddtree_external_references(lddtree: dict, wheel_path: str) -> dict:
