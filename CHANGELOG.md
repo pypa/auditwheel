@@ -2,6 +2,16 @@
 
 ## HEAD
 
+## 5.4.0
+
+Released May 1, 2023
+
+### User-facing changes
+- [FEATURE] Add python 3.11 support ([#407](https://github.com/pypa/auditwheel/pull/407))
+- [FEATURE] Drop python 3.6 support ([#400](https://github.com/pypa/auditwheel/pull/400))
+- [FEATURE] Use armv7l policy for 64-bit arm kernel in 32-bit mode (armv8l), BETA feature ([#419](https://github.com/pypa/auditwheel/pull/419))
+- [BUGFIX] Filter libpythonXY with X/Y more than single digits ([#424](https://github.com/pypa/auditwheel/pull/424), [#418](https://github.com/pypa/auditwheel/issues/418))
+
 ## 5.3.0
 
 Released Nov. 19, 2022
