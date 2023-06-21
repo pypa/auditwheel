@@ -19,6 +19,13 @@ def configure_parser(sub_parsers):
         type=abspath,
         default="wheelhouse/",
     )
+    p.add_argument(
+        "-t",
+        "--set-tags",
+        dest="TAGS",
+        help=("Set specified tags explicitly"),
+        nargs="+",
+    )
     p.set_defaults(func=execute)
 
 
@@ -38,16 +45,29 @@ def execute(args, p):
     parsed_fname = WHEEL_INFO_RE.search(basename(args.WHEEL_FILE))
     in_fname_tags = parsed_fname.groupdict()["plat"].split(".")
 
-    logger.info(
-        '%s receives the following tag: "%s".',
-        basename(args.WHEEL_FILE),
-        wheel_abi.overall_tag,
-    )
-    logger.info("Use ``auditwheel show`` for more details")
+    if args.TAGS is None:
+        logger.info(
+            '%s receives the following tag: "%s".',
+            basename(args.WHEEL_FILE),
+            wheel_abi.overall_tag,
+        )
+        logger.info("Use ``auditwheel show`` for more details")
 
-    if wheel_abi.overall_tag in in_fname_tags:
-        logger.info("No tags to be added. Exiting.")
-        return 1
+        if wheel_abi.overall_tag in in_fname_tags:
+            logger.info("No tags to be added. Exiting.")
+            return 1
+    else:
+        logger.info(
+            '%s receives the following tags: "%s".',
+            basename(args.WHEEL_FILE),
+            ", ".join(args.TAGS),
+        )
+
+    tags_to_remove = []
+    tags_to_add = [wheel_abi.overall_tag]
+    if args.TAGS is not None:
+        tags_to_remove = [x for x in in_fname_tags if x not in args.TAGS]
+        tags_to_add = args.TAGS
 
     # todo: move more of this logic to separate file
     if not exists(args.WHEEL_DIR):
@@ -55,7 +75,7 @@ def execute(args, p):
 
     with InWheelCtx(args.WHEEL_FILE) as ctx:
         try:
-            out_wheel = add_platforms(ctx, [wheel_abi.overall_tag])
+            out_wheel = add_platforms(ctx, tags_to_add, tags_to_remove)
         except WheelToolsError as e:
             logger.exception("\n%s.", repr(e))
             return 1
