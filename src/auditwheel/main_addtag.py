@@ -33,7 +33,7 @@ def execute(args, p):
         wheel_abi = analyze_wheel_abi(args.WHEEL_FILE)
     except NonPlatformWheel:
         logger.info(NonPlatformWheel.LOG_MESSAGE)
-        return 1
+        return 0
 
     parsed_fname = WHEEL_INFO_RE.search(basename(args.WHEEL_FILE))
     in_fname_tags = parsed_fname.groupdict()["plat"].split(".")
