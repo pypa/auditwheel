@@ -7,7 +7,6 @@ import platform
 import re
 import shutil
 import stat
-from collections import OrderedDict
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from subprocess import check_call
@@ -191,8 +190,7 @@ def append_rpath_within_wheel(
     old_rpaths = patcher.get_rpath(lib_name)
     rpaths = filter(is_valid_rpath, old_rpaths.split(":"))
     # Remove duplicates while preserving ordering
-    # Fake an OrderedSet using OrderedDict
-    rpath_set = OrderedDict([(old_rpath, "") for old_rpath in rpaths])
+    rpath_set = {old_rpath: "" for old_rpath in rpaths}
     rpath_set[rpath] = ""
 
     patcher.set_rpath(lib_name, ":".join(rpath_set))

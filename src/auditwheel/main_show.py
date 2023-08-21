@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +100,7 @@ def execute(args, p):
         printp("The wheel requires no external shared libraries! :)")
     else:
         printp("The following external shared libraries are required " "by the wheel:")
-        print(json.dumps(OrderedDict(sorted(libs.items())), indent=4))
+        print(json.dumps(dict(sorted(libs.items())), indent=4))
 
     for p in sorted(load_policies(), key=lambda p: p["priority"]):
         if p["priority"] > get_priority_by_name(winfo.overall_tag):
