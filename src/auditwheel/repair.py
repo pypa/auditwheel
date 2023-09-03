@@ -66,7 +66,7 @@ def repair_wheel(
         if not exists(dest_dir):
             os.mkdir(dest_dir)
 
-        # here, fn is a path to a python extension library in
+        # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
             ext_libs: dict[str, str] = v[abis[0]]["libs"]
@@ -92,6 +92,9 @@ def repair_wheel(
                 patcher.replace_needed(fn, *replacements)
 
             if len(ext_libs) > 0:
+                if _path_is_script(fn):
+                    fn = _replace_elf_script_with_shim(match.group("name"), fn)
+
                 new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
                 new_rpath = os.path.join("$ORIGIN", new_rpath)
                 append_rpath_within_wheel(fn, new_rpath, ctx.name, patcher)
@@ -232,3 +235,58 @@ def _resolve_rpath_tokens(rpath: str, lib_base_dir: str) -> str:
         rpath = rpath.replace(f"${token}", target)  # $TOKEN
         rpath = rpath.replace(f"${{{token}}}", target)  # ${TOKEN}
     return rpath
+
+
+def _path_is_script(path: str) -> bool:
+    # Looks something like "uWSGI-2.0.21.data/scripts/uwsgi"
+    components = path.split("/")
+    return (
+        len(components) == 3
+        and components[0].endswith(".data")
+        and components[1] == "scripts"
+    )
+
+
+def _replace_elf_script_with_shim(package_name: str, orig_path: str) -> str:
+    """Move an ELF script and replace it with a shim.
+
+    We can't directly rewrite the RPATH of ELF executables in the "scripts"
+    directory since scripts aren't installed to a consistent relative path to
+    platlib files.
+
+    Instead, we move the executable into a special directory in platlib and put
+    a shim script in its place which execs the real executable.
+
+    More context: https://github.com/pypa/auditwheel/issues/340
+
+    Returns the new path of the moved executable.
+    """
+    scripts_dir = f"{package_name}.scripts"
+    os.makedirs(scripts_dir, exist_ok=True)
+
+    new_path = os.path.join(scripts_dir, os.path.basename(orig_path))
+    os.rename(orig_path, new_path)
+
+    with open(orig_path, "w") as f:
+        f.write(_script_shim(new_path))
+    os.chmod(orig_path, os.stat(new_path).st_mode)
+
+    return new_path
+
+
+def _script_shim(binary_path: str) -> str:
+    return """\
+#!python
+import os
+import sys
+import sysconfig
+
+
+if __name__ == "__main__":
+    os.execv(
+        os.path.join(sysconfig.get_path("platlib"), {binary_path!r}),
+        sys.argv,
+    )
+""".format(
+        binary_path=binary_path,
+    )
