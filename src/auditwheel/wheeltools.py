@@ -21,8 +21,9 @@ from os.path import splitext
 from types import TracebackType
 from typing import Generator, Iterable
 
+from packaging.utils import parse_wheel_filename
+
 from ._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
-from ._vendor.wheel.wheelfile import WHEEL_INFO_RE
 from .tmpdirs import InTemporaryDirectory
 from .tools import dir2zip, unique_by_index, zip2dir
 
@@ -223,9 +224,8 @@ def add_platforms(
         out_dir = "."
         wheel_fname = basename(wheel_ctx.in_wheel)
 
-    parsed_fname = WHEEL_INFO_RE.match(wheel_fname)
-    fparts = parsed_fname.groupdict()
-    original_fname_tags = fparts["plat"].split(".")
+    _, _, _, in_tags = parse_wheel_filename(wheel_fname)
+    original_fname_tags = sorted({tag.platform for tag in in_tags})
     logger.info("Previous filename tags: %s", ", ".join(original_fname_tags))
     fname_tags = [tag for tag in original_fname_tags if tag not in remove_platforms]
     fname_tags = unique_by_index(fname_tags + platforms)
@@ -241,10 +241,12 @@ def add_platforms(
     else:
         logger.info("No filename tags change needed.")
 
-    _, ext = splitext(wheel_fname)
-    fparts["plat"] = ".".join(fname_tags)
-    fparts["ext"] = ext
-    out_wheel_fname = "{namever}-{pyver}-{abi}-{plat}{ext}".format(**fparts)
+    fparts = {
+        "prefix": wheel_fname.rsplit("-", maxsplit=1)[0],
+        "plat": ".".join(fname_tags),
+        "ext": splitext(wheel_fname)[1],
+    }
+    out_wheel_fname = "{prefix}-{plat}{ext}".format(**fparts)
     out_wheel = pjoin(out_dir, out_wheel_fname)
 
     in_info_tags = [tag for name, tag in info.items() if name == "Tag"]

@@ -25,7 +25,8 @@ def configure_parser(sub_parsers):
 def execute(args, p):
     import os
 
-    from ._vendor.wheel.wheelfile import WHEEL_INFO_RE
+    from packaging.utils import parse_wheel_filename
+
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
     from .wheeltools import InWheelCtx, WheelToolsError, add_platforms
 
@@ -35,8 +36,8 @@ def execute(args, p):
         logger.info(NonPlatformWheel.LOG_MESSAGE)
         return 1
 
-    parsed_fname = WHEEL_INFO_RE.search(basename(args.WHEEL_FILE))
-    in_fname_tags = parsed_fname.groupdict()["plat"].split(".")
+    _, _, _, in_tags = parse_wheel_filename(basename(args.WHEEL_FILE))
+    in_fname_tags = {tag.platform for tag in in_tags}
 
     logger.info(
         '%s receives the following tag: "%s".',
