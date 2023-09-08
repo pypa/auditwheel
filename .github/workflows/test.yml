@@ -47,6 +47,7 @@ jobs:
           - python: "3.9"
           - python: "3.10"
           - python: "3.11"
+          - python: "3.12"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -61,6 +62,7 @@ jobs:
         with:
           python-version: "${{ matrix.python }}"
           architecture: x64
+          allow-prereleases: true
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
       - name: Upload coverage to codecov
