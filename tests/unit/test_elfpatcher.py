@@ -8,9 +8,9 @@ import pytest
 from auditwheel.patcher import Patchelf
 
 
-@patch("auditwheel.patcher.find_executable")
-def test_patchelf_unavailable(find_executable):
-    find_executable.return_value = False
+@patch("auditwheel.patcher.which")
+def test_patchelf_unavailable(which):
+    which.return_value = False
     with pytest.raises(ValueError):
         Patchelf()
 
