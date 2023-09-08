@@ -77,9 +77,9 @@ PATH_DIRS = [
 PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser("~/.cache/auditwheel_tests")
 NUMPY_VERSION_MAP = {
-    "37": "1.19.2",
-    "38": "1.19.2",
-    "39": "1.19.2",
+    "37": "1.21.4",
+    "38": "1.21.4",
+    "39": "1.21.4",
     "310": "1.21.4",
     "311": "1.23.4",
 }
