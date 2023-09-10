@@ -52,7 +52,7 @@ PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
 PYTHON_ABI_MAJ_MIN = "".join(PYTHON_MAJ_MIN)
 PYTHON_ABI_FLAGS = "m" if sys.version_info.minor < 8 else ""
 PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}{PYTHON_ABI_FLAGS}"
-MANYLINUX_PYTHON_IMAGE_ID = f'python:{".".join(PYTHON_MAJ_MIN)}-slim'
+MANYLINUX_PYTHON_IMAGE_ID = f'python:{".".join(PYTHON_MAJ_MIN)}-slim-bullseye'
 MUSLLINUX_IMAGES = {
     "musllinux_1_1": f"quay.io/pypa/musllinux_1_1_{PLATFORM}:latest",
 }
@@ -77,9 +77,9 @@ PATH_DIRS = [
 PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser("~/.cache/auditwheel_tests")
 NUMPY_VERSION_MAP = {
-    "37": "1.19.2",
-    "38": "1.19.2",
-    "39": "1.19.2",
+    "37": "1.21.4",
+    "38": "1.21.4",
+    "39": "1.21.4",
     "310": "1.21.4",
     "311": "1.23.4",
 }
