@@ -222,7 +222,7 @@ def build_numpy(container, policy, output_dir):
 
         docker_exec(
             container,
-            f"pip wheel -w /io --no-binary=:all: numpy=={NUMPY_VERSION}",
+            f"pip wheel -w /io --no-binary=numpy numpy=={NUMPY_VERSION}",
         )
         os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
         shutil.copy2(
