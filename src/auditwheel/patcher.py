@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import re
-from distutils.spawn import find_executable
 from itertools import chain
+from shutil import which
 from subprocess import CalledProcessError, check_call, check_output
 
 
@@ -23,9 +23,9 @@ class ElfPatcher:
 def _verify_patchelf() -> None:
     """This function looks for the ``patchelf`` external binary in the PATH,
     checks for the required version, and throws an exception if a proper
-    version can't be found. Otherwise, silcence is golden
+    version can't be found. Otherwise, silence is golden
     """
-    if not find_executable("patchelf"):
+    if not which("patchelf"):
         raise ValueError("Cannot find required utility `patchelf` in PATH")
     try:
         version = check_output(["patchelf", "--version"]).decode("utf-8")
