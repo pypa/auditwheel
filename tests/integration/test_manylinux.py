@@ -203,6 +203,8 @@ def build_numpy(container, policy, output_dir):
 
     if policy.startswith("musllinux_"):
         docker_exec(container, "apk add openblas-dev")
+    elif policy.startswith("manylinux_2_28_"):
+        docker_exec(container, "dnf install -y openblas-devel")
     else:
         docker_exec(container, "yum install -y atlas atlas-devel")
 
@@ -264,7 +266,7 @@ class Anylinux:
         policy, tag, manylinux_ctr = any_manylinux_container
 
         # First build numpy from source as a naive linux wheel that is tied
-        # to system libraries (atlas, libgfortran...)
+        # to system libraries (blas, libgfortran...)
         orig_wheel = build_numpy(manylinux_ctr, policy, io_folder)
         assert orig_wheel == ORIGINAL_NUMPY_WHEEL
         assert "manylinux" not in orig_wheel
