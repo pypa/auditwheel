@@ -208,7 +208,7 @@ def build_numpy(container, policy, output_dir):
     else:
         docker_exec(container, "yum install -y atlas atlas-devel")
 
-    if False and op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
+    if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
         # If numpy has already been built and put in cache, let's reuse this.
         shutil.copy2(
             op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL),
