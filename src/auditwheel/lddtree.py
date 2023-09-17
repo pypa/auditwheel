@@ -114,7 +114,7 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
     return [p for p in dedupe(ldpaths) if os.path.isdir(p)]
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> list[str]:
     """Load all the paths from a given ldso config file
 
@@ -166,7 +166,7 @@ def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> li
     return paths
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def load_ld_paths(root: str = "/", prefix: str = "") -> dict[str, list[str]]:
     """Load linker paths from common locations
 

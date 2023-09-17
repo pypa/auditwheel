@@ -58,7 +58,7 @@ class NonPlatformWheel(WheelAbiError):
     )
 
 
-@functools.lru_cache()
+@functools.lru_cache
 def get_wheel_elfdata(wheel_fn: str):
     full_elftree = {}
     nonpy_elftree = {}

@@ -5,11 +5,7 @@ import logging
 import os
 import pathlib
 import sys
-
-if sys.version_info[:2] >= (3, 8):
-    from importlib import metadata
-else:
-    import importlib_metadata as metadata
+from importlib import metadata
 
 import auditwheel
 
