@@ -85,7 +85,7 @@ NUMPY_VERSION_MAP = {
     "39": "1.21.4",
     "310": "1.21.4",
     "311": "1.23.4",
-    "312": "1.26.0rc1",
+    "312": "1.26.0",
 }
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
