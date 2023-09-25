@@ -73,30 +73,32 @@ def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
 
 def elf_is_python_extension(fn: str, sql_engine: sql.SQLEngine) -> tuple[bool, int | None]:
     modname = basename(fn).split(".", 1)[0]
-    module_init_f = {
-        "init" + modname: 2,
-        "PyInit_" + modname: 3,
-        "_cffi_pypyinit_" + modname: 2,
-    }
-
     # TODO(fzakaria): A bit annoying but SQLite doesn't support
     # bindings of list. We can perhaps rethink this or fetch all
     # symbols and then filter in Python.
-    results = list(
-        sql_engine.execute("""
-        SELECT * FROM elf_symbols
-        WHERE name IN (""" + ",".join(["?"] * len(module_init_f)) + ")" +
-        """
+    sql = f"""
+        SELECT
+            CASE name
+                WHEN 'init{modname}' THEN 2
+                WHEN 'PyInit_{modname}' THEN 3
+                WHEN '_cffi_pypyinit_{modname}' THEN 2
+                ELSE -1
+            END AS python_version
+        FROM elf_symbols
+        WHERE name IN ('init{modname}', 'PyInit_{modname}', '_cffi_pypyinit_{modname}')
               AND exported = TRUE
               AND type = 'FUNC'
         LIMIT 1
-            """, tuple(module_init_f.keys()) )
-    )
+            """
+    results = list(sql_engine.execute(sql))
 
     if len(results) == 0:
         return False, None
 
-    return True, module_init_f[results[0]["name"]]
+    python_version = results[0]["python_version"]
+    assert python_version in (2, 3), "Invalid python version"
+
+    return True, python_version
 
 
 def elf_read_rpaths(fn: str) -> dict[str, list[str]]:
