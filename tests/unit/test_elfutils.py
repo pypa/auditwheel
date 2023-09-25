@@ -8,7 +8,6 @@ from elftools.common.exceptions import ELFError
 from auditwheel.elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
-    elf_find_versioned_symbols,
     elf_read_dt_needed,
     elf_references_PyFPE_jbuf,
 )
@@ -79,54 +78,6 @@ class TestElfFileFilter:
 
         # THEN
         assert len(list(result)) == 0
-
-
-class TestElfFindVersionedSymbols:
-    def test_find_symbols(self):
-        # GIVEN
-        elf = Mock()
-        verneed = Mock()
-        verneed.configure_mock(name="foo-lib")
-        veraux = Mock()
-        veraux.configure_mock(name="foo-lib")
-        elf.get_section_by_name.return_value.iter_versions.return_value = (
-            (verneed, [veraux]),
-        )
-
-        # WHEN
-        symbols = list(elf_find_versioned_symbols(elf))
-
-        # THEN
-        assert symbols == [("foo-lib", "foo-lib")]
-
-    @pytest.mark.parametrize("ld_name", ["ld-linux", "ld64.so.2", "ld64.so.1"])
-    def test_only_ld_linux(self, ld_name):
-        # GIVEN
-        elf = Mock()
-        verneed = Mock()
-        verneed.configure_mock(name=ld_name)
-        veraux = Mock()
-        veraux.configure_mock(name="foo-lib")
-        elf.get_section_by_name.return_value.iter_versions.return_value = (
-            (verneed, [veraux]),
-        )
-
-        # WHEN
-        symbols = list(elf_find_versioned_symbols(elf))
-
-        # THEN
-        assert len(symbols) == 0
-
-    def test_empty_section(self):
-        # GIVEN
-        elf = Mock()
-        elf.get_section_by_name.return_value = None
-
-        # WHEN
-        symbols = list(elf_find_versioned_symbols(elf))
-
-        # THEN
-        assert len(symbols) == 0
 
 
 class TestFindUcs2Symbols:

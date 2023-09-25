@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import functools
@@ -10,10 +11,11 @@ from collections.abc import Mapping
 from copy import deepcopy
 from os.path import basename
 
+from sqlelf import sql
+
 from .elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
-    elf_find_versioned_symbols,
     elf_is_python_extension,
     elf_references_PyFPE_jbuf,
 )
@@ -72,6 +74,9 @@ def get_wheel_elfdata(wheel_fn: str):
 
         platform_wheel = False
         for fn, elf in elf_file_filter(ctx.iter_files()):
+
+            sql_engine = sql.make_sql_engine([fn], recursive=False)
+
             platform_wheel = True
 
             # Check for invalid binary wheel format: no shared library should
@@ -89,7 +94,14 @@ def get_wheel_elfdata(wheel_fn: str):
                 log.debug("processing: %s", fn)
                 elftree = lddtree(fn)
 
-                for key, value in elf_find_versioned_symbols(elf):
+                # find the versioned symbols by library needed
+                results = sql_engine.execute("""
+                    SELECT file, name
+                    FROM elf_version_requirements
+                                   """)
+                for row in results:
+                    key = row["file"]
+                    value = row["name"]
                     log.debug("key %s, value %s", key, value)
                     versioned_symbols[key].add(value)
 
@@ -192,15 +204,22 @@ def get_versioned_symbols(libs):
     :return: {soname: {depname: set([symbol_version])}} e.g.
     {'external_ref.so.1': {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}}
     """
-    result = {}
-    for path, elf in elf_file_filter(libs.keys()):
-        # {depname: set(symbol_version)}, e.g.
-        # {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
-        elf_versioned_symbols = defaultdict(lambda: set())
-        for key, value in elf_find_versioned_symbols(elf):
-            log.debug("path %s, key %s, value %s", path, key, value)
-            elf_versioned_symbols[key].add(value)
-        result[libs[path]] = elf_versioned_symbols
+    result = defaultdict(lambda: defaultdict(lambda: set()))
+
+    sql_engine = sql.make_sql_engine(libs.keys(), recursive=False)
+    # find the versioned symbols by library needed
+    sql_results = sql_engine.execute("""
+        SELECT path, file, name
+        FROM elf_version_requirements
+                        """)
+    
+    for row in sql_results:
+        path = row["path"]
+        key = row["file"]
+        value = row["name"]
+        log.debug("key %s, value %s", key, value)
+        result[libs[path]][key].add(value)
+
     return result
 
 
