@@ -8,6 +8,7 @@ from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
 
 from .lddtree import parse_ld_paths
+from sqlelf import sql
 
 
 def elf_read_dt_needed(fn: str) -> list[str]:
@@ -70,7 +71,7 @@ def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
     return False
 
 
-def elf_is_python_extension(fn: str, elf: ELFFile) -> tuple[bool, int | None]:
+def elf_is_python_extension(fn: str, sql_engine: sql.SQLEngine) -> tuple[bool, int | None]:
     modname = basename(fn).split(".", 1)[0]
     module_init_f = {
         "init" + modname: 2,
@@ -78,19 +79,24 @@ def elf_is_python_extension(fn: str, elf: ELFFile) -> tuple[bool, int | None]:
         "_cffi_pypyinit_" + modname: 2,
     }
 
-    sect = elf.get_section_by_name(".dynsym")
-    if sect is None:
+    # TODO(fzakaria): A bit annoying but SQLite doesn't support
+    # bindings of list. We can perhaps rethink this or fetch all
+    # symbols and then filter in Python.
+    results = list(
+        sql_engine.execute("""
+        SELECT * FROM elf_symbols
+        WHERE name IN (""" + ",".join(["?"] * len(module_init_f)) + ")" +
+        """
+              AND exported = TRUE
+              AND type = 'FUNC'
+        LIMIT 1
+            """, tuple(module_init_f.keys()) )
+    )
+
+    if len(results) == 0:
         return False, None
 
-    for sym in sect.iter_symbols():
-        if (
-            sym.name in module_init_f
-            and sym["st_shndx"] != "SHN_UNDEF"
-            and sym["st_info"]["type"] == "STT_FUNC"
-        ):
-            return True, module_init_f[sym.name]
-
-    return False, None
+    return True, module_init_f[results[0]["name"]]
 
 
 def elf_read_rpaths(fn: str) -> dict[str, list[str]]:

@@ -105,7 +105,7 @@ def get_wheel_elfdata(wheel_fn: str):
                     log.debug("key %s, value %s", key, value)
                     versioned_symbols[key].add(value)
 
-                is_py_ext, py_ver = elf_is_python_extension(fn, elf)
+                is_py_ext, py_ver = elf_is_python_extension(fn, sql_engine)
 
                 # If the ELF is a Python extention, we definitely need to
                 # include its external dependencies.
