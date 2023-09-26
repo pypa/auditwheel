@@ -8,23 +8,20 @@ from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
 
 from .lddtree import parse_ld_paths
-from sqlelf import sql
+from sqlelf import sql, elf
 
 
 def elf_read_dt_needed(fn: str) -> list[str]:
-    needed = []
-    with open(fn, "rb") as f:
-        elf = ELFFile(f)
-        section = elf.get_section_by_name(".dynamic")
-        if section is None:
-            raise ValueError("Could not find soname in %s" % fn)
-
-        for t in section.iter_tags():
-            if t.entry.d_tag == "DT_NEEDED":
-                needed.append(t.needed)
-
-    return needed
-
+    sql_engine = sql.make_sql_engine([fn], recursive=False,
+                                     flags=elf.GeneratorFlag.DYNAMIC_ENTRIES | elf.GeneratorFlag.STRINGS)
+    results = sql_engine.execute("""
+                        SELECT elf_strings.value
+                        FROM elf_dynamic_entries
+                        INNER JOIN elf_strings 
+                              ON elf_dynamic_entries.value = elf_strings.offset
+                        WHERE elf_dynamic_entries.tag = 'NEEDED'
+                       """)
+    return list(results)
 
 def elf_file_filter(paths: Iterator[str]) -> Iterator[tuple[str, ELFFile]]:
     """Filter through an iterator of filenames and load up only ELF
