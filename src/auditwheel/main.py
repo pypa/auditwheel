@@ -13,7 +13,7 @@ else:
 
 import auditwheel
 
-from . import main_addtag, main_lddtree, main_repair, main_show
+from . import main_lddtree, main_repair, main_show
 
 
 def main() -> int | None:
@@ -40,7 +40,6 @@ def main() -> int | None:
     sub_parsers = p.add_subparsers(metavar="command", dest="cmd")
 
     main_show.configure_parser(sub_parsers)
-    main_addtag.configure_parser(sub_parsers)
     main_repair.configure_parser(sub_parsers)
     main_lddtree.configure_subparser(sub_parsers)
 
