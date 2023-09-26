@@ -52,11 +52,14 @@ PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
 PYTHON_ABI_MAJ_MIN = "".join(PYTHON_MAJ_MIN)
 PYTHON_ABI_FLAGS = "m" if sys.version_info.minor < 8 else ""
 PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}{PYTHON_ABI_FLAGS}"
-MANYLINUX_PYTHON_IMAGE_ID = f'python:{".".join(PYTHON_MAJ_MIN)}-slim-bullseye'
+PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + (
+    "-rc" if PYTHON_MAJ_MIN == ["3", "12"] else ""
+)
+MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bullseye"
 MUSLLINUX_IMAGES = {
     "musllinux_1_1": f"quay.io/pypa/musllinux_1_1_{PLATFORM}:latest",
 }
-MUSLLINUX_PYTHON_IMAGE_ID = f'python:{".".join(PYTHON_MAJ_MIN)}-alpine'
+MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
     "manylinux_2_5": "devtoolset-2",
     "manylinux_2_12": "devtoolset-8",
@@ -82,6 +85,7 @@ NUMPY_VERSION_MAP = {
     "39": "1.21.4",
     "310": "1.21.4",
     "311": "1.23.4",
+    "312": "1.26.0",
 }
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
@@ -206,6 +210,8 @@ def build_numpy(container, policy, output_dir):
     elif policy.startswith("manylinux_2_28_"):
         docker_exec(container, "dnf install -y openblas-devel")
     else:
+        if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
+            pytest.skip("numpy>=1.26 requires openblas")
         docker_exec(container, "yum install -y atlas atlas-devel")
 
     if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
@@ -222,7 +228,7 @@ def build_numpy(container, policy, output_dir):
 
         docker_exec(
             container,
-            f"pip wheel -w /io --no-binary=:all: numpy=={NUMPY_VERSION}",
+            f"pip wheel -w /io --no-binary=numpy numpy=={NUMPY_VERSION}",
         )
         os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
         shutil.copy2(
@@ -297,6 +303,8 @@ class Anylinux:
         else:
             docker_exec(docker_python, "apt-get update -yqq")
             docker_exec(docker_python, "apt-get install -y gfortran")
+        if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
+            docker_exec(docker_python, "pip install meson ninja")
         docker_exec(
             docker_python,
             "python -m numpy.f2py -c /auditwheel_src/tests/integration/foo.f90 -m foo",
