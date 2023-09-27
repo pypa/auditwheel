@@ -20,9 +20,8 @@ def elf_read_dt_needed(fn: str) -> list[str]:
                         INNER JOIN elf_strings
                               ON elf_dynamic_entries.value = elf_strings.offset
                         WHERE elf_dynamic_entries.tag = 'NEEDED'
-                       """
-    )
-    return list(results)
+                       """)
+    return [row["value"] for row in list(results)]
 
 
 def elf_file_filter(paths: Iterator[str]) -> Iterator[tuple[str, ELFFile]]:
