@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import functools
@@ -74,7 +73,6 @@ def get_wheel_elfdata(wheel_fn: str):
 
         platform_wheel = False
         for fn, elf in elf_file_filter(ctx.iter_files()):
-
             sql_engine = sql.make_sql_engine([fn], recursive=False)
 
             platform_wheel = True
@@ -95,10 +93,12 @@ def get_wheel_elfdata(wheel_fn: str):
                 elftree = lddtree(fn)
 
                 # find the versioned symbols by library needed
-                results = sql_engine.execute("""
+                results = sql_engine.execute(
+                    """
                     SELECT file, name
                     FROM elf_version_requirements
-                                   """)
+                                   """
+                )
                 for row in results:
                     key = row["file"]
                     value = row["name"]
@@ -208,11 +208,13 @@ def get_versioned_symbols(libs):
 
     sql_engine = sql.make_sql_engine(libs.keys(), recursive=False)
     # find the versioned symbols by library needed
-    sql_results = sql_engine.execute("""
+    sql_results = sql_engine.execute(
+        """
         SELECT path, file, name
         FROM elf_version_requirements
-                        """)
-    
+                        """
+    )
+
     for row in sql_results:
         path = row["path"]
         key = row["file"]

@@ -28,7 +28,6 @@ class MockSymbol(dict):
 @patch("auditwheel.elfutils.open")
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfReadDt:
-
     def test_needed_libs(self, elffile_mock, open_mock):
         # WHEN
         needed = elf_read_dt_needed("/bin/ls")

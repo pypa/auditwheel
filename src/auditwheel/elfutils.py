@@ -6,22 +6,28 @@ from typing import Iterator
 
 from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
+from sqlelf import elf, sql
 
 from .lddtree import parse_ld_paths
-from sqlelf import sql, elf
 
 
 def elf_read_dt_needed(fn: str) -> list[str]:
-    sql_engine = sql.make_sql_engine([fn], recursive=False,
-                                     flags=elf.GeneratorFlag.DYNAMIC_ENTRIES | elf.GeneratorFlag.STRINGS)
-    results = sql_engine.execute("""
+    sql_engine = sql.make_sql_engine(
+        [fn],
+        recursive=False,
+        flags=elf.GeneratorFlag.DYNAMIC_ENTRIES | elf.GeneratorFlag.STRINGS,
+    )
+    results = sql_engine.execute(
+        """
                         SELECT elf_strings.value
                         FROM elf_dynamic_entries
-                        INNER JOIN elf_strings 
+                        INNER JOIN elf_strings
                               ON elf_dynamic_entries.value = elf_strings.offset
                         WHERE elf_dynamic_entries.tag = 'NEEDED'
-                       """)
+                       """
+    )
     return list(results)
+
 
 def elf_file_filter(paths: Iterator[str]) -> Iterator[tuple[str, ELFFile]]:
     """Filter through an iterator of filenames and load up only ELF
@@ -39,6 +45,7 @@ def elf_file_filter(paths: Iterator[str]) -> Iterator[tuple[str, ELFFile]]:
             except ELFError:
                 # not an elf file
                 continue
+
 
 def elf_find_ucs2_symbols(elf: ELFFile) -> Iterator[str]:
     section = elf.get_section_by_name(".dynsym")
@@ -68,7 +75,9 @@ def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
     return False
 
 
-def elf_is_python_extension(fn: str, sql_engine: sql.SQLEngine) -> tuple[bool, int | None]:
+def elf_is_python_extension(
+    fn: str, sql_engine: sql.SQLEngine
+) -> tuple[bool, int | None]:
     modname = basename(fn).split(".", 1)[0]
     # TODO(fzakaria): A bit annoying but SQLite doesn't support
     # bindings of list. We can perhaps rethink this or fetch all
