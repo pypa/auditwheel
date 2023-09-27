@@ -14,7 +14,7 @@ from typing import Iterable
 
 from auditwheel.patcher import ElfPatcher
 
-from .elfutils import elf_read_dt_needed, elf_has_rpaths_or_runpaths, is_subdir
+from .elfutils import elf_has_rpaths_or_runpaths, elf_read_dt_needed, is_subdir
 from .hashfile import hashfile
 from .policy import get_replace_platforms
 from .wheel_abi import get_wheel_elfdata
