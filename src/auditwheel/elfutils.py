@@ -107,22 +107,24 @@ def elf_is_python_extension(
     return True, python_version
 
 
-def elf_read_rpaths(fn: str) -> dict[str, list[str]]:
-    result: dict[str, list[str]] = {"rpaths": [], "runpaths": []}
-
-    with open(fn, "rb") as f:
-        elf = ELFFile(f)
-        section = elf.get_section_by_name(".dynamic")
-        if section is None:
-            return result
-
-        for t in section.iter_tags():
-            if t.entry.d_tag == "DT_RPATH":
-                result["rpaths"] = parse_ld_paths(t.rpath, root="/", path=fn)
-            elif t.entry.d_tag == "DT_RUNPATH":
-                result["runpaths"] = parse_ld_paths(t.runpath, root="/", path=fn)
-
-    return result
+def elf_has_rpaths_or_runpaths(fn: str) -> bool:
+    sql_engine = sql.make_sql_engine(
+        [fn],
+        recursive=False,
+        cache_flags=elf.CacheFlag.DYNAMIC_ENTRIES,
+    )
+    results = sql_engine.execute(
+        """
+            SELECT EXISTS(
+                SELECT 1
+                FROM elf_dynamic_entries
+                WHERE elf_dynamic_entries.tag IN ('RUNPATH', 'RPATH')
+            ) as has_runpath_or_rpath;
+        """
+    )
+    rows = list(results)
+    assert len(rows) == 1, "Expected a single row"
+    return bool(rows[0]["has_runpath_or_rpath"])
 
 
 def is_subdir(path: str, directory: str) -> bool:

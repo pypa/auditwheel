@@ -14,7 +14,7 @@ from typing import Iterable
 
 from auditwheel.patcher import ElfPatcher
 
-from .elfutils import elf_read_dt_needed, elf_read_rpaths, is_subdir
+from .elfutils import elf_read_dt_needed, elf_has_rpaths_or_runpaths, is_subdir
 from .hashfile import hashfile
 from .policy import get_replace_platforms
 from .wheel_abi import get_wheel_elfdata
@@ -153,7 +153,7 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str
         return new_soname, dest_path
 
     logger.debug("Grafting: %s -> %s", src_path, dest_path)
-    rpaths = elf_read_rpaths(src_path)
+    has_rpaths_or_runpaths = elf_has_rpaths_or_runpaths(src_path)
     shutil.copy2(src_path, dest_path)
     statinfo = os.stat(dest_path)
     if not statinfo.st_mode & stat.S_IWRITE:
@@ -161,7 +161,7 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str
 
     patcher.set_soname(dest_path, new_soname)
 
-    if any(itertools.chain(rpaths["rpaths"], rpaths["runpaths"])):
+    if has_rpaths_or_runpaths:
         patcher.set_rpath(dest_path, dest_dir)
 
     return new_soname, dest_path
