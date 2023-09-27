@@ -12,13 +12,9 @@ from .lddtree import parse_ld_paths
 
 
 def elf_read_dt_needed(fn: str) -> list[str]:
-    sql_engine = sql.make_sql_engine(
-        [fn],
-        recursive=False,
-        flags=elf.GeneratorFlag.DYNAMIC_ENTRIES | elf.GeneratorFlag.STRINGS,
-    )
-    results = sql_engine.execute(
-        """
+    sql_engine = sql.make_sql_engine([fn], recursive=False,
+                                     cache_flags=elf.CacheFlag.DYNAMIC_ENTRIES | elf.CacheFlag.STRINGS)
+    results = sql_engine.execute("""
                         SELECT elf_strings.value
                         FROM elf_dynamic_entries
                         INNER JOIN elf_strings
