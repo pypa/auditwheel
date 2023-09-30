@@ -80,7 +80,6 @@ PATH_DIRS = [
 PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser("~/.cache/auditwheel_tests")
 NUMPY_VERSION_MAP = {
-    "37": "1.21.4",
     "38": "1.21.4",
     "39": "1.21.4",
     "310": "1.21.4",
@@ -801,8 +800,8 @@ class TestManylinux(Anylinux):
         """
         policy = request.param
         support_check_map = {
-            "manylinux_2_5": {"37", "38", "39"},
-            "manylinux_2_12": {"37", "38", "39", "310"},
+            "manylinux_2_5": {"38", "39"},
+            "manylinux_2_12": {"38", "39", "310"},
         }
         check_set = support_check_map.get(policy, None)
         if check_set and PYTHON_ABI_MAJ_MIN not in check_set:
