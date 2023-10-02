@@ -134,9 +134,9 @@ def execute(args, p):
 
         if reqd_tag > get_priority_by_name(wheel_abi.sym_tag):
             msg = (
-                'cannot repair "%s" to "%s" ABI because of the presence '
-                "of too-recent versioned symbols. You'll need to compile "
-                "the wheel on an older toolchain." % (wheel_file, args.PLAT)
+                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because of '
+                "the presence of too-recent versioned symbols. You'll need "
+                "to compile the wheel on an older toolchain. "
             )
             p.error(msg)
 
