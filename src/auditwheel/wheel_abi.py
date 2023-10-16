@@ -63,7 +63,7 @@ def get_wheel_elfdata(wheel_fn: str):
     full_elftree = {}
     nonpy_elftree = {}
     full_external_refs = {}
-    versioned_symbols: dict[str, set[str]] = defaultdict(lambda: set())
+    versioned_symbols: dict[str, set[str]] = defaultdict(set)
     uses_ucs2_symbols = False
     uses_PyFPE_jbuf = False
 
@@ -196,7 +196,7 @@ def get_versioned_symbols(libs):
     for path, elf in elf_file_filter(libs.keys()):
         # {depname: set(symbol_version)}, e.g.
         # {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
-        elf_versioned_symbols = defaultdict(lambda: set())
+        elf_versioned_symbols = defaultdict(set)
         for key, value in elf_find_versioned_symbols(elf):
             log.debug("path %s, key %s, value %s", path, key, value)
             elf_versioned_symbols[key].add(value)
