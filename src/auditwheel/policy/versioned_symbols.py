@@ -5,6 +5,7 @@ import logging
 from . import load_policies
 
 log = logging.getLogger(__name__)
+TRACE = 5
 
 
 def versioned_symbols_policy(versioned_symbols: dict[str, set[str]]) -> int:
@@ -14,12 +15,14 @@ def versioned_symbols_policy(versioned_symbols: dict[str, set[str]]) -> int:
         policy_satisfied = True
         for name in set(required_vers) & set(policy_sym_vers):
             if not required_vers[name].issubset(policy_sym_vers[name]):
+                log.debug(
+                    "Package requirements incompatible with policy %s",
+                    policy_name)
                 for symbol in required_vers[name] - policy_sym_vers[name]:
-                    log.debug(
-                        "Package requires %s, incompatible with "
-                        "policy %s which requires %s",
+                    log.log(
+                        TRACE,
+                        "  %s is incompatible with %s",
                         symbol,
-                        policy_name,
                         policy_sym_vers[name],
                     )
                 policy_satisfied = False

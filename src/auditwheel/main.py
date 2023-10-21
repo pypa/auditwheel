@@ -42,10 +42,13 @@ def main() -> int | None:
     args = p.parse_args()
 
     logging.disable(logging.NOTSET)
-    if args.verbose >= 1:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    TRACE = 5
+    logging.addLevelName(TRACE, "TRACE")
+    logging.basicConfig(level=logging.INFO)
+    if args.verbose == 1:
+        logging.getLogger().setLevel(logging.DEBUG)
+    elif args.verbose > 1:
+        logging.getLogger().setLevel(TRACE)
 
     if not hasattr(args, "func"):
         p.print_help()
