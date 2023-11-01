@@ -16,7 +16,7 @@ from auditwheel.patcher import ElfPatcher
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths, is_subdir
 from .hashfile import hashfile
-from .policy import get_replace_platforms
+from .policy import WheelPolicies, get_replace_platforms
 from .wheel_abi import get_wheel_elfdata
 from .wheeltools import InWheelCtx, add_platforms
 
@@ -32,6 +32,7 @@ WHEEL_INFO_RE = re.compile(
 
 
 def repair_wheel(
+    wheel_policy: WheelPolicies,
     wheel_path: str,
     abis: list[str],
     lib_sdir: str,
@@ -41,7 +42,7 @@ def repair_wheel(
     exclude: list[str],
     strip: bool = False,
 ) -> str | None:
-    external_refs_by_fn = get_wheel_elfdata(wheel_path)[1]
+    external_refs_by_fn = get_wheel_elfdata(wheel_policy, wheel_path)[1]
 
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:

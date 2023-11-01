@@ -6,20 +6,15 @@ from os.path import abspath, basename, exists, isfile
 
 from auditwheel.patcher import Patchelf
 
-from .policy import (
-    POLICY_PRIORITY_HIGHEST,
-    get_policy_by_name,
-    get_policy_name,
-    get_priority_by_name,
-    load_policies,
-)
+from .policy import WheelPolicies
 from .tools import EnvironmentDefault
 
 logger = logging.getLogger(__name__)
 
 
 def configure_parser(sub_parsers):
-    policies = load_policies()
+    wheel_policy = WheelPolicies()
+    policies = wheel_policy.policies
     policy_names = [p["name"] for p in policies]
     policy_names += [alias for p in policies for alias in p["aliases"]]
     epilog = """PLATFORMS:
@@ -32,7 +27,7 @@ below.
         if len(p["aliases"]) > 0:
             epilog += f" (aliased by {', '.join(p['aliases'])})"
         epilog += "\n"
-    highest_policy = get_policy_name(POLICY_PRIORITY_HIGHEST)
+    highest_policy = wheel_policy.get_policy_name(wheel_policy.priority_highest)
     help = """Vendor in external shared library dependencies of a wheel.
 If multiple wheels are specified, an error processing one
 wheel will abort processing of subsequent wheels.
@@ -114,6 +109,8 @@ def execute(args, p):
     from .repair import repair_wheel
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
+    wheel_policy = WheelPolicies()
+
     for wheel_file in args.WHEEL_FILE:
         if not isfile(wheel_file):
             p.error("cannot access %s. No such file" % wheel_file)
@@ -124,15 +121,15 @@ def execute(args, p):
             os.makedirs(args.WHEEL_DIR)
 
         try:
-            wheel_abi = analyze_wheel_abi(wheel_file)
+            wheel_abi = analyze_wheel_abi(wheel_policy, wheel_file)
         except NonPlatformWheel:
             logger.info(NonPlatformWheel.LOG_MESSAGE)
             return 1
 
-        policy = get_policy_by_name(args.PLAT)
+        policy = wheel_policy.get_policy_by_name(args.PLAT)
         reqd_tag = policy["priority"]
 
-        if reqd_tag > get_priority_by_name(wheel_abi.sym_tag):
+        if reqd_tag > wheel_policy.get_priority_by_name(wheel_abi.sym_tag):
             msg = (
                 'cannot repair "%s" to "%s" ABI because of the presence '
                 "of too-recent versioned symbols. You'll need to compile "
@@ -140,7 +137,7 @@ def execute(args, p):
             )
             p.error(msg)
 
-        if reqd_tag > get_priority_by_name(wheel_abi.ucs_tag):
+        if reqd_tag > wheel_policy.get_priority_by_name(wheel_abi.ucs_tag):
             msg = (
                 'cannot repair "%s" to "%s" ABI because it was compiled '
                 "against a UCS2 build of Python. You'll need to compile "
@@ -149,7 +146,7 @@ def execute(args, p):
             )
             p.error(msg)
 
-        if reqd_tag > get_priority_by_name(wheel_abi.blacklist_tag):
+        if reqd_tag > wheel_policy.get_priority_by_name(wheel_abi.blacklist_tag):
             msg = (
                 'cannot repair "%s" to "%s" ABI because it depends on '
                 "black-listed symbols." % (wheel_file, args.PLAT)
@@ -158,7 +155,7 @@ def execute(args, p):
 
         abis = [policy["name"]] + policy["aliases"]
         if not args.ONLY_PLAT:
-            if reqd_tag < get_priority_by_name(wheel_abi.overall_tag):
+            if reqd_tag < wheel_policy.get_priority_by_name(wheel_abi.overall_tag):
                 logger.info(
                     (
                         "Wheel is eligible for a higher priority tag. "
@@ -168,11 +165,12 @@ def execute(args, p):
                     args.PLAT,
                     wheel_abi.overall_tag,
                 )
-                higher_policy = get_policy_by_name(wheel_abi.overall_tag)
+                higher_policy = wheel_policy.get_policy_by_name(wheel_abi.overall_tag)
                 abis = [higher_policy["name"]] + higher_policy["aliases"] + abis
 
         patcher = Patchelf()
         out_wheel = repair_wheel(
+            wheel_policy,
             wheel_file,
             abis=abis,
             lib_sdir=args.LIB_SDIR,

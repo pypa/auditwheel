@@ -5,17 +5,15 @@ import re
 from typing import Any, Generator
 
 from ..elfutils import filter_undefined_symbols, is_subdir
-from . import load_policies
+from . import WheelPolicies
 
 log = logging.getLogger(__name__)
 LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
 
 
-def lddtree_external_references(lddtree: dict, wheel_path: str) -> dict:
+def lddtree_external_references(wheel_policies: list, lddtree: dict, wheel_path: str) -> dict:
     # XXX: Document the lddtree structure, or put it in something
     # more stable than a big nested dict
-    policies = load_policies()
-
     def filter_libs(libs: set[str], whitelist: set[str]) -> Generator[str, None, None]:
         for lib in libs:
             if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
@@ -45,7 +43,7 @@ def lddtree_external_references(lddtree: dict, wheel_path: str) -> dict:
         return reqs
 
     ret: dict[str, dict[str, Any]] = {}
-    for p in policies:
+    for p in wheel_policies:
         needed_external_libs: set[str] = set()
         blacklist = {}
 

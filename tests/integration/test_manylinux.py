@@ -16,7 +16,7 @@ import docker
 import pytest
 from elftools.elf.elffile import ELFFile
 
-from auditwheel.policy import get_arch_name, get_priority_by_name
+from auditwheel.policy import WheelPolicies, get_arch_name
 
 logger = logging.getLogger(__name__)
 
@@ -859,11 +859,12 @@ class TestManylinux(Anylinux):
             "auditwheel -v repair --plat {policy} -w /io /io/{orig_wheel}"
         )
 
-        policy_priority = get_priority_by_name(policy)
+        wheel_policy = WheelPolicies()
+        policy_priority = wheel_policy.get_priority_by_name(policy)
         older_policies = [
             f"{p}_{PLATFORM}"
             for p in MANYLINUX_IMAGES.keys()
-            if policy_priority < get_priority_by_name(f"{p}_{PLATFORM}")
+            if policy_priority < wheel_policy.get_priority_by_name(f"{p}_{PLATFORM}")
         ]
         for target_policy in older_policies:
             # we shall fail to repair the wheel when targeting an older policy than

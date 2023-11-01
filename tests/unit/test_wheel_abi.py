@@ -6,6 +6,7 @@ import pretend
 import pytest
 
 from auditwheel import wheel_abi
+from auditwheel.policy import WheelPolicies
 
 
 class TestGetWheelElfdata:
@@ -44,8 +45,9 @@ class TestGetWheelElfdata:
             "elf_file_filter",
             lambda fns: [(fn, pretend.stub()) for fn in fns],
         )
+        wheel_policy = WheelPolicies()
 
         with pytest.raises(RuntimeError) as exec_info:
-            wheel_abi.get_wheel_elfdata("/fakepath")
+            wheel_abi.get_wheel_elfdata(wheel_policy, "/fakepath")
 
         assert exec_info.value.args == (message,)

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 
-from . import load_policies
+from . import WheelPolicies
 
 log = logging.getLogger(__name__)
 
 
-def versioned_symbols_policy(versioned_symbols: dict[str, set[str]]) -> int:
+def versioned_symbols_policy(wheel_policy: WheelPolicies, versioned_symbols: dict[str, set[str]]) -> int:
     def policy_is_satisfied(
         policy_name: str, policy_sym_vers: dict[str, set[str]]
     ) -> bool:
@@ -31,7 +31,7 @@ def versioned_symbols_policy(versioned_symbols: dict[str, set[str]]) -> int:
             sym_name, _, _ = symbol.partition("_")
             required_vers.setdefault(sym_name, set()).add(symbol)
     matching_policies: list[int] = []
-    for p in load_policies():
+    for p in wheel_policy.policies:
         policy_sym_vers = {
             sym_name: {sym_name + "_" + version for version in versions}
             for sym_name, versions in p["symbol_versions"].items()

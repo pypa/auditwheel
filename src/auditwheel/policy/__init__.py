@@ -18,6 +18,83 @@ logger = logging.getLogger(__name__)
 # https://docs.python.org/3/library/platform.html#platform.architecture
 bits = 8 * (8 if sys.maxsize > 2**32 else 4)
 
+_POLICY_JSON_MAP = {
+    Libc.GLIBC: _HERE / "manylinux-policy.json",
+    Libc.MUSL: _HERE / "musllinux-policy.json",
+}
+
+
+class WheelPolicies:
+    def __init__(self) -> None:
+        libc_variant = get_libc()
+        policies_path = _POLICY_JSON_MAP[libc_variant]
+        policies = json.loads(policies_path.read_text())
+        self._policies = []
+        self._musl_policy = _get_musl_policy()
+        self._arch_name = get_arch_name()
+        self._libc_variant = get_libc()
+
+        _validate_pep600_compliance(policies)
+        for policy in policies:
+            if self._musl_policy is not None and policy["name"] not in {
+                "linux",
+                self._musl_policy,
+            }:
+                continue
+            if (
+                self._arch_name in policy["symbol_versions"].keys()
+                or policy["name"] == "linux"
+            ):
+                if policy["name"] != "linux":
+                    policy["symbol_versions"] = policy["symbol_versions"][
+                        self._arch_name
+                    ]
+                policy["name"] = policy["name"] + "_" + self._arch_name
+                policy["aliases"] = [
+                    alias + "_" + self._arch_name for alias in policy["aliases"]
+                ]
+                policy["lib_whitelist"] = _fixup_musl_libc_soname(
+                    policy["lib_whitelist"]
+                )
+                self._policies.append(policy)
+
+        if self._libc_variant == Libc.MUSL:
+            assert len(self._policies) == 2, self._policies
+
+    @property
+    def policies(self):
+        return self._policies
+
+    @property
+    def priority_highest(self):
+        return max(p["priority"] for p in self._policies)
+
+    @property
+    def priority_lowest(self):
+        return min(p["priority"] for p in self._policies)
+
+    def get_policy_by_name(self, name: str) -> dict | None:
+        matches = [
+            p for p in self._policies if p["name"] == name or name in p["aliases"]
+        ]
+        if len(matches) == 0:
+            return None
+        if len(matches) > 1:
+            raise RuntimeError("Internal error. Policies should be unique")
+        return matches[0]
+
+    def get_policy_name(self, priority: int) -> str | None:
+        matches = [p["name"] for p in self._policies if p["priority"] == priority]
+        if len(matches) == 0:
+            return None
+        if len(matches) > 1:
+            raise RuntimeError("Internal error. priorities should be unique")
+        return matches[0]
+
+    def get_priority_by_name(self, name: str) -> int | None:
+        policy = self.get_policy_by_name(name)
+        return None if policy is None else policy["priority"]
+
 
 def get_arch_name() -> str:
     machine = _platform_module.machine()
@@ -65,20 +142,11 @@ def _validate_pep600_compliance(policies) -> None:
             symbol_versions[arch] = symbol_versions_arch
 
 
-_POLICY_JSON_MAP = {
-    Libc.GLIBC: _HERE / "manylinux-policy.json",
-    Libc.MUSL: _HERE / "musllinux-policy.json",
-}
-
-
 def _get_musl_policy():
     if _LIBC != Libc.MUSL:
         return None
     musl_version = get_musl_version(find_musl_libc())
     return f"musllinux_{musl_version.major}_{musl_version.minor}"
-
-
-_MUSL_POLICY = _get_musl_policy()
 
 
 def _fixup_musl_libc_soname(whitelist):
@@ -103,60 +171,6 @@ def _fixup_musl_libc_soname(whitelist):
         else:
             new_whitelist.append(soname)
     return new_whitelist
-
-
-with _POLICY_JSON_MAP[_LIBC].open() as f:
-    _POLICIES = []
-    _policies_temp = json.load(f)
-    _validate_pep600_compliance(_policies_temp)
-    for _p in _policies_temp:
-        if _MUSL_POLICY is not None and _p["name"] not in {"linux", _MUSL_POLICY}:
-            continue
-        if _ARCH_NAME in _p["symbol_versions"].keys() or _p["name"] == "linux":
-            if _p["name"] != "linux":
-                _p["symbol_versions"] = _p["symbol_versions"][_ARCH_NAME]
-            _p["name"] = _p["name"] + "_" + _ARCH_NAME
-            _p["aliases"] = [alias + "_" + _ARCH_NAME for alias in _p["aliases"]]
-            _p["lib_whitelist"] = _fixup_musl_libc_soname(_p["lib_whitelist"])
-            _POLICIES.append(_p)
-    if _LIBC == Libc.MUSL:
-        assert len(_POLICIES) == 2, _POLICIES
-
-POLICY_PRIORITY_HIGHEST = max(p["priority"] for p in _POLICIES)
-POLICY_PRIORITY_LOWEST = min(p["priority"] for p in _POLICIES)
-
-
-def load_policies():
-    return _POLICIES
-
-
-def _load_policy_schema():
-    with open(join(dirname(abspath(__file__)), "policy-schema.json")) as f_:
-        schema = json.load(f_)
-    return schema
-
-
-def get_policy_by_name(name: str) -> dict | None:
-    matches = [p for p in _POLICIES if p["name"] == name or name in p["aliases"]]
-    if len(matches) == 0:
-        return None
-    if len(matches) > 1:
-        raise RuntimeError("Internal error. Policies should be unique")
-    return matches[0]
-
-
-def get_policy_name(priority: int) -> str | None:
-    matches = [p["name"] for p in _POLICIES if p["priority"] == priority]
-    if len(matches) == 0:
-        return None
-    if len(matches) > 1:
-        raise RuntimeError("Internal error. priorities should be unique")
-    return matches[0]
-
-
-def get_priority_by_name(name: str) -> int | None:
-    policy = get_policy_by_name(name)
-    return None if policy is None else policy["priority"]
 
 
 def get_replace_platforms(name: str) -> list[str]:
@@ -185,10 +199,14 @@ def get_replace_platforms(name: str) -> list[str]:
 from .external_references import lddtree_external_references  # noqa
 from .versioned_symbols import versioned_symbols_policy  # noqa
 
+def _load_policy_schema():
+    with open(join(dirname(abspath(__file__)), "policy-schema.json")) as f_:
+        schema = json.load(f_)
+    return schema
+
+
 __all__ = [
     "lddtree_external_references",
     "versioned_symbols_policy",
-    "load_policies",
-    "POLICY_PRIORITY_HIGHEST",
-    "POLICY_PRIORITY_LOWEST",
+    "WheelPolicies",
 ]

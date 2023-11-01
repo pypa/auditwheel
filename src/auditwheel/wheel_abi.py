@@ -20,11 +20,8 @@ from .elfutils import (
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import lddtree
 from .policy import (
-    POLICY_PRIORITY_HIGHEST,
-    POLICY_PRIORITY_LOWEST,
-    get_policy_name,
+    WheelPolicies,
     lddtree_external_references,
-    load_policies,
     versioned_symbols_policy,
 )
 
@@ -59,7 +56,7 @@ class NonPlatformWheel(WheelAbiError):
 
 
 @functools.lru_cache
-def get_wheel_elfdata(wheel_fn: str):
+def get_wheel_elfdata(wheel_policy: WheelPolicies, wheel_fn: str):
     full_elftree = {}
     nonpy_elftree = {}
     full_external_refs = {}
@@ -105,7 +102,7 @@ def get_wheel_elfdata(wheel_fn: str):
                             True for _ in elf_find_ucs2_symbols(elf)
                         )
                     full_external_refs[fn] = lddtree_external_references(
-                        elftree, ctx.path
+                        wheel_policy.policies, elftree, ctx.path
                     )
                 else:
                     # If the ELF is not a Python extension, it might be
@@ -148,7 +145,7 @@ def get_wheel_elfdata(wheel_fn: str):
             # should include it as an external reference, because
             # it might require additional external libraries.
             full_external_refs[fn] = lddtree_external_references(
-                nonpy_elftree[fn], ctx.path
+                wheel_policy.policies, nonpy_elftree[fn], ctx.path
             )
 
     log.debug("full_elftree:\n%s", json.dumps(full_elftree, indent=4))
@@ -204,7 +201,7 @@ def get_versioned_symbols(libs):
     return result
 
 
-def get_symbol_policies(versioned_symbols, external_versioned_symbols, external_refs):
+def get_symbol_policies(wheel_policy, versioned_symbols, external_versioned_symbols, external_refs):
     """Get symbol policies
     Since white-list is different per policy, this function inspects
     versioned_symbol per policy when including external refs
@@ -226,14 +223,14 @@ def get_symbol_policies(versioned_symbols, external_versioned_symbols, external_
             ext_symbols = external_versioned_symbols[soname]
             for k in iter(ext_symbols):
                 policy_symbols[k].update(ext_symbols[k])
-        result.append((versioned_symbols_policy(policy_symbols), policy_symbols))
+        result.append((versioned_symbols_policy(wheel_policy, policy_symbols), policy_symbols))
     return result
 
 
-def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
+def analyze_wheel_abi(wheel_policy: WheelPolicies, wheel_fn: str) -> WheelAbIInfo:
     external_refs = {
         p["name"]: {"libs": {}, "blacklist": {}, "priority": p["priority"]}
-        for p in load_policies()
+        for p in wheel_policy.policies
     }
 
     (
@@ -242,7 +239,7 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
         versioned_symbols,
         has_ucs2,
         uses_PyFPE_jbuf,
-    ) = get_wheel_elfdata(wheel_fn)
+    ) = get_wheel_elfdata(wheel_policy, wheel_fn)
 
     for fn in elftree_by_fn.keys():
         update(external_refs, external_refs_by_fn[fn])
@@ -253,9 +250,9 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
     external_libs = get_external_libs(external_refs)
     external_versioned_symbols = get_versioned_symbols(external_libs)
     symbol_policies = get_symbol_policies(
-        versioned_symbols, external_versioned_symbols, external_refs
+        wheel_policy, versioned_symbols, external_versioned_symbols, external_refs
     )
-    symbol_policy = versioned_symbols_policy(versioned_symbols)
+    symbol_policy = versioned_symbols_policy(wheel_policy, versioned_symbols)
 
     # let's keep the highest priority policy and
     # corresponding versioned_symbols
@@ -265,30 +262,30 @@ def analyze_wheel_abi(wheel_fn: str) -> WheelAbIInfo:
 
     ref_policy = max(
         (e["priority"] for e in external_refs.values() if len(e["libs"]) == 0),
-        default=POLICY_PRIORITY_LOWEST,
+        default=wheel_policy.priority_lowest,
     )
 
     blacklist_policy = max(
         (e["priority"] for e in external_refs.values() if len(e["blacklist"]) == 0),
-        default=POLICY_PRIORITY_LOWEST,
+        default=wheel_policy.priority_lowest,
     )
 
     if has_ucs2:
-        ucs_policy = POLICY_PRIORITY_LOWEST
+        ucs_policy = wheel_policy.priority_lowest
     else:
-        ucs_policy = POLICY_PRIORITY_HIGHEST
+        ucs_policy = wheel_policy.priority_highest
 
     if uses_PyFPE_jbuf:
-        pyfpe_policy = POLICY_PRIORITY_LOWEST
+        pyfpe_policy = wheel_policy.priority_lowest
     else:
-        pyfpe_policy = POLICY_PRIORITY_HIGHEST
+        pyfpe_policy = wheel_policy.priority_highest
 
-    ref_tag = get_policy_name(ref_policy)
-    sym_tag = get_policy_name(symbol_policy)
-    ucs_tag = get_policy_name(ucs_policy)
-    pyfpe_tag = get_policy_name(pyfpe_policy)
-    blacklist_tag = get_policy_name(blacklist_policy)
-    overall_tag = get_policy_name(
+    ref_tag = wheel_policy.get_policy_name(ref_policy)
+    sym_tag = wheel_policy.get_policy_name(symbol_policy)
+    ucs_tag = wheel_policy.get_policy_name(ucs_policy)
+    pyfpe_tag = wheel_policy.get_policy_name(pyfpe_policy)
+    blacklist_tag = wheel_policy.get_policy_name(blacklist_policy)
+    overall_tag = wheel_policy.get_policy_name(
         min(symbol_policy, ref_policy, ucs_policy, pyfpe_policy, blacklist_policy)
     )
 
