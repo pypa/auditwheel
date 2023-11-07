@@ -9,7 +9,6 @@ from auditwheel.policy import (
     _validate_pep600_compliance,
     get_arch_name,
     get_replace_platforms,
-    lddtree_external_references,
 )
 
 
@@ -227,8 +226,8 @@ class TestLddTreeExternalReferences:
             "libs": {lib: {"needed": [], "realpath": "/path/to/lib"} for lib in libs},
         }
         wheel_policy = WheelPolicies()
-        full_external_refs = lddtree_external_references(
-            wheel_policy.policies, lddtree, "/path/to/wheel"
+        full_external_refs = wheel_policy.lddtree_external_references(
+            lddtree, "/path/to/wheel"
         )
 
         # Assert that each policy only has the unfiltered libs.

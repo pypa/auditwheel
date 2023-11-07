@@ -3,17 +3,20 @@ from __future__ import annotations
 import json
 import logging
 import platform as _platform_module
+import re
 import sys
 from collections import defaultdict
 from os.path import abspath, dirname, join
 from pathlib import Path
+from typing import Any, Generator
+
+from auditwheel.elfutils import filter_undefined_symbols, is_subdir
 
 from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
-from .external_references import lddtree_external_references
-from .versioned_symbols import versioned_symbols_policy
 
 _HERE = Path(__file__).parent
+LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +99,112 @@ class WheelPolicies:
     def get_priority_by_name(self, name: str) -> int | None:
         policy = self.get_policy_by_name(name)
         return None if policy is None else policy["priority"]
+
+    def versioned_symbols_policy(self, versioned_symbols: dict[str, set[str]]) -> int:
+        def policy_is_satisfied(
+            policy_name: str, policy_sym_vers: dict[str, set[str]]
+        ) -> bool:
+            policy_satisfied = True
+            for name in set(required_vers) & set(policy_sym_vers):
+                if not required_vers[name].issubset(policy_sym_vers[name]):
+                    for symbol in required_vers[name] - policy_sym_vers[name]:
+                        logger.debug(
+                            "Package requires %s, incompatible with "
+                            "policy %s which requires %s",
+                            symbol,
+                            policy_name,
+                            policy_sym_vers[name],
+                        )
+                    policy_satisfied = False
+            return policy_satisfied
+
+        required_vers: dict[str, set[str]] = {}
+        for symbols in versioned_symbols.values():
+            for symbol in symbols:
+                sym_name, _, _ = symbol.partition("_")
+                required_vers.setdefault(sym_name, set()).add(symbol)
+        matching_policies: list[int] = []
+        for p in self.policies:
+            policy_sym_vers = {
+                sym_name: {sym_name + "_" + version for version in versions}
+                for sym_name, versions in p["symbol_versions"].items()
+            }
+            if policy_is_satisfied(p["name"], policy_sym_vers):
+                matching_policies.append(p["priority"])
+
+        if len(matching_policies) == 0:
+            # the base policy (generic linux) should always match
+            raise RuntimeError("Internal error")
+
+        return max(matching_policies)
+
+    def lddtree_external_references(self, lddtree: dict, wheel_path: str) -> dict:
+        # XXX: Document the lddtree structure, or put it in something
+        # more stable than a big nested dict
+        def filter_libs(
+            libs: set[str], whitelist: set[str]
+        ) -> Generator[str, None, None]:
+            for lib in libs:
+                if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
+                    # always exclude ELF dynamic linker/loader
+                    # 'ld64.so.2' on s390x
+                    # 'ld64.so.1' on ppc64le
+                    # 'ld-linux*' on other platforms
+                    continue
+                if LIBPYTHON_RE.match(lib):
+                    # always exclude libpythonXY
+                    continue
+                if lib in whitelist:
+                    # exclude any libs in the whitelist
+                    continue
+                yield lib
+
+        def get_req_external(libs: set[str], whitelist: set[str]) -> set[str]:
+            # get all the required external libraries
+            libs = libs.copy()
+            reqs = set()
+            while libs:
+                lib = libs.pop()
+                reqs.add(lib)
+                for dep in filter_libs(lddtree["libs"][lib]["needed"], whitelist):
+                    if dep not in reqs:
+                        libs.add(dep)
+            return reqs
+
+        ret: dict[str, dict[str, Any]] = {}
+        for p in self.policies:
+            needed_external_libs: set[str] = set()
+            blacklist = {}
+
+            if not (p["name"] == "linux" and p["priority"] == 0):
+                # special-case the generic linux platform here, because it
+                # doesn't have a whitelist. or, you could say its
+                # whitelist is the complete set of all libraries. so nothing
+                # is considered "external" that needs to be copied in.
+                whitelist = set(p["lib_whitelist"])
+                blacklist_libs = set(p["blacklist"].keys()) & set(lddtree["needed"])
+                blacklist = {k: p["blacklist"][k] for k in blacklist_libs}
+                blacklist = filter_undefined_symbols(lddtree["realpath"], blacklist)
+                needed_external_libs = get_req_external(
+                    set(filter_libs(lddtree["needed"], whitelist)), whitelist
+                )
+
+            pol_ext_deps = {}
+            for lib in needed_external_libs:
+                if is_subdir(lddtree["libs"][lib]["realpath"], wheel_path):
+                    # we didn't filter libs that resolved via RPATH out
+                    # earlier because we wanted to make sure to pick up
+                    # our elf's indirect dependencies. But now we want to
+                    # filter these ones out, since they're not "external".
+                    logger.debug("RPATH FTW: %s", lib)
+                    continue
+                pol_ext_deps[lib] = lddtree["libs"][lib]["realpath"]
+            ret[p["name"]] = {
+                "libs": pol_ext_deps,
+                "priority": p["priority"],
+                "blacklist": blacklist,
+            }
+        return ret
 
 
 def get_arch_name() -> str:
@@ -204,7 +313,5 @@ def _load_policy_schema():
 
 
 __all__ = [
-    "lddtree_external_references",
-    "versioned_symbols_policy",
     "WheelPolicies",
 ]

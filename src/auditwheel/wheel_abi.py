@@ -19,11 +19,7 @@ from .elfutils import (
 )
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import lddtree
-from .policy import (
-    WheelPolicies,
-    lddtree_external_references,
-    versioned_symbols_policy,
-)
+from .policy import WheelPolicies
 
 log = logging.getLogger(__name__)
 WheelAbIInfo = namedtuple(
@@ -101,8 +97,8 @@ def get_wheel_elfdata(wheel_policy: WheelPolicies, wheel_fn: str):
                         uses_ucs2_symbols |= any(
                             True for _ in elf_find_ucs2_symbols(elf)
                         )
-                    full_external_refs[fn] = lddtree_external_references(
-                        wheel_policy.policies, elftree, ctx.path
+                    full_external_refs[fn] = wheel_policy.lddtree_external_references(
+                        elftree, ctx.path
                     )
                 else:
                     # If the ELF is not a Python extension, it might be
@@ -144,8 +140,8 @@ def get_wheel_elfdata(wheel_policy: WheelPolicies, wheel_fn: str):
             # Even if a non-pyextension ELF file is not needed, we
             # should include it as an external reference, because
             # it might require additional external libraries.
-            full_external_refs[fn] = lddtree_external_references(
-                wheel_policy.policies, nonpy_elftree[fn], ctx.path
+            full_external_refs[fn] = wheel_policy.lddtree_external_references(
+                nonpy_elftree[fn], ctx.path
             )
 
     log.debug("full_elftree:\n%s", json.dumps(full_elftree, indent=4))
@@ -201,7 +197,9 @@ def get_versioned_symbols(libs):
     return result
 
 
-def get_symbol_policies(wheel_policy, versioned_symbols, external_versioned_symbols, external_refs):
+def get_symbol_policies(
+    wheel_policy, versioned_symbols, external_versioned_symbols, external_refs
+):
     """Get symbol policies
     Since white-list is different per policy, this function inspects
     versioned_symbol per policy when including external refs
@@ -223,7 +221,9 @@ def get_symbol_policies(wheel_policy, versioned_symbols, external_versioned_symb
             ext_symbols = external_versioned_symbols[soname]
             for k in iter(ext_symbols):
                 policy_symbols[k].update(ext_symbols[k])
-        result.append((versioned_symbols_policy(wheel_policy, policy_symbols), policy_symbols))
+        result.append(
+            (wheel_policy.versioned_symbols_policy(policy_symbols), policy_symbols)
+        )
     return result
 
 
@@ -252,7 +252,7 @@ def analyze_wheel_abi(wheel_policy: WheelPolicies, wheel_fn: str) -> WheelAbIInf
     symbol_policies = get_symbol_policies(
         wheel_policy, versioned_symbols, external_versioned_symbols, external_refs
     )
-    symbol_policy = versioned_symbols_policy(wheel_policy, versioned_symbols)
+    symbol_policy = wheel_policy.versioned_symbols_policy(versioned_symbols)
 
     # let's keep the highest priority policy and
     # corresponding versioned_symbols
