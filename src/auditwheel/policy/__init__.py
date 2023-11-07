@@ -10,6 +10,8 @@ from pathlib import Path
 
 from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
+from .external_references import lddtree_external_references
+from .versioned_symbols import versioned_symbols_policy
 
 _HERE = Path(__file__).parent
 
@@ -194,10 +196,6 @@ def get_replace_platforms(name: str) -> list[str]:
         return ["linux_" + "_".join(name.split("_")[3:])]
     return ["linux_" + "_".join(name.split("_")[1:])]
 
-
-# These have to be imported here to avoid a circular import.
-from .external_references import lddtree_external_references  # noqa
-from .versioned_symbols import versioned_symbols_policy  # noqa
 
 def _load_policy_schema():
     with open(join(dirname(abspath(__file__)), "policy-schema.json")) as f_:
