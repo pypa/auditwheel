@@ -4,6 +4,7 @@ import json
 import logging
 import platform as _platform_module
 import re
+import struct
 import sys
 from collections import defaultdict
 from os.path import abspath, dirname, join
@@ -20,9 +21,6 @@ LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
 _MUSL_POLICY_RE = re.compile(r"^musllinux_\d+_\d+$")
 
 logger = logging.getLogger(__name__)
-
-# https://docs.python.org/3/library/platform.html#platform.architecture
-bits = 8 * (8 if sys.maxsize > 2**32 else 4)
 
 _POLICY_JSON_MAP = {
     Libc.GLIBC: _HERE / "manylinux-policy.json",
@@ -224,10 +222,15 @@ class WheelPolicies:
         return ret
 
 
-def get_arch_name() -> str:
+def get_arch_name(*, bits: int | None = None) -> str:
     machine = _platform_module.machine()
     if sys.platform == "darwin" and machine == "arm64":
         return "aarch64"
+
+    if bits is None:
+        # c.f. https://github.com/pypa/packaging/pull/711
+        bits = 8 * struct.calcsize("P")
+
     if machine in {"x86_64", "i686"}:
         return {64: "x86_64", 32: "i686"}[bits]
     if machine in {"aarch64", "armv8l"}:

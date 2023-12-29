@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import platform
 import re
+import struct
+import sys
 from contextlib import nullcontext as does_not_raise
-from unittest.mock import patch
 
 import pytest
 
@@ -32,8 +34,6 @@ def raises(exception, match=None, escape=True):
     return pytest.raises(exception, match=match)
 
 
-@patch("auditwheel.policy._platform_module.machine")
-@patch("auditwheel.policy.bits", 32)
 @pytest.mark.parametrize(
     "reported_arch,expected_arch",
     [
@@ -45,14 +45,12 @@ def raises(exception, match=None, escape=True):
         ("x86_64", "i686"),
     ],
 )
-def test_32bits_arch_name(machine_mock, reported_arch, expected_arch):
-    machine_mock.return_value = reported_arch
-    machine = get_arch_name()
+def test_32bits_arch_name(reported_arch, expected_arch, monkeypatch):
+    monkeypatch.setattr(platform, "machine", lambda: reported_arch)
+    machine = get_arch_name(bits=32)
     assert machine == expected_arch
 
 
-@patch("auditwheel.policy._platform_module.machine")
-@patch("auditwheel.policy.bits", 64)
 @pytest.mark.parametrize(
     "reported_arch,expected_arch",
     [
@@ -63,10 +61,33 @@ def test_32bits_arch_name(machine_mock, reported_arch, expected_arch):
         ("x86_64", "x86_64"),
     ],
 )
-def test_64bits_arch_name(machine_mock, reported_arch, expected_arch):
-    machine_mock.return_value = reported_arch
-    machine = get_arch_name()
+def test_64bits_arch_name(reported_arch, expected_arch, monkeypatch):
+    monkeypatch.setattr(platform, "machine", lambda: reported_arch)
+    machine = get_arch_name(bits=64)
     assert machine == expected_arch
+
+
+@pytest.mark.parametrize(
+    "maxsize, sizeof_voidp, expected",
+    [
+        # 64-bit
+        (9223372036854775807, 8, "x86_64"),
+        # 32-bit
+        (2147483647, 4, "i686"),
+        # 64-bit w/ 32-bit sys.maxsize: GraalPy, IronPython, Jython
+        (2147483647, 8, "x86_64"),
+    ],
+)
+def test_arch_name_bits(maxsize, sizeof_voidp, expected, monkeypatch):
+    def _calcsize(fmt):
+        assert fmt == "P"
+        return sizeof_voidp
+
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(sys, "maxsize", maxsize)
+    monkeypatch.setattr(struct, "calcsize", _calcsize)
+    machine = get_arch_name()
+    assert machine == expected
 
 
 @pytest.mark.parametrize(
