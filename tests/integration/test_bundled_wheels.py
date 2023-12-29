@@ -13,6 +13,7 @@ from unittest.mock import Mock
 import pytest
 
 from auditwheel import main_repair
+from auditwheel.policy import WheelPolicies
 from auditwheel.wheel_abi import analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
@@ -27,13 +28,17 @@ HERE = Path(__file__).parent.resolve()
     ],
 )
 def test_analyze_wheel_abi(file, external_libs):
-    winfo = analyze_wheel_abi(str(HERE / file))
+    wheel_policies = WheelPolicies()
+    winfo = analyze_wheel_abi(wheel_policies, str(HERE / file))
     assert set(winfo.external_refs["manylinux_2_5_x86_64"]["libs"]) == external_libs
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="only supported on x86_64")
 def test_analyze_wheel_abi_pyfpe():
-    winfo = analyze_wheel_abi(str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl"))
+    wheel_policies = WheelPolicies()
+    winfo = analyze_wheel_abi(
+        wheel_policies, str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl")
+    )
     assert (
         winfo.sym_tag == "manylinux_2_5_x86_64"
     )  # for external symbols, it could get manylinux1

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from auditwheel.policy import WheelPolicies
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,14 +25,9 @@ def execute(args, p):
     import json
     from os.path import basename, isfile
 
-    from .policy import (
-        POLICY_PRIORITY_HIGHEST,
-        POLICY_PRIORITY_LOWEST,
-        get_policy_name,
-        get_priority_by_name,
-        load_policies,
-    )
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
+
+    wheel_policy = WheelPolicies()
 
     fn = basename(args.WHEEL_FILE)
 
@@ -38,7 +35,7 @@ def execute(args, p):
         p.error("cannot access %s. No such file" % args.WHEEL_FILE)
 
     try:
-        winfo = analyze_wheel_abi(args.WHEEL_FILE)
+        winfo = analyze_wheel_abi(wheel_policy, args.WHEEL_FILE)
     except NonPlatformWheel:
         logger.info(NonPlatformWheel.LOG_MESSAGE)
         return 1
@@ -52,7 +49,10 @@ def execute(args, p):
         % (fn, winfo.overall_tag)
     )
 
-    if get_priority_by_name(winfo.pyfpe_tag) < POLICY_PRIORITY_HIGHEST:
+    if (
+        wheel_policy.get_priority_by_name(winfo.pyfpe_tag)
+        < wheel_policy.priority_highest
+    ):
         printp(
             "This wheel uses the PyFPE_jbuf function, which is not compatible with the"
             " manylinux1 tag. (see https://www.python.org/dev/peps/pep-0513/"
@@ -61,7 +61,7 @@ def execute(args, p):
         if args.verbose < 1:
             return
 
-    if get_priority_by_name(winfo.ucs_tag) < POLICY_PRIORITY_HIGHEST:
+    if wheel_policy.get_priority_by_name(winfo.ucs_tag) < wheel_policy.priority_highest:
         printp(
             "This wheel is compiled against a narrow unicode (UCS2) "
             "version of Python, which is not compatible with the "
@@ -81,7 +81,7 @@ def execute(args, p):
             "system-provided shared libraries: %s" % ", ".join(libs_with_versions)
         )
 
-    if get_priority_by_name(winfo.sym_tag) < POLICY_PRIORITY_HIGHEST:
+    if wheel_policy.get_priority_by_name(winfo.sym_tag) < wheel_policy.priority_highest:
         printp(
             (
                 'This constrains the platform tag to "%s". '
@@ -95,15 +95,17 @@ def execute(args, p):
         if args.verbose < 1:
             return
 
-    libs = winfo.external_refs[get_policy_name(POLICY_PRIORITY_LOWEST)]["libs"]
+    libs = winfo.external_refs[
+        wheel_policy.get_policy_name(wheel_policy.priority_lowest)
+    ]["libs"]
     if len(libs) == 0:
         printp("The wheel requires no external shared libraries! :)")
     else:
         printp("The following external shared libraries are required " "by the wheel:")
         print(json.dumps(dict(sorted(libs.items())), indent=4))
 
-    for p in sorted(load_policies(), key=lambda p: p["priority"]):
-        if p["priority"] > get_priority_by_name(winfo.overall_tag):
+    for p in sorted(wheel_policy.policies, key=lambda p: p["priority"]):
+        if p["priority"] > wheel_policy.get_priority_by_name(winfo.overall_tag):
             libs = winfo.external_refs[p["name"]]["libs"]
             if len(libs):
                 printp(

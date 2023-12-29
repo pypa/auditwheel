@@ -3,20 +3,208 @@ from __future__ import annotations
 import json
 import logging
 import platform as _platform_module
+import re
 import sys
 from collections import defaultdict
 from os.path import abspath, dirname, join
 from pathlib import Path
+from typing import Any, Generator
+
+from auditwheel.elfutils import filter_undefined_symbols, is_subdir
 
 from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
 
 _HERE = Path(__file__).parent
+LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
 
 logger = logging.getLogger(__name__)
 
 # https://docs.python.org/3/library/platform.html#platform.architecture
 bits = 8 * (8 if sys.maxsize > 2**32 else 4)
+
+_POLICY_JSON_MAP = {
+    Libc.GLIBC: _HERE / "manylinux-policy.json",
+    Libc.MUSL: _HERE / "musllinux-policy.json",
+}
+
+
+class WheelPolicies:
+    def __init__(self) -> None:
+        libc_variant = get_libc()
+        policies_path = _POLICY_JSON_MAP[libc_variant]
+        policies = json.loads(policies_path.read_text())
+        self._policies = []
+        self._musl_policy = _get_musl_policy()
+        self._arch_name = get_arch_name()
+        self._libc_variant = get_libc()
+
+        _validate_pep600_compliance(policies)
+        for policy in policies:
+            if self._musl_policy is not None and policy["name"] not in {
+                "linux",
+                self._musl_policy,
+            }:
+                continue
+            if (
+                self._arch_name in policy["symbol_versions"].keys()
+                or policy["name"] == "linux"
+            ):
+                if policy["name"] != "linux":
+                    policy["symbol_versions"] = policy["symbol_versions"][
+                        self._arch_name
+                    ]
+                policy["name"] = policy["name"] + "_" + self._arch_name
+                policy["aliases"] = [
+                    alias + "_" + self._arch_name for alias in policy["aliases"]
+                ]
+                policy["lib_whitelist"] = _fixup_musl_libc_soname(
+                    policy["lib_whitelist"]
+                )
+                self._policies.append(policy)
+
+        if self._libc_variant == Libc.MUSL:
+            assert len(self._policies) == 2, self._policies
+
+    @property
+    def policies(self):
+        return self._policies
+
+    @property
+    def priority_highest(self):
+        return max(p["priority"] for p in self._policies)
+
+    @property
+    def priority_lowest(self):
+        return min(p["priority"] for p in self._policies)
+
+    def get_policy_by_name(self, name: str) -> dict | None:
+        matches = [
+            p for p in self._policies if p["name"] == name or name in p["aliases"]
+        ]
+        if len(matches) == 0:
+            return None
+        if len(matches) > 1:
+            raise RuntimeError("Internal error. Policies should be unique")
+        return matches[0]
+
+    def get_policy_name(self, priority: int) -> str | None:
+        matches = [p["name"] for p in self._policies if p["priority"] == priority]
+        if len(matches) == 0:
+            return None
+        if len(matches) > 1:
+            raise RuntimeError("Internal error. priorities should be unique")
+        return matches[0]
+
+    def get_priority_by_name(self, name: str) -> int | None:
+        policy = self.get_policy_by_name(name)
+        return None if policy is None else policy["priority"]
+
+    def versioned_symbols_policy(self, versioned_symbols: dict[str, set[str]]) -> int:
+        def policy_is_satisfied(
+            policy_name: str, policy_sym_vers: dict[str, set[str]]
+        ) -> bool:
+            policy_satisfied = True
+            for name in set(required_vers) & set(policy_sym_vers):
+                if not required_vers[name].issubset(policy_sym_vers[name]):
+                    for symbol in required_vers[name] - policy_sym_vers[name]:
+                        logger.debug(
+                            "Package requires %s, incompatible with "
+                            "policy %s which requires %s",
+                            symbol,
+                            policy_name,
+                            policy_sym_vers[name],
+                        )
+                    policy_satisfied = False
+            return policy_satisfied
+
+        required_vers: dict[str, set[str]] = {}
+        for symbols in versioned_symbols.values():
+            for symbol in symbols:
+                sym_name, _, _ = symbol.partition("_")
+                required_vers.setdefault(sym_name, set()).add(symbol)
+        matching_policies: list[int] = []
+        for p in self.policies:
+            policy_sym_vers = {
+                sym_name: {sym_name + "_" + version for version in versions}
+                for sym_name, versions in p["symbol_versions"].items()
+            }
+            if policy_is_satisfied(p["name"], policy_sym_vers):
+                matching_policies.append(p["priority"])
+
+        if len(matching_policies) == 0:
+            # the base policy (generic linux) should always match
+            raise RuntimeError("Internal error")
+
+        return max(matching_policies)
+
+    def lddtree_external_references(self, lddtree: dict, wheel_path: str) -> dict:
+        # XXX: Document the lddtree structure, or put it in something
+        # more stable than a big nested dict
+        def filter_libs(
+            libs: set[str], whitelist: set[str]
+        ) -> Generator[str, None, None]:
+            for lib in libs:
+                if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
+                    # always exclude ELF dynamic linker/loader
+                    # 'ld64.so.2' on s390x
+                    # 'ld64.so.1' on ppc64le
+                    # 'ld-linux*' on other platforms
+                    continue
+                if LIBPYTHON_RE.match(lib):
+                    # always exclude libpythonXY
+                    continue
+                if lib in whitelist:
+                    # exclude any libs in the whitelist
+                    continue
+                yield lib
+
+        def get_req_external(libs: set[str], whitelist: set[str]) -> set[str]:
+            # get all the required external libraries
+            libs = libs.copy()
+            reqs = set()
+            while libs:
+                lib = libs.pop()
+                reqs.add(lib)
+                for dep in filter_libs(lddtree["libs"][lib]["needed"], whitelist):
+                    if dep not in reqs:
+                        libs.add(dep)
+            return reqs
+
+        ret: dict[str, dict[str, Any]] = {}
+        for p in self.policies:
+            needed_external_libs: set[str] = set()
+            blacklist = {}
+
+            if not (p["name"] == "linux" and p["priority"] == 0):
+                # special-case the generic linux platform here, because it
+                # doesn't have a whitelist. or, you could say its
+                # whitelist is the complete set of all libraries. so nothing
+                # is considered "external" that needs to be copied in.
+                whitelist = set(p["lib_whitelist"])
+                blacklist_libs = set(p["blacklist"].keys()) & set(lddtree["needed"])
+                blacklist = {k: p["blacklist"][k] for k in blacklist_libs}
+                blacklist = filter_undefined_symbols(lddtree["realpath"], blacklist)
+                needed_external_libs = get_req_external(
+                    set(filter_libs(lddtree["needed"], whitelist)), whitelist
+                )
+
+            pol_ext_deps = {}
+            for lib in needed_external_libs:
+                if is_subdir(lddtree["libs"][lib]["realpath"], wheel_path):
+                    # we didn't filter libs that resolved via RPATH out
+                    # earlier because we wanted to make sure to pick up
+                    # our elf's indirect dependencies. But now we want to
+                    # filter these ones out, since they're not "external".
+                    logger.debug("RPATH FTW: %s", lib)
+                    continue
+                pol_ext_deps[lib] = lddtree["libs"][lib]["realpath"]
+            ret[p["name"]] = {
+                "libs": pol_ext_deps,
+                "priority": p["priority"],
+                "blacklist": blacklist,
+            }
+        return ret
 
 
 def get_arch_name() -> str:
@@ -65,20 +253,11 @@ def _validate_pep600_compliance(policies) -> None:
             symbol_versions[arch] = symbol_versions_arch
 
 
-_POLICY_JSON_MAP = {
-    Libc.GLIBC: _HERE / "manylinux-policy.json",
-    Libc.MUSL: _HERE / "musllinux-policy.json",
-}
-
-
 def _get_musl_policy():
     if _LIBC != Libc.MUSL:
         return None
     musl_version = get_musl_version(find_musl_libc())
     return f"musllinux_{musl_version.major}_{musl_version.minor}"
-
-
-_MUSL_POLICY = _get_musl_policy()
 
 
 def _fixup_musl_libc_soname(whitelist):
@@ -105,60 +284,6 @@ def _fixup_musl_libc_soname(whitelist):
     return new_whitelist
 
 
-with _POLICY_JSON_MAP[_LIBC].open() as f:
-    _POLICIES = []
-    _policies_temp = json.load(f)
-    _validate_pep600_compliance(_policies_temp)
-    for _p in _policies_temp:
-        if _MUSL_POLICY is not None and _p["name"] not in {"linux", _MUSL_POLICY}:
-            continue
-        if _ARCH_NAME in _p["symbol_versions"].keys() or _p["name"] == "linux":
-            if _p["name"] != "linux":
-                _p["symbol_versions"] = _p["symbol_versions"][_ARCH_NAME]
-            _p["name"] = _p["name"] + "_" + _ARCH_NAME
-            _p["aliases"] = [alias + "_" + _ARCH_NAME for alias in _p["aliases"]]
-            _p["lib_whitelist"] = _fixup_musl_libc_soname(_p["lib_whitelist"])
-            _POLICIES.append(_p)
-    if _LIBC == Libc.MUSL:
-        assert len(_POLICIES) == 2, _POLICIES
-
-POLICY_PRIORITY_HIGHEST = max(p["priority"] for p in _POLICIES)
-POLICY_PRIORITY_LOWEST = min(p["priority"] for p in _POLICIES)
-
-
-def load_policies():
-    return _POLICIES
-
-
-def _load_policy_schema():
-    with open(join(dirname(abspath(__file__)), "policy-schema.json")) as f_:
-        schema = json.load(f_)
-    return schema
-
-
-def get_policy_by_name(name: str) -> dict | None:
-    matches = [p for p in _POLICIES if p["name"] == name or name in p["aliases"]]
-    if len(matches) == 0:
-        return None
-    if len(matches) > 1:
-        raise RuntimeError("Internal error. Policies should be unique")
-    return matches[0]
-
-
-def get_policy_name(priority: int) -> str | None:
-    matches = [p["name"] for p in _POLICIES if p["priority"] == priority]
-    if len(matches) == 0:
-        return None
-    if len(matches) > 1:
-        raise RuntimeError("Internal error. priorities should be unique")
-    return matches[0]
-
-
-def get_priority_by_name(name: str) -> int | None:
-    policy = get_policy_by_name(name)
-    return None if policy is None else policy["priority"]
-
-
 def get_replace_platforms(name: str) -> list[str]:
     """Extract platform tag replacement rules from policy
 
@@ -181,14 +306,12 @@ def get_replace_platforms(name: str) -> list[str]:
     return ["linux_" + "_".join(name.split("_")[1:])]
 
 
-# These have to be imported here to avoid a circular import.
-from .external_references import lddtree_external_references  # noqa
-from .versioned_symbols import versioned_symbols_policy  # noqa
+def _load_policy_schema():
+    with open(join(dirname(abspath(__file__)), "policy-schema.json")) as f_:
+        schema = json.load(f_)
+    return schema
+
 
 __all__ = [
-    "lddtree_external_references",
-    "versioned_symbols_policy",
-    "load_policies",
-    "POLICY_PRIORITY_HIGHEST",
-    "POLICY_PRIORITY_LOWEST",
+    "WheelPolicies",
 ]
