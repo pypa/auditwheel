@@ -1,15 +1,35 @@
 from __future__ import annotations
 
+import re
+from contextlib import nullcontext as does_not_raise
 from unittest.mock import patch
 
 import pytest
 
+from auditwheel.error import InvalidLibc
+from auditwheel.libc import Libc
 from auditwheel.policy import (
     WheelPolicies,
     _validate_pep600_compliance,
     get_arch_name,
+    get_libc,
     get_replace_platforms,
 )
+
+
+def ids(x):
+    if isinstance(x, Libc):
+        return x.name
+    if isinstance(x, does_not_raise):
+        return "NoError"
+    if hasattr(x, "expected_exception"):
+        return x.expected_exception
+
+
+def raises(exception, match=None, escape=True):
+    if escape and match is not None:
+        match = re.escape(match)
+    return pytest.raises(exception, match=match)
 
 
 @patch("auditwheel.policy._platform_module.machine")
@@ -233,3 +253,43 @@ class TestLddTreeExternalReferences:
         # Assert that each policy only has the unfiltered libs.
         for policy in full_external_refs:
             assert set(full_external_refs[policy]["libs"]) == set(unfiltered_libs)
+
+
+@pytest.mark.parametrize(
+    "libc,musl_policy,arch,exception",
+    [
+        # valid
+        (None, None, None, does_not_raise()),
+        (Libc.GLIBC, None, None, does_not_raise()),
+        (Libc.MUSL, "musllinux_1_1", None, does_not_raise()),
+        (None, "musllinux_1_1", None, does_not_raise()),
+        (None, None, "aarch64", does_not_raise()),
+        # invalid
+        (
+            Libc.GLIBC,
+            "musllinux_1_1",
+            None,
+            raises(ValueError, "'musl_policy' shall be None"),
+        ),
+        (Libc.MUSL, "manylinux_1_1", None, raises(ValueError, "Invalid 'musl_policy'")),
+        (Libc.MUSL, "musllinux_5_1", None, raises(AssertionError)),
+        (Libc.MUSL, "musllinux_1_1", "foo", raises(AssertionError)),
+        # platform dependant
+        (
+            Libc.MUSL,
+            None,
+            None,
+            does_not_raise() if get_libc() == Libc.MUSL else raises(InvalidLibc),
+        ),
+    ],
+    ids=ids,
+)
+def test_wheel_policies_args(libc, musl_policy, arch, exception):
+    with exception:
+        wheel_policies = WheelPolicies(libc=libc, musl_policy=musl_policy, arch=arch)
+        if libc is not None:
+            assert wheel_policies._libc_variant == libc
+        if musl_policy is not None:
+            assert wheel_policies._musl_policy == musl_policy
+        if arch is not None:
+            assert wheel_policies._arch_name == arch

@@ -17,6 +17,7 @@ from ..musllinux import find_musl_libc, get_musl_version
 
 _HERE = Path(__file__).parent
 LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
+_MUSL_POLICY_RE = re.compile(r"^musllinux_\d+_\d+$")
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +31,30 @@ _POLICY_JSON_MAP = {
 
 
 class WheelPolicies:
-    def __init__(self) -> None:
-        libc_variant = get_libc()
-        policies_path = _POLICY_JSON_MAP[libc_variant]
-        policies = json.loads(policies_path.read_text())
+    def __init__(
+        self,
+        *,
+        libc: Libc | None = None,
+        musl_policy: str | None = None,
+        arch: str | None = None,
+    ) -> None:
+        if libc is None:
+            libc = get_libc() if musl_policy is None else Libc.MUSL
+        if libc != Libc.MUSL and musl_policy is not None:
+            raise ValueError(f"'musl_policy' shall be None for libc {libc.name}")
+        if libc == Libc.MUSL:
+            if musl_policy is None:
+                musl_version = get_musl_version(find_musl_libc())
+                musl_policy = f"musllinux_{musl_version.major}_{musl_version.minor}"
+            elif _MUSL_POLICY_RE.match(musl_policy) is None:
+                raise ValueError(f"Invalid 'musl_policy': '{musl_policy}'")
+        if arch is None:
+            arch = get_arch_name()
+        policies = json.loads(_POLICY_JSON_MAP[libc].read_text())
         self._policies = []
-        self._musl_policy = _get_musl_policy()
-        self._arch_name = get_arch_name()
-        self._libc_variant = get_libc()
+        self._arch_name = arch
+        self._libc_variant = libc
+        self._musl_policy = musl_policy
 
         _validate_pep600_compliance(policies)
         for policy in policies:
@@ -59,7 +76,7 @@ class WheelPolicies:
                     alias + "_" + self._arch_name for alias in policy["aliases"]
                 ]
                 policy["lib_whitelist"] = _fixup_musl_libc_soname(
-                    policy["lib_whitelist"]
+                    libc, arch, policy["lib_whitelist"]
                 )
                 self._policies.append(policy)
 
@@ -219,10 +236,6 @@ def get_arch_name() -> str:
     return machine
 
 
-_ARCH_NAME = get_arch_name()
-_LIBC = get_libc()
-
-
 def _validate_pep600_compliance(policies) -> None:
     symbol_versions: dict[str, dict[str, set[str]]] = {}
     lib_whitelist: set[str] = set()
@@ -253,15 +266,8 @@ def _validate_pep600_compliance(policies) -> None:
             symbol_versions[arch] = symbol_versions_arch
 
 
-def _get_musl_policy():
-    if _LIBC != Libc.MUSL:
-        return None
-    musl_version = get_musl_version(find_musl_libc())
-    return f"musllinux_{musl_version.major}_{musl_version.minor}"
-
-
-def _fixup_musl_libc_soname(whitelist):
-    if _LIBC != Libc.MUSL:
+def _fixup_musl_libc_soname(libc: Libc, arch: str, whitelist):
+    if libc != Libc.MUSL:
         return whitelist
     soname_map = {
         "libc.so": {
@@ -276,7 +282,7 @@ def _fixup_musl_libc_soname(whitelist):
     new_whitelist = []
     for soname in whitelist:
         if soname in soname_map:
-            new_soname = soname_map[soname][_ARCH_NAME]
+            new_soname = soname_map[soname][arch]
             logger.debug(f"Replacing whitelisted '{soname}' by '{new_soname}'")
             new_whitelist.append(new_soname)
         else:
