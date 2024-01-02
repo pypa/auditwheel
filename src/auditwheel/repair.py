@@ -127,7 +127,9 @@ def strip_symbols(libraries: Iterable[str]) -> None:
         check_call(["strip", "-s", lib])
 
 
-def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher, set_soname: bool) -> tuple[str, str]:
+def copylib(
+    src_path: str, dest_dir: str, patcher: ElfPatcher, set_soname: bool
+) -> tuple[str, str]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
