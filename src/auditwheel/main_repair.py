@@ -79,6 +79,13 @@ wheel will abort processing of subsequent wheels.
         default=True,
     )
     p.add_argument(
+        "--no-set-soname",
+        "SET_SONAME",
+        action="store_false",
+        help="Move and rename libraries but don't set their SONAME",
+        default=True,
+    )
+    p.add_argument(
         "--strip",
         dest="STRIP",
         action="store_true",
@@ -176,6 +183,7 @@ def execute(args, p):
             lib_sdir=args.LIB_SDIR,
             out_dir=args.WHEEL_DIR,
             update_tags=args.UPDATE_TAGS,
+            set_soname=args.SET_SONAME,
             patcher=patcher,
             exclude=args.EXCLUDE,
             strip=args.STRIP,
