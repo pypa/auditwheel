@@ -80,7 +80,7 @@ wheel will abort processing of subsequent wheels.
     )
     p.add_argument(
         "--no-set-soname",
-        "SET_SONAME",
+        dest="SET_SONAME",
         action="store_false",
         help="Move and rename libraries but don't set their SONAME",
         default=True,
