@@ -71,6 +71,7 @@ def test_wheel_source_date_epoch(tmp_path, monkeypatch):
         PLAT="manylinux_2_5_x86_64",
         STRIP=False,
         UPDATE_TAGS=True,
+        SET_SONAME=True,
         WHEEL_DIR=str(wheel_output_path),
         WHEEL_FILE=[str(wheel_path)],
         EXCLUDE=[],
