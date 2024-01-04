@@ -412,7 +412,10 @@ class Anylinux:
         #
         # Both executables should work when called from the installed bin directory.
         assert docker_exec(docker_python, ["/usr/local/bin/testprogram", "4"]) == "16\n"
-        assert docker_exec(docker_python, ["/usr/local/bin/testprogram_nodeps", "4"]) == "16\n"
+        assert (
+            docker_exec(docker_python, ["/usr/local/bin/testprogram_nodeps", "4"])
+            == "16\n"
+        )
 
         # testprogram should be a Python shim since we had to rewrite its RPATH.
         assert (
@@ -422,7 +425,9 @@ class Anylinux:
 
         # testprogram_nodeps should be the unmodified ELF binary.
         assert (
-            docker_exec(docker_python, ["head", "-c4", "/usr/local/bin/testprogram_nodeps"])
+            docker_exec(
+                docker_python, ["head", "-c4", "/usr/local/bin/testprogram_nodeps"]
+            )
             == "\x7fELF"
         )
 
