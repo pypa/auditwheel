@@ -100,6 +100,13 @@ wheel will abort processing of subsequent wheels.
         help="Do not check for higher policy compatibility",
         default=False,
     )
+    p.add_argument(
+        "--no-update-soname",
+        dest="UPDATE_SONAME",
+        action="store_false",
+        help="Do not update SONAME with content-hash",
+        default=True,
+    )
     p.set_defaults(func=execute)
 
 
@@ -179,6 +186,7 @@ def execute(args, p):
             patcher=patcher,
             exclude=args.EXCLUDE,
             strip=args.STRIP,
+            update_soname=args.UPDATE_SONAME,
         )
 
         if out_wheel is not None:

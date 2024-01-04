@@ -41,6 +41,7 @@ def repair_wheel(
     patcher: ElfPatcher,
     exclude: list[str],
     strip: bool = False,
+    update_soname: bool = True,
 ) -> str | None:
     external_refs_by_fn = get_wheel_elfdata(wheel_policy, wheel_path)[1]
 
@@ -85,7 +86,9 @@ def repair_wheel(
                         % soname
                     )
 
-                new_soname, new_path = copylib(src_path, dest_dir, patcher)
+                new_soname, new_path = copylib(
+                    src_path, dest_dir, patcher, update_soname
+                )
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
             if replacements:
@@ -126,7 +129,9 @@ def strip_symbols(libraries: Iterable[str]) -> None:
         check_call(["strip", "-s", lib])
 
 
-def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str]:
+def copylib(
+    src_path: str, dest_dir: str, patcher: ElfPatcher, update_soname: bool = True
+) -> tuple[str, str]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
@@ -139,13 +144,15 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str
     # if the library has a RUNPATH/RPATH we clear it and set RPATH to point to
     # its new location.
 
-    with open(src_path, "rb") as f:
-        shorthash = hashfile(f)[:8]
-
     src_name = os.path.basename(src_path)
-    base, ext = src_name.split(".", 1)
-    if not base.endswith("-%s" % shorthash):
-        new_soname = f"{base}-{shorthash}.{ext}"
+    if update_soname:
+        with open(src_path, "rb") as f:
+            shorthash = hashfile(f)[:8]
+        base, ext = src_name.split(".", 1)
+        if not base.endswith("-%s" % shorthash):
+            new_soname = f"{base}-{shorthash}.{ext}"
+        else:
+            new_soname = src_name
     else:
         new_soname = src_name
 

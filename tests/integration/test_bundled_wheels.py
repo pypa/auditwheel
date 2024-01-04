@@ -73,6 +73,7 @@ def test_wheel_source_date_epoch(tmp_path, monkeypatch):
         UPDATE_TAGS=True,
         WHEEL_DIR=str(wheel_output_path),
         WHEEL_FILE=[str(wheel_path)],
+        UPDATE_SONAME=True,
         EXCLUDE=[],
         cmd="repair",
         func=Mock(),
