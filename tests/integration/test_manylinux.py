@@ -404,6 +404,28 @@ class Anylinux:
         )
         assert output.strip() == "2.25"
 
+        # Both testprogram and testprogram_nodeps square a number, but:
+        #   * testprogram links against libgsl and had to have its RPATH
+        #     rewritten.
+        #   * testprogram_nodeps links against no shared libraries and wasn't
+        #     rewritten.
+        #
+        # Both executables should work when called from the installed bin directory.
+        assert docker_exec(docker_python, ["/usr/local/bin/testprogram", "4"]) == "16\n"
+        assert docker_exec(docker_python, ["/usr/local/bin/testprogram_nodeps", "4"]) == "16\n"
+
+        # testprogram should be a Python shim since we had to rewrite its RPATH.
+        assert (
+            docker_exec(docker_python, ["head", "-n1", "/usr/local/bin/testprogram"])
+            == "#!/usr/local/bin/python\n"
+        )
+
+        # testprogram_nodeps should be the unmodified ELF binary.
+        assert (
+            docker_exec(docker_python, ["head", "-c4", "/usr/local/bin/testprogram_nodeps"])
+            == "\x7fELF"
+        )
+
     def test_build_repair_pure_wheel(self, any_manylinux_container, io_folder):
         policy, tag, manylinux_ctr = any_manylinux_container
 
