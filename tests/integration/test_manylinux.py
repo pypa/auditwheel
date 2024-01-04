@@ -175,7 +175,7 @@ def tmp_docker_image(base, commands, setup_env={}):
 
     logger.info("Made image %s based on %s", image.short_id, base)
     try:
-        yield image.short_id
+        yield image.id
     finally:
         client = image.client
         client.images.remove(image.id)
