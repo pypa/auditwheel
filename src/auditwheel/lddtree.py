@@ -300,6 +300,7 @@ def lddtree(
     prefix: str = "",
     ldpaths: dict[str, list[str]] | None = None,
     display: str | None = None,
+    exclude: frozenset[str] = frozenset(),
     _first: bool = True,
     _all_libs: dict = {},
 ) -> dict:
@@ -320,6 +321,8 @@ def lddtree(
         will be called.
     display
         The path to show rather than ``path``
+    exclude
+        List of soname (DT_NEEDED) to exclude from the tree
     _first
         Recursive use only; is this the first ELF?
     _all_libs
@@ -402,7 +405,10 @@ def lddtree(
                 elif t.entry.d_tag == "DT_RUNPATH":
                     runpaths = parse_ld_paths(t.runpath, path=path, root=root)
                 elif t.entry.d_tag == "DT_NEEDED":
-                    libs.append(t.needed)
+                    if t.needed in exclude:
+                        log.info(f"Excluding {t.needed}")
+                    else:
+                        libs.append(t.needed)
             if runpaths:
                 # If both RPATH and RUNPATH are set, only the latter is used.
                 rpaths = []
@@ -449,6 +455,7 @@ def lddtree(
                     prefix,
                     ldpaths,
                     display=fullpath,
+                    exclude=exclude,
                     _first=False,
                     _all_libs=_all_libs,
                 )

@@ -29,14 +29,16 @@ HERE = Path(__file__).parent.resolve()
 )
 def test_analyze_wheel_abi(file, external_libs):
     wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch="x86_64")
-    winfo = analyze_wheel_abi(wheel_policies, str(HERE / file))
+    winfo = analyze_wheel_abi(wheel_policies, str(HERE / file), frozenset())
     assert set(winfo.external_refs["manylinux_2_5_x86_64"]["libs"]) == external_libs
 
 
 def test_analyze_wheel_abi_pyfpe():
     wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch="x86_64")
     winfo = analyze_wheel_abi(
-        wheel_policies, str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl")
+        wheel_policies,
+        str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl"),
+        frozenset(),
     )
     assert (
         winfo.sym_tag == "manylinux_2_5_x86_64"

@@ -39,10 +39,10 @@ def repair_wheel(
     out_dir: str,
     update_tags: bool,
     patcher: ElfPatcher,
-    exclude: list[str],
+    exclude: frozenset[str],
     strip: bool = False,
 ) -> str | None:
-    external_refs_by_fn = get_wheel_elfdata(wheel_policy, wheel_path)[1]
+    external_refs_by_fn = get_wheel_elfdata(wheel_policy, wheel_path, exclude)[1]
 
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:
@@ -72,9 +72,7 @@ def repair_wheel(
             ext_libs: dict[str, str] = v[abis[0]]["libs"]
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
-                if soname in exclude:
-                    logger.info(f"Excluding {soname}")
-                    continue
+                assert soname not in exclude
 
                 if src_path is None:
                     raise ValueError(

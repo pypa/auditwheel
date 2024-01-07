@@ -313,51 +313,44 @@ class Anylinux:
         # at once in the same Python program:
         docker_exec(docker_python, ["python", "-c", "'import numpy; import foo'"])
 
-    @pytest.mark.skipif(
-        PLATFORM != "x86_64", reason="Only needs checking on one platform"
-    )
     def test_repair_exclude(self, any_manylinux_container, io_folder):
         """Test the --exclude argument to avoid grafting certain libraries."""
 
         policy, tag, manylinux_ctr = any_manylinux_container
 
-        orig_wheel = build_numpy(manylinux_ctr, policy, io_folder)
-        assert orig_wheel == ORIGINAL_NUMPY_WHEEL
+        test_path = "/auditwheel_src/tests/integration/testrpath"
+        build_cmd = (
+            f"cd {test_path} && "
+            "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+            "python setup.py bdist_wheel -d /io"
+        )
+        docker_exec(manylinux_ctr, ["bash", "-c", build_cmd])
+        filenames = os.listdir(io_folder)
+        assert filenames == [f"testrpath-0.0.1-{PYTHON_ABI}-linux_{PLATFORM}.whl"]
+        orig_wheel = filenames[0]
         assert "manylinux" not in orig_wheel
 
-        # Exclude libgfortran from grafting into the wheel
-        excludes = {
-            "manylinux_2_5_x86_64": ["libgfortran.so.1", "libgfortran.so.3"],
-            "manylinux_2_12_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
-            "manylinux_2_17_x86_64": ["libgfortran.so.3", "libgfortran.so.5"],
-            "manylinux_2_28_x86_64": ["libgfortran.so.5"],
-            "musllinux_1_1_x86_64": ["libgfortran.so.5"],
-        }[policy]
-
         repair_command = [
+            f"LD_LIBRARY_PATH={test_path}/a:$LD_LIBRARY_PATH",
             "auditwheel",
             "repair",
-            "--plat",
-            policy,
+            f"--plat={policy}",
             "--only-plat",
             "-w",
             "/io",
+            "--exclude=liba.so",
+            f"/io/{orig_wheel}",
         ]
-        for exclude in excludes:
-            repair_command.extend(["--exclude", exclude])
-        repair_command.append(f"/io/{orig_wheel}")
-        output = docker_exec(manylinux_ctr, repair_command)
-
-        for exclude in excludes:
-            assert f"Excluding {exclude}" in output
+        output = docker_exec(manylinux_ctr, ["bash", "-c", " ".join(repair_command)])
+        assert "Excluding liba.so" in output
         filenames = os.listdir(io_folder)
         assert len(filenames) == 2
-        repaired_wheel = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-{tag}.whl"
+        repaired_wheel = f"testrpath-0.0.1-{PYTHON_ABI}-{tag}.whl"
         assert repaired_wheel in filenames
 
-        # Make sure we don't have libgfortran in the result
+        # Make sure we don't have liba.so & libb.so in the result
         contents = zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)).namelist()
-        assert not any(x for x in contents if "/libgfortran" in x)
+        assert not any(x for x in contents if "/liba" in x or "/libb" in x)
 
     def test_build_wheel_with_binary_executable(
         self, any_manylinux_container, docker_python, io_folder
