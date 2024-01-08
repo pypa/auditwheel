@@ -109,6 +109,7 @@ def execute(args, p):
     from .repair import repair_wheel
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
+    exclude = frozenset(args.EXCLUDE)
     wheel_policy = WheelPolicies()
 
     for wheel_file in args.WHEEL_FILE:
@@ -121,7 +122,7 @@ def execute(args, p):
             os.makedirs(args.WHEEL_DIR)
 
         try:
-            wheel_abi = analyze_wheel_abi(wheel_policy, wheel_file)
+            wheel_abi = analyze_wheel_abi(wheel_policy, wheel_file, exclude)
         except NonPlatformWheel:
             logger.info(NonPlatformWheel.LOG_MESSAGE)
             return 1
@@ -177,7 +178,7 @@ def execute(args, p):
             out_dir=args.WHEEL_DIR,
             update_tags=args.UPDATE_TAGS,
             patcher=patcher,
-            exclude=args.EXCLUDE,
+            exclude=exclude,
             strip=args.STRIP,
         )
 

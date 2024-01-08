@@ -48,6 +48,6 @@ class TestGetWheelElfdata:
         wheel_policy = WheelPolicies()
 
         with pytest.raises(RuntimeError) as exec_info:
-            wheel_abi.get_wheel_elfdata(wheel_policy, "/fakepath")
+            wheel_abi.get_wheel_elfdata(wheel_policy, "/fakepath", frozenset())
 
         assert exec_info.value.args == (message,)

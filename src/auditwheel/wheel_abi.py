@@ -52,7 +52,9 @@ class NonPlatformWheel(WheelAbiError):
 
 
 @functools.lru_cache
-def get_wheel_elfdata(wheel_policy: WheelPolicies, wheel_fn: str):
+def get_wheel_elfdata(
+    wheel_policy: WheelPolicies, wheel_fn: str, exclude: frozenset[str]
+):
     full_elftree = {}
     nonpy_elftree = {}
     full_external_refs = {}
@@ -80,7 +82,7 @@ def get_wheel_elfdata(wheel_policy: WheelPolicies, wheel_fn: str):
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
-                elftree = lddtree(fn)
+                elftree = lddtree(fn, exclude=exclude)
 
                 for key, value in elf_find_versioned_symbols(elf):
                     log.debug("key %s, value %s", key, value)
@@ -227,7 +229,9 @@ def get_symbol_policies(
     return result
 
 
-def analyze_wheel_abi(wheel_policy: WheelPolicies, wheel_fn: str) -> WheelAbIInfo:
+def analyze_wheel_abi(
+    wheel_policy: WheelPolicies, wheel_fn: str, exclude: frozenset[str]
+) -> WheelAbIInfo:
     external_refs = {
         p["name"]: {"libs": {}, "blacklist": {}, "priority": p["priority"]}
         for p in wheel_policy.policies
@@ -239,7 +243,7 @@ def analyze_wheel_abi(wheel_policy: WheelPolicies, wheel_fn: str) -> WheelAbIInf
         versioned_symbols,
         has_ucs2,
         uses_PyFPE_jbuf,
-    ) = get_wheel_elfdata(wheel_policy, wheel_fn)
+    ) = get_wheel_elfdata(wheel_policy, wheel_fn, exclude)
 
     for fn in elftree_by_fn.keys():
         update(external_refs, external_refs_by_fn[fn])
