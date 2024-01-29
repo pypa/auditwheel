@@ -3,6 +3,7 @@ Calculate symbol_versions for a policy in policy.json by collection
 defined version (.gnu.version_d) from libraries in lib_whitelist.
 This should be run inside a manylinux Docker container.
 """
+
 from __future__ import annotations
 
 import argparse
