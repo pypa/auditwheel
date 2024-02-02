@@ -161,7 +161,7 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str
     patcher.set_soname(dest_path, new_soname)
 
     if any(itertools.chain(rpaths["rpaths"], rpaths["runpaths"])):
-        patcher.set_rpath(dest_path, dest_dir)
+        patcher.set_rpath(dest_path, "$ORIGIN")
 
     return new_soname, dest_path
 
