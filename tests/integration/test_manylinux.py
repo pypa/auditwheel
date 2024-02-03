@@ -498,7 +498,9 @@ class Anylinux:
         )
         assert output.strip() == "11"
         with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as w:
-            libraries = tuple(name for name in w.namelist() if "testrpath.libs/lib" in name)
+            libraries = tuple(
+                name for name in w.namelist() if "testrpath.libs/lib" in name
+            )
             assert len(libraries) == 2
             assert any(".libs/liba" in name for name in libraries)
             for name in libraries:
