@@ -498,29 +498,33 @@ class Anylinux:
         )
         assert output.strip() == "11"
         with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as w:
-            for name in w.namelist():
-                if "testrpath/.libs/lib" in name:
-                    with w.open(name) as f:
-                        elf = ELFFile(io.BytesIO(f.read()))
-                        dynamic = elf.get_section_by_name(".dynamic")
-                        assert (
-                            len(
-                                [
-                                    t
-                                    for t in dynamic.iter_tags()
-                                    if t.entry.d_tag == "DT_RUNPATH"
-                                ]
-                            )
-                            == 0
-                        )
-                        if ".libs/liba" in name:
-                            rpath_tags = [
+            libraries = tuple(
+                name for name in w.namelist() if "testrpath.libs/lib" in name
+            )
+            assert len(libraries) == 2
+            assert any(".libs/liba" in name for name in libraries)
+            for name in libraries:
+                with w.open(name) as f:
+                    elf = ELFFile(io.BytesIO(f.read()))
+                    dynamic = elf.get_section_by_name(".dynamic")
+                    assert (
+                        len(
+                            [
                                 t
                                 for t in dynamic.iter_tags()
-                                if t.entry.d_tag == "DT_RPATH"
+                                if t.entry.d_tag == "DT_RUNPATH"
                             ]
-                            assert len(rpath_tags) == 1
-                            assert rpath_tags[0].rpath == "$ORIGIN/."
+                        )
+                        == 0
+                    )
+                    if ".libs/liba" in name:
+                        rpath_tags = [
+                            t
+                            for t in dynamic.iter_tags()
+                            if t.entry.d_tag == "DT_RPATH"
+                        ]
+                        assert len(rpath_tags) == 1
+                        assert rpath_tags[0].rpath == "$ORIGIN"
 
     def test_build_repair_multiple_top_level_modules_wheel(
         self, any_manylinux_container, docker_python, io_folder
