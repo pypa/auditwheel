@@ -2,6 +2,19 @@
 
 ## HEAD
 
+Released February 3, 2024
+
+## 6.0.0
+
+### User-facing changes
+- [REMOVAL] Drop python 3.7 support ([#457](https://github.com/pypa/auditwheel/pull/457))
+- [REMOVAL] Remove the `addtag` subcommand ([#455](https://github.com/pypa/auditwheel/pull/455))
+- [FEATURE] Add python 3.12 support ([#446](https://github.com/pypa/auditwheel/pull/446))
+- [BUGFIX] Repair ELF executables in the "scripts" directory ([#443](https://github.com/pypa/auditwheel/pull/443))
+- [BUGFIX] Fix bitness detection  ([#471](https://github.com/pypa/auditwheel/pull/471))
+- [BUGFIX] `--exclude libfoo.so` shall ignore dependencies of `libfoo.so` ([#474](https://github.com/pypa/auditwheel/pull/474))
+- [BUGFIX] Fix replacing `RPATH` on copied libs to the folder where they're copied (`$ORIGIN`)  ([#478](https://github.com/pypa/auditwheel/pull/478))
+
 ## 5.4.0
 
 Released May 1, 2023
