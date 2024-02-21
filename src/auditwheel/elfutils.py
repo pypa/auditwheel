@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
-from os.path import basename, realpath, relpath
+from os.path import basename
+from pathlib import Path
 from typing import Iterator
 
 from elftools.common.exceptions import ELFError
@@ -126,17 +126,14 @@ def elf_read_rpaths(fn: str) -> dict[str, list[str]]:
     return result
 
 
-def is_subdir(path: str, directory: str) -> bool:
+def is_subdir(path: str | Path | None, directory: str | Path) -> bool:
     if path is None:
         return False
 
-    path = realpath(path)
-    directory = realpath(directory)
+    path = Path(path).resolve()
+    directory = Path(directory).resolve()
 
-    relative = relpath(path, directory)
-    if relative.startswith(os.pardir):
-        return False
-    return True
+    return directory in path.parents
 
 
 def get_undefined_symbols(path: str) -> set[str]:

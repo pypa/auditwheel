@@ -9,6 +9,7 @@ import shutil
 import stat
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
+from pathlib import Path
 from subprocess import check_call
 from typing import Iterable
 
@@ -237,7 +238,7 @@ def _resolve_rpath_tokens(rpath: str, lib_base_dir: str) -> str:
 
 def _path_is_script(path: str) -> bool:
     # Looks something like "uWSGI-2.0.21.data/scripts/uwsgi"
-    components = path.split("/")
+    components = Path(path).parts
     return (
         len(components) == 3
         and components[0].endswith(".data")
@@ -265,7 +266,7 @@ def _replace_elf_script_with_shim(package_name: str, orig_path: str) -> str:
     new_path = os.path.join(scripts_dir, os.path.basename(orig_path))
     os.rename(orig_path, new_path)
 
-    with open(orig_path, "w") as f:
+    with open(orig_path, "w", newline="\n") as f:
         f.write(_script_shim(new_path))
     os.chmod(orig_path, os.stat(new_path).st_mode)
 
@@ -286,5 +287,5 @@ if __name__ == "__main__":
         sys.argv,
     )
 """.format(
-        binary_path=binary_path,
+        binary_path=Path(binary_path).as_posix(),
     )
