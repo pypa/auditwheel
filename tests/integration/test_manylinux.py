@@ -1004,8 +1004,7 @@ class TestManylinux(Anylinux):
 
         with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as z:
             for file in z.namelist():
-                if file.startswith("testsimple.libs"):
-                    raise Exception("should not have empty .libs folder")
+                assert not file.startswith("testsimple.libs"), "should not have empty .libs folder"
 
         docker_exec(docker_python, f"pip install /io/{repaired_wheel}")
         docker_exec(
