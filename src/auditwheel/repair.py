@@ -64,9 +64,6 @@ def repair_wheel(
 
         dest_dir = match.group("name") + lib_sdir
 
-        if not exists(dest_dir):
-            os.mkdir(dest_dir)
-
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
@@ -84,6 +81,8 @@ def repair_wheel(
                         % soname
                     )
 
+                if not exists(dest_dir):
+                    os.mkdir(dest_dir)
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))

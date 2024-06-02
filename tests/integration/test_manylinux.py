@@ -20,7 +20,6 @@ from auditwheel.policy import WheelPolicies, get_arch_name
 
 logger = logging.getLogger(__name__)
 
-
 ENCODING = "utf-8"
 PLATFORM = get_arch_name()
 MANYLINUX1_IMAGE_ID = f"quay.io/pypa/manylinux1_{PLATFORM}:latest"
@@ -1000,7 +999,14 @@ class TestManylinux(Anylinux):
             repaired_tag = f"{expect_tag}.{target_tag}"
         repaired_wheel = f"testsimple-0.0.1-{PYTHON_ABI}-{repaired_tag}.whl"
         assert repaired_wheel in filenames
+
         assert_show_output(manylinux_ctr, repaired_wheel, expect, True)
+
+        with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as z:
+            for file in z.namelist():
+                assert not file.startswith(
+                    "testsimple.libs"
+                ), "should not have empty .libs folder"
 
         docker_exec(docker_python, f"pip install /io/{repaired_wheel}")
         docker_exec(
