@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ def configure_subparser(sub_parsers):
     p.set_defaults(func=execute)
 
 
-def execute(args, p):
+def execute(args, p: argparse.ArgumentParser):  # noqa: ARG001
     import json
 
     from .lddtree import lddtree

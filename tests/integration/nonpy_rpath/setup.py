@@ -88,7 +88,7 @@ crypt_example = Library(
     pkg_name + "." + crypt_name,
     language="c++",
     extra_compile_args=["-lcrypt"],
-    extra_link_args=link_args(crypt_soname) + ["-lcrypt"],
+    extra_link_args=[*link_args(crypt_soname), "-lcrypt"],
     sources=["extensions/testcrypt.cpp"],
 )
 

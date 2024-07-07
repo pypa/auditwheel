@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import logging
 
 from auditwheel.policy import WheelPolicies
@@ -21,7 +22,7 @@ def printp(text: str) -> None:
     print("\n".join(wrap(text, break_long_words=False, break_on_hyphens=False)))
 
 
-def execute(args, p):
+def execute(args, parser: argparse.ArgumentParser):
     import json
     from os.path import basename, isfile
 
@@ -32,7 +33,7 @@ def execute(args, p):
     fn = basename(args.WHEEL_FILE)
 
     if not isfile(args.WHEEL_FILE):
-        p.error("cannot access %s. No such file" % args.WHEEL_FILE)
+        parser.error(f"cannot access {args.WHEEL_FILE}. No such file")
 
     try:
         winfo = analyze_wheel_abi(wheel_policy, args.WHEEL_FILE, frozenset())
@@ -45,8 +46,7 @@ def execute(args, p):
     ]
 
     printp(
-        '%s is consistent with the following platform tag: "%s".'
-        % (fn, winfo.overall_tag)
+        f'{fn} is consistent with the following platform tag: "{winfo.overall_tag}".'
     )
 
     if (
@@ -59,7 +59,7 @@ def execute(args, p):
             "#fpectl-builds-vs-no-fpectl-builds)"
         )
         if args.verbose < 1:
-            return
+            return None
 
     if wheel_policy.get_priority_by_name(winfo.ucs_tag) < wheel_policy.priority_highest:
         printp(
@@ -68,7 +68,7 @@ def execute(args, p):
             "manylinux1 tag."
         )
         if args.verbose < 1:
-            return
+            return None
 
     if len(libs_with_versions) == 0:
         printp(
@@ -78,22 +78,19 @@ def execute(args, p):
     else:
         printp(
             "The wheel references external versioned symbols in these "
-            "system-provided shared libraries: %s" % ", ".join(libs_with_versions)
+            f"system-provided shared libraries: {', '.join(libs_with_versions)}"
         )
 
     if wheel_policy.get_priority_by_name(winfo.sym_tag) < wheel_policy.priority_highest:
         printp(
-            (
-                'This constrains the platform tag to "%s". '
-                "In order to achieve a more compatible tag, you would "
-                "need to recompile a new wheel from source on a system "
-                "with earlier versions of these libraries, such as "
-                "a recent manylinux image."
-            )
-            % winfo.sym_tag
+            f'This constrains the platform tag to "{winfo.sym_tag}". '
+            "In order to achieve a more compatible tag, you would "
+            "need to recompile a new wheel from source on a system "
+            "with earlier versions of these libraries, such as "
+            "a recent manylinux image."
         )
         if args.verbose < 1:
-            return
+            return None
 
     libs = winfo.external_refs[
         wheel_policy.get_policy_name(wheel_policy.priority_lowest)
@@ -101,7 +98,7 @@ def execute(args, p):
     if len(libs) == 0:
         printp("The wheel requires no external shared libraries! :)")
     else:
-        printp("The following external shared libraries are required " "by the wheel:")
+        printp("The following external shared libraries are required by the wheel:")
         print(json.dumps(dict(sorted(libs.items())), indent=4))
 
     for p in sorted(wheel_policy.policies, key=lambda p: p["priority"]):
@@ -109,23 +106,18 @@ def execute(args, p):
             libs = winfo.external_refs[p["name"]]["libs"]
             if len(libs):
                 printp(
-                    (
-                        'In order to achieve the tag platform tag "%s" '
-                        "the following shared library dependencies "
-                        "will need to be eliminated:"
-                    )
-                    % p["name"]
+                    f'In order to achieve the tag platform tag "{p["name"]}" '
+                    "the following shared library dependencies "
+                    "will need to be eliminated:"
                 )
                 printp(", ".join(sorted(libs.keys())))
             blacklist = winfo.external_refs[p["name"]]["blacklist"]
             if len(blacklist):
                 printp(
-                    (
-                        'In order to achieve the tag platform tag "%s" '
-                        "the following black-listed symbol dependencies "
-                        "will need to be eliminated:"
-                    )
-                    % p["name"]
+                    f'In order to achieve the tag platform tag "{p["name"]}" '
+                    "the following black-listed symbol dependencies "
+                    "will need to be eliminated:"
                 )
                 for key in sorted(blacklist.keys()):
                     printp(f"From {key}: " + ", ".join(sorted(blacklist[key])))
+    return 0

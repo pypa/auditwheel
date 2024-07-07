@@ -32,7 +32,8 @@ class InCondaPkgCtx(InCondaPkg):
 
     def iter_files(self) -> list[str]:
         if self.path is None:
-            raise ValueError("This function should be called from context manager")
+            msg = "This function should be called from context manager"
+            raise ValueError(msg)
         files = os.path.join(self.path, "info", "files")
         with open(files) as f:
             return [line.strip() for line in f.readlines()]

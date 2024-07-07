@@ -22,7 +22,7 @@ from .lddtree import lddtree
 from .policy import WheelPolicies
 
 log = logging.getLogger(__name__)
-WheelAbIInfo = namedtuple(
+WheelAbIInfo = namedtuple(  # noqa: PYI024
     "WheelAbIInfo",
     [
         "overall_tag",
@@ -114,16 +114,14 @@ def get_wheel_elfdata(
 
         # If at least one shared library exists in purelib, raise an error
         if shared_libraries_in_purelib:
-            raise RuntimeError(
-                (
-                    "Invalid binary wheel, found the following shared "
-                    "library/libraries in purelib folder:\n"
-                    "\t%s\n"
-                    "The wheel has to be platlib compliant in order to be "
-                    "repaired by auditwheel."
-                )
-                % "\n\t".join(shared_libraries_in_purelib)
+            libraries = "\n\t".join(shared_libraries_in_purelib)
+            msg = (
+                "Invalid binary wheel, found the following shared library/libraries "
+                f"in purelib folder:\n\t{libraries}\n"
+                "The wheel has to be platlib compliant in order to be repaired by "
+                "auditwheel."
             )
+            raise RuntimeError(msg)
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
@@ -132,18 +130,18 @@ def get_wheel_elfdata(
             for lib in elf["needed"]
         }
 
-        for fn in nonpy_elftree.keys():
+        for fn, elf_tree in nonpy_elftree.items():
             # If a non-pyextension ELF file is not needed by something else
             # inside the wheel, then it was not checked by the logic above and
             # we should walk its elftree.
             if basename(fn) not in needed_libs:
-                full_elftree[fn] = nonpy_elftree[fn]
+                full_elftree[fn] = elf_tree
 
             # Even if a non-pyextension ELF file is not needed, we
             # should include it as an external reference, because
             # it might require additional external libraries.
             full_external_refs[fn] = wheel_policy.lddtree_external_references(
-                nonpy_elftree[fn], ctx.path
+                elf_tree, ctx.path
             )
 
     log.debug("full_elftree:\n%s", json.dumps(full_elftree, indent=4))
@@ -175,7 +173,7 @@ def get_external_libs(external_refs) -> dict[str, str]:
             continue
         # go through all libs, retrieving their soname and realpath
         for libname, realpath in policy["libs"].items():
-            if realpath and realpath not in result.keys():
+            if realpath and realpath not in result:
                 result[realpath] = libname
     return result
 
@@ -217,7 +215,7 @@ def get_symbol_policies(
         if policy["priority"] == 0:
             continue
         policy_symbols = deepcopy(versioned_symbols)
-        for soname in policy["libs"].keys():
+        for soname in policy["libs"]:
             if soname not in external_versioned_symbols:
                 continue
             ext_symbols = external_versioned_symbols[soname]
@@ -245,7 +243,7 @@ def analyze_wheel_abi(
         uses_PyFPE_jbuf,
     ) = get_wheel_elfdata(wheel_policy, wheel_fn, exclude)
 
-    for fn in elftree_by_fn.keys():
+    for fn in elftree_by_fn:
         update(external_refs, external_refs_by_fn[fn])
 
     log.debug("external reference info")
@@ -319,5 +317,6 @@ def update(d, u):
         elif isinstance(v, (str, int, float, type(None))):
             d[k] = u[k]
         else:
-            raise RuntimeError("!", d, k)
+            msg = f"can't update {d} {k}"
+            raise RuntimeError(msg)
     return d

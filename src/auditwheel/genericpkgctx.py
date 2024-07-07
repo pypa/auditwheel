@@ -16,7 +16,5 @@ def InGenericPkgCtx(
         if out_path is not None:
             raise NotImplementedError()
         return InCondaPkgCtx(in_path)
-
-    raise ValueError(
-        "Invalid package: %s. File formats supported: " ".whl, .tar.bz2" % in_path
-    )
+    msg = f"Invalid package: {in_path}. File formats supported: .whl, .tar.bz2"
+    raise ValueError(msg)

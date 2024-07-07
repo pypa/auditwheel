@@ -61,7 +61,8 @@ def repair_wheel(
 
         match = WHEEL_INFO_RE(wheel_fname)
         if not match:
-            raise ValueError("Failed to parse wheel file name: %s", wheel_fname)
+            msg = f"Failed to parse wheel file name: {wheel_fname}"
+            raise ValueError(msg)
 
         dest_dir = match.group("name") + lib_sdir
 
@@ -74,13 +75,11 @@ def repair_wheel(
                 assert not any(fnmatch(soname, e) for e in exclude)
 
                 if src_path is None:
-                    raise ValueError(
-                        (
-                            "Cannot repair wheel, because required "
-                            'library "%s" could not be located'
-                        )
-                        % soname
+                    msg = (
+                        "Cannot repair wheel, because required "
+                        f'library "{soname}" could not be located'
                     )
+                    raise ValueError(msg)
 
                 if not exists(dest_dir):
                     os.mkdir(dest_dir)
@@ -91,18 +90,19 @@ def repair_wheel(
                 patcher.replace_needed(fn, *replacements)
 
             if len(ext_libs) > 0:
+                new_fn = fn
                 if _path_is_script(fn):
-                    fn = _replace_elf_script_with_shim(match.group("name"), fn)
+                    new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
 
-                new_rpath = os.path.relpath(dest_dir, os.path.dirname(fn))
+                new_rpath = os.path.relpath(dest_dir, os.path.dirname(new_fn))
                 new_rpath = os.path.join("$ORIGIN", new_rpath)
-                append_rpath_within_wheel(fn, new_rpath, ctx.name, patcher)
+                append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
         # we need to update those records so each now knows about the new
         # name of the other.
-        for old_soname, (new_soname, path) in soname_map.items():
+        for _, path in soname_map.values():
             needed = elf_read_dt_needed(path)
             replacements = []
             for n in needed:
@@ -146,7 +146,7 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str
 
     src_name = os.path.basename(src_path)
     base, ext = src_name.split(".", 1)
-    if not base.endswith("-%s" % shorthash):
+    if not base.endswith(f"-{shorthash}"):
         new_soname = f"{base}-{shorthash}.{ext}"
     else:
         new_soname = src_name
@@ -204,26 +204,20 @@ def _is_valid_rpath(rpath: str, lib_dir: str, wheel_base_dir: str) -> bool:
     full_rpath_entry = _resolve_rpath_tokens(rpath, lib_dir)
     if not isabs(full_rpath_entry):
         logger.debug(
-            f"rpath entry {rpath} could not be resolved to an "
-            "absolute path -- discarding it."
+            "rpath entry %s could not be resolved to an absolute path -- discarding it.",
+            rpath,
         )
         return False
-    elif not is_subdir(full_rpath_entry, wheel_base_dir):
-        logger.debug(
-            f"rpath entry {rpath} points outside the wheel -- " "discarding it."
-        )
+    if not is_subdir(full_rpath_entry, wheel_base_dir):
+        logger.debug("rpath entry %s points outside the wheel -- discarding it.", rpath)
         return False
-    else:
-        logger.debug(f"Preserved rpath entry {rpath}")
-        return True
+    logger.debug("Preserved rpath entry %s", rpath)
+    return True
 
 
 def _resolve_rpath_tokens(rpath: str, lib_base_dir: str) -> str:
     # See https://www.man7.org/linux/man-pages/man8/ld.so.8.html#DESCRIPTION
-    if platform.architecture()[0] == "64bit":
-        system_lib_dir = "lib64"
-    else:
-        system_lib_dir = "lib"
+    system_lib_dir = "lib64" if platform.architecture()[0] == "64bit" else "lib"
     system_processor_type = platform.machine()
     token_replacements = {
         "ORIGIN": lib_base_dir,
@@ -274,7 +268,7 @@ def _replace_elf_script_with_shim(package_name: str, orig_path: str) -> str:
 
 
 def _script_shim(binary_path: str) -> str:
-    return """\
+    return f"""\
 #!python
 import os
 import sys
@@ -283,9 +277,7 @@ import sysconfig
 
 if __name__ == "__main__":
     os.execv(
-        os.path.join(sysconfig.get_path("platlib"), {binary_path!r}),
+        os.path.join(sysconfig.get_path("platlib"), {Path(binary_path).as_posix()!r}),
         sys.argv,
     )
-""".format(
-        binary_path=Path(binary_path).as_posix(),
-    )
+"""

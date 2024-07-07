@@ -35,7 +35,7 @@ class TestElfReadDt:
         elffile_mock.return_value.get_section_by_name.return_value = None
 
         # THEN
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"^Could not find soname.*"):
             # WHEN
             elf_read_dt_needed("/fake.so")
 
@@ -62,15 +62,15 @@ class TestElfReadDt:
 @patch("auditwheel.elfutils.open")
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfFileFilter:
-    def test_filter(self, elffile_mock, open_mock):
+    def test_filter(self, elffile_mock, open_mock):  # noqa: ARG002
         result = elf_file_filter(["file1.so", "file2.so"])
         assert len(list(result)) == 2
 
-    def test_some_py_files(self, elffile_mock, open_mock):
+    def test_some_py_files(self, elffile_mock, open_mock):  # noqa: ARG002
         result = elf_file_filter(["file1.py", "file2.so", "file3.py"])
         assert len(list(result)) == 1
 
-    def test_not_elf(self, elffile_mock, open_mock):
+    def test_not_elf(self, elffile_mock, open_mock):  # noqa: ARG002
         # GIVEN
         elffile_mock.side_effect = ELFError
 
@@ -137,7 +137,7 @@ class TestFindUcs2Symbols:
         asunicode = MockSymbol(
             "PyUnicodeUCS2_AsUnicode",
             st_shndx="SHN_UNDEF",
-            st_info=dict(type="STT_FUNC"),
+            st_info={"type": "STT_FUNC"},
         )
         symbols = (asunicode, Mock())
         symbols[1].name = "foobar"
@@ -168,7 +168,7 @@ class TestElfReferencesPyPFE:
         elf = Mock()
         symbols = (
             MockSymbol(
-                "PyFPE_jbuf", st_shndx="SHN_UNDEF", st_info=dict(type="STT_FUNC")
+                "PyFPE_jbuf", st_shndx="SHN_UNDEF", st_info={"type": "STT_FUNC"}
             ),
         )
 
@@ -182,7 +182,7 @@ class TestElfReferencesPyPFE:
         elf = Mock()
         symbols = (
             MockSymbol(
-                "SomeSymbol", st_shndx="SHN_UNDEF", st_info=dict(type="STT_FUNC")
+                "SomeSymbol", st_shndx="SHN_UNDEF", st_info={"type": "STT_FUNC"}
             ),
         )
 

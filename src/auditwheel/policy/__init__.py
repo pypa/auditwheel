@@ -40,13 +40,15 @@ class WheelPolicies:
         if libc is None:
             libc = get_libc() if musl_policy is None else Libc.MUSL
         if libc != Libc.MUSL and musl_policy is not None:
-            raise ValueError(f"'musl_policy' shall be None for libc {libc.name}")
+            msg = f"'musl_policy' shall be None for libc {libc.name}"
+            raise ValueError(msg)
         if libc == Libc.MUSL:
             if musl_policy is None:
                 musl_version = get_musl_version(find_musl_libc())
                 musl_policy = f"musllinux_{musl_version.major}_{musl_version.minor}"
             elif _MUSL_POLICY_RE.match(musl_policy) is None:
-                raise ValueError(f"Invalid 'musl_policy': '{musl_policy}'")
+                msg = f"Invalid 'musl_policy': '{musl_policy}'"
+                raise ValueError(msg)
         if arch is None:
             arch = get_arch_name()
         policies = json.loads(_POLICY_JSON_MAP[libc].read_text())
@@ -63,7 +65,7 @@ class WheelPolicies:
             }:
                 continue
             if (
-                self._arch_name in policy["symbol_versions"].keys()
+                self._arch_name in policy["symbol_versions"]
                 or policy["name"] == "linux"
             ):
                 if policy["name"] != "linux":
@@ -101,7 +103,8 @@ class WheelPolicies:
         if len(matches) == 0:
             return None
         if len(matches) > 1:
-            raise RuntimeError("Internal error. Policies should be unique")
+            msg = "Internal error. Policies should be unique"
+            raise RuntimeError(msg)
         return matches[0]
 
     def get_policy_name(self, priority: int) -> str | None:
@@ -109,7 +112,8 @@ class WheelPolicies:
         if len(matches) == 0:
             return None
         if len(matches) > 1:
-            raise RuntimeError("Internal error. priorities should be unique")
+            msg = "Internal error. priorities should be unique"
+            raise RuntimeError(msg)
         return matches[0]
 
     def get_priority_by_name(self, name: str) -> int | None:
@@ -150,7 +154,8 @@ class WheelPolicies:
 
         if len(matching_policies) == 0:
             # the base policy (generic linux) should always match
-            raise RuntimeError("Internal error")
+            msg = "Internal error"
+            raise RuntimeError(msg)
 
         return max(matching_policies)
 
@@ -246,22 +251,24 @@ def _validate_pep600_compliance(policies) -> None:
             continue
         if not lib_whitelist.issubset(set(policy["lib_whitelist"])):
             diff = lib_whitelist - set(policy["lib_whitelist"])
-            raise ValueError(
+            msg = (
                 'Invalid "policy.json" file. Missing whitelist libraries in '
                 f'"{policy["name"]}" compared to previous policies: {diff}'
             )
+            raise ValueError(msg)
         lib_whitelist.update(policy["lib_whitelist"])
-        for arch in policy["symbol_versions"].keys():
+        for arch in policy["symbol_versions"]:
             symbol_versions_arch = symbol_versions.get(arch, defaultdict(set))
-            for prefix in policy["symbol_versions"][arch].keys():
+            for prefix in policy["symbol_versions"][arch]:
                 policy_symbol_versions = set(policy["symbol_versions"][arch][prefix])
                 if not symbol_versions_arch[prefix].issubset(policy_symbol_versions):
                     diff = symbol_versions_arch[prefix] - policy_symbol_versions
-                    raise ValueError(
+                    msg = (
                         'Invalid "policy.json" file. Symbol versions missing '
                         f'in "{policy["name"]}_{arch}" for "{prefix}" '
                         f"compared to previous policies: {diff}"
                     )
+                    raise ValueError(msg)
                 symbol_versions_arch[prefix].update(
                     policy["symbol_versions"][arch][prefix]
                 )
@@ -285,7 +292,7 @@ def _fixup_musl_libc_soname(libc: Libc, arch: str, whitelist):
     for soname in whitelist:
         if soname in soname_map:
             new_soname = soname_map[soname][arch]
-            logger.debug(f"Replacing whitelisted '{soname}' by '{new_soname}'")
+            logger.debug("Replacing whitelisted '%s' by '%s'", soname, new_soname)
             new_whitelist.append(new_soname)
         else:
             new_whitelist.append(soname)
@@ -316,8 +323,7 @@ def get_replace_platforms(name: str) -> list[str]:
 
 def _load_policy_schema():
     with open(join(dirname(abspath(__file__)), "policy-schema.json")) as f_:
-        schema = json.load(f_)
-    return schema
+        return json.load(f_)
 
 
 __all__ = [

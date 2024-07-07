@@ -11,7 +11,7 @@ from auditwheel.policy import WheelPolicies
 
 class TestGetWheelElfdata:
     @pytest.mark.parametrize(
-        "filenames, message",
+        ("filenames", "message"),
         [
             (
                 # A single invalid file
@@ -32,9 +32,9 @@ class TestGetWheelElfdata:
     def test_finds_shared_library_in_purelib(self, filenames, message, monkeypatch):
         entered_context = pretend.stub(iter_files=lambda: filenames)
         context = pretend.stub(
-            __enter__=lambda: entered_context, __exit__=lambda *a: None
+            __enter__=lambda: entered_context, __exit__=lambda *_: None
         )
-        InGenericPkgCtx = pretend.stub(__call__=lambda a: context)
+        InGenericPkgCtx = pretend.stub(__call__=lambda _: context)
 
         monkeypatch.setattr(wheel_abi, "InGenericPkgCtx", InGenericPkgCtx)
         monkeypatch.setattr(

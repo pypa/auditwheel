@@ -51,6 +51,4 @@ def main() -> int | None:
         p.print_help()
         return None
 
-    rval = args.func(args, p)
-
-    return rval
+    return args.func(args, p)

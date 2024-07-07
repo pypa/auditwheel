@@ -8,16 +8,16 @@ from subprocess import CalledProcessError, check_call, check_output
 
 class ElfPatcher:
     def replace_needed(self, file_name: str, *old_new_pairs: tuple[str, str]) -> None:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def set_soname(self, file_name: str, new_so_name: str) -> None:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def set_rpath(self, file_name: str, rpath: str) -> None:
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def get_rpath(self, file_name: str) -> str:
-        raise NotImplementedError
+        raise NotImplementedError()
 
 
 def _verify_patchelf() -> None:
@@ -26,18 +26,19 @@ def _verify_patchelf() -> None:
     version can't be found. Otherwise, silence is golden
     """
     if not which("patchelf"):
-        raise ValueError("Cannot find required utility `patchelf` in PATH")
+        msg = "Cannot find required utility `patchelf` in PATH"
+        raise ValueError(msg)
     try:
         version = check_output(["patchelf", "--version"]).decode("utf-8")
     except CalledProcessError:
-        raise ValueError("Could not call `patchelf` binary")
+        msg = "Could not call `patchelf` binary"
+        raise ValueError(msg) from None
 
     m = re.match(r"patchelf\s+(\d+(.\d+)?)", version)
     if m and tuple(int(x) for x in m.group(1).split(".")) >= (0, 14):
         return
-    raise ValueError(
-        f"patchelf {version} found. auditwheel repair requires " "patchelf >= 0.14."
-    )
+    msg = f"patchelf {version} found. auditwheel repair requires " "patchelf >= 0.14."
+    raise ValueError(msg)
 
 
 class Patchelf(ElfPatcher):

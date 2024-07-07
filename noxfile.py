@@ -103,7 +103,7 @@ def test_dist(session: nox.Session) -> None:
 
 def _test_dist(session: nox.Session, path: str, pattern: str) -> None:
     (dist_path,) = Path(path).glob(pattern)
-    session.install(f"{str(dist_path)}[test]")
+    session.install(f"{dist_path!s}[test]")
     session.run("pytest", "tests/unit")
 
 

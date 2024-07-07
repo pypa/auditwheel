@@ -6,14 +6,14 @@ from auditwheel.condatools import InCondaPkg, InCondaPkgCtx
 
 
 @patch("auditwheel.condatools.tarbz2todir")
-def test_in_condapkg(tarbz2todir_mock):
+def test_in_condapkg(_):  # noqa: PT019
     with InCondaPkg("/fakepath"):
         assert True
 
 
 @patch("auditwheel.condatools.tarbz2todir")
 @patch("auditwheel.condatools.open")
-def test_in_condapkg_context(open_mock, tarbz2todir_mock):
+def test_in_condapkg_context(open_mock, _):  # noqa: PT019
     with InCondaPkgCtx("/fakepath") as conda_pkg:
         file_mock = Mock()
         file_mock.readlines.return_value = ["file1\n", "file2\n", "\n"]
@@ -22,4 +22,5 @@ def test_in_condapkg_context(open_mock, tarbz2todir_mock):
         # might be a subtle bug in the implementation.
         files = conda_pkg.iter_files()
         assert len(files) == 3
-        assert "file1" and "file2" in files
+        assert "file1" in files
+        assert "file2" in files

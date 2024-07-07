@@ -7,6 +7,7 @@ This should be run inside a manylinux Docker container.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import platform
@@ -32,7 +33,8 @@ def choose_policy(name, policies):
     try:
         return next(policy for policy in policies if policy["name"] == name)
     except StopIteration:
-        raise RuntimeError(f"Unknown policy {name}")
+        msg = f"Unknown policy {name}"
+        raise RuntimeError(msg) from None
 
 
 def find_library(library):
@@ -40,8 +42,8 @@ def find_library(library):
         path = os.path.join(p, library)
         if os.path.exists(path):
             return path
-    else:
-        raise RuntimeError(f"Unknown library {library}")
+    msg = f"Unknown library {library}"
+    raise RuntimeError(msg)
 
 
 def versionify(version_string):
@@ -67,11 +69,8 @@ def calculate_symbol_versions(libraries, symbol_versions, arch):
             if section:
                 for _, verdef_iter in section.iter_versions():
                     for vernaux in verdef_iter:
-                        for symbol_name in symbol_versions:
-                            try:
-                                name, version = vernaux.name.split("_", 1)
-                            except ValueError:
-                                pass
+                        with contextlib.suppress(ValueError):
+                            name, version = vernaux.name.split("_", 1)
                             if (
                                 name in calculated_symbol_versions
                                 and version != "PRIVATE"

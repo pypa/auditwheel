@@ -21,7 +21,7 @@ HERE = Path(__file__).parent.resolve()
 
 
 @pytest.mark.parametrize(
-    "file, external_libs, exclude",
+    ("file", "external_libs", "exclude"),
     [
         ("cffi-1.5.0-cp27-none-linux_x86_64.whl", {"libffi.so.5"}, frozenset()),
         ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["libffi.so.5"])),

@@ -100,14 +100,19 @@ def find_src_folder():
     contents = os.listdir(candidate)
     if "setup.py" in contents and "src" in contents:
         return candidate
+    return None
 
 
-def docker_start(image, volumes={}, env_variables={}):
+def docker_start(image, volumes=None, env_variables=None):
     """Start a long waiting idle program in container
 
     Return the container object to be used for 'docker exec' commands.
     """
     # Make sure to use the latest public version of the docker image
+    if env_variables is None:
+        env_variables = {}
+    if volumes is None:
+        volumes = {}
     client = docker.from_env()
 
     dvolumes = {host: {"bind": ctr, "mode": "rw"} for (ctr, host) in volumes.items()}
@@ -125,7 +130,9 @@ def docker_start(image, volumes={}, env_variables={}):
 
 
 @contextmanager
-def docker_container_ctx(image, io_dir=None, env_variables={}):
+def docker_container_ctx(image, io_dir=None, env_variables=None):
+    if env_variables is None:
+        env_variables = {}
     src_folder = find_src_folder()
     if src_folder is None:
         pytest.skip("Can only be run from the source folder")
@@ -157,7 +164,7 @@ def docker_exec(container, cmd, expected_retcode=0):
 
 
 @contextmanager
-def tmp_docker_image(base, commands, setup_env={}):
+def tmp_docker_image(base, commands, setup_env=None):
     """Make a temporary docker image for tests
 
     Pulls the *base* image, runs *commands* inside it with *setup_env*, and
@@ -167,6 +174,8 @@ def tmp_docker_image(base, commands, setup_env={}):
     Making temporary images like this avoids each test having to re-run the
     same container setup steps.
     """
+    if setup_env is None:
+        setup_env = {}
     with docker_container_ctx(base, env_variables=setup_env) as con:
         for cmd in commands:
             docker_exec(con, cmd)
@@ -242,18 +251,18 @@ def build_numpy(container, policy, output_dir):
 
 
 class Anylinux:
-    @pytest.fixture()
+    @pytest.fixture
     def io_folder(self, tmp_path):
         d = tmp_path / "io"
         d.mkdir(exist_ok=True)
         return str(d)
 
-    @pytest.fixture()
+    @pytest.fixture
     def docker_python(self, docker_python_img, io_folder):
         with docker_container_ctx(docker_python_img, io_folder) as container:
             yield container
 
-    @pytest.fixture()
+    @pytest.fixture
     def any_manylinux_container(self, any_manylinux_img, io_folder):
         policy, manylinux_img = any_manylinux_img
         env = {"PATH": PATH[policy]}
@@ -263,7 +272,7 @@ class Anylinux:
 
         with docker_container_ctx(manylinux_img, io_folder, env) as container:
             platform_tag = ".".join(
-                [f"{p}_{PLATFORM}" for p in [policy] + POLICY_ALIASES.get(policy, [])]
+                [f"{p}_{PLATFORM}" for p in [policy, *POLICY_ALIASES.get(policy, [])]]
             )
             yield f"{policy}_{PLATFORM}", platform_tag, container
 
@@ -824,7 +833,7 @@ class TestManylinux(Anylinux):
             "manylinux_2_5": {"38", "39"},
             "manylinux_2_12": {"38", "39", "310"},
         }
-        check_set = support_check_map.get(policy, None)
+        check_set = support_check_map.get(policy)
         if check_set and PYTHON_ABI_MAJ_MIN not in check_set:
             pytest.skip(f"{policy} images do not support cp{PYTHON_ABI_MAJ_MIN}")
 
@@ -886,7 +895,7 @@ class TestManylinux(Anylinux):
         policy_priority = wheel_policy.get_priority_by_name(policy)
         older_policies = [
             f"{p}_{PLATFORM}"
-            for p in MANYLINUX_IMAGES.keys()
+            for p in MANYLINUX_IMAGES
             if policy_priority < wheel_policy.get_priority_by_name(f"{p}_{PLATFORM}")
         ]
         for target_policy in older_policies:
@@ -917,10 +926,7 @@ class TestManylinux(Anylinux):
 
         # check the original wheel with a dependency was not compliant
         # and check the one without a dependency was already compliant
-        if with_dependency == "1":
-            expected = f"linux_{PLATFORM}"
-        else:
-            expected = policy
+        expected = f"linux_{PLATFORM}" if with_dependency == "1" else policy
         assert_show_output(manylinux_ctr, orig_wheel, expected, True)
 
         docker_exec(docker_python, "pip install /io/" + repaired_wheel)
@@ -1018,7 +1024,7 @@ class TestManylinux(Anylinux):
             ],
         )
 
-    def test_zlib_blacklist(self, any_manylinux_container, docker_python, io_folder):
+    def test_zlib_blacklist(self, any_manylinux_container, io_folder):
         policy, tag, manylinux_ctr = any_manylinux_container
         if policy.startswith(("manylinux_2_17_", "manylinux_2_28_", "manylinux_2_34_")):
             pytest.skip(f"{policy} image has no blacklist symbols in libz.so.1")
