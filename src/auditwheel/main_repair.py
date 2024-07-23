@@ -89,7 +89,8 @@ wheel will abort processing of subsequent wheels.
         "--exclude",
         dest="EXCLUDE",
         help="Exclude SONAME from grafting into the resulting wheel "
-        "(can be specified multiple times)",
+        "(can be specified multiple times) "
+        "(can contain wildcards, for example libfoo.so.*)",
         action="append",
         default=[],
     )

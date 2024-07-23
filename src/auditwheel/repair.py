@@ -7,6 +7,7 @@ import platform
 import re
 import shutil
 import stat
+from fnmatch import fnmatch
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from pathlib import Path
@@ -70,7 +71,7 @@ def repair_wheel(
             ext_libs: dict[str, str] = v[abis[0]]["libs"]
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
-                assert soname not in exclude
+                assert not any(fnmatch(soname, e) for e in exclude)
 
                 if src_path is None:
                     raise ValueError(
