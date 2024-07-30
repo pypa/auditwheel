@@ -11,7 +11,7 @@ from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from pathlib import Path
 from subprocess import check_call
-from typing import Iterable
+from typing import Iterable, Optional
 
 from auditwheel.patcher import ElfPatcher
 
@@ -42,7 +42,7 @@ def repair_wheel(
     patcher: ElfPatcher,
     exclude: frozenset[str],
     strip: bool = False,
-    extra_lib_name_tag: str = None,
+    extra_lib_name_tag: Optional[str] = None,
 ) -> str | None:
     external_refs_by_fn = get_wheel_elfdata(wheel_policy, wheel_path, exclude)[1]
 
@@ -131,7 +131,7 @@ def strip_symbols(libraries: Iterable[str]) -> None:
 
 
 def copylib(
-    src_path: str, dest_dir: str, patcher: ElfPatcher, extra_lib_name_tag: str = None
+    src_path: str, dest_dir: str, patcher: ElfPatcher, extra_lib_name_tag: Optional[str] = None
 ) -> tuple[str, str]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
