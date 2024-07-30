@@ -11,7 +11,7 @@ from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from pathlib import Path
 from subprocess import check_call
-from typing import Iterable, Optional
+from typing import Iterable
 
 from auditwheel.patcher import ElfPatcher
 
