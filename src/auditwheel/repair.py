@@ -42,6 +42,7 @@ def repair_wheel(
     patcher: ElfPatcher,
     exclude: frozenset[str],
     strip: bool = False,
+    extra_lib_name_tag: str = None,
 ) -> str | None:
     external_refs_by_fn = get_wheel_elfdata(wheel_policy, wheel_path, exclude)[1]
 
@@ -83,7 +84,9 @@ def repair_wheel(
 
                 if not exists(dest_dir):
                     os.mkdir(dest_dir)
-                new_soname, new_path = copylib(src_path, dest_dir, patcher)
+                new_soname, new_path = copylib(
+                    src_path, dest_dir, patcher, extra_lib_name_tag=extra_lib_name_tag
+                )
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
             if replacements:
@@ -127,7 +130,9 @@ def strip_symbols(libraries: Iterable[str]) -> None:
         check_call(["strip", "-s", lib])
 
 
-def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str]:
+def copylib(
+    src_path: str, dest_dir: str, patcher: ElfPatcher, extra_lib_name_tag: str = None
+) -> tuple[str, str]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
@@ -142,6 +147,9 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str
 
     with open(src_path, "rb") as f:
         shorthash = hashfile(f)[:8]
+
+    if extra_lib_name_tag:
+        shorthash = f"{extra_lib_name_tag}-{shorthash}"
 
     src_name = os.path.basename(src_path)
     base, ext = src_name.split(".", 1)
