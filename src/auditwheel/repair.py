@@ -42,7 +42,7 @@ def repair_wheel(
     patcher: ElfPatcher,
     exclude: frozenset[str],
     strip: bool = False,
-    extra_lib_name_tag: Optional[str] = None,
+    extra_lib_name_tag: str | None = None,
 ) -> str | None:
     external_refs_by_fn = get_wheel_elfdata(wheel_policy, wheel_path, exclude)[1]
 
@@ -131,7 +131,10 @@ def strip_symbols(libraries: Iterable[str]) -> None:
 
 
 def copylib(
-    src_path: str, dest_dir: str, patcher: ElfPatcher, extra_lib_name_tag: Optional[str] = None
+    src_path: str,
+    dest_dir: str,
+    patcher: ElfPatcher,
+    extra_lib_name_tag: str | None = None,
 ) -> tuple[str, str]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
