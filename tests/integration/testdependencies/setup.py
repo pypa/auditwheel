@@ -4,9 +4,7 @@ import subprocess
 from os import getenv, path
 
 from setuptools import Extension, setup
-
-cmd = "gcc -shared -fPIC -D_GNU_SOURCE dependency.c -o libdependency.so -lm -lc"
-subprocess.check_call(cmd.split())
+from setuptools.command.build_ext import build_ext
 
 define_macros = [("_GNU_SOURCE", None)]
 libraries = []
@@ -19,9 +17,18 @@ if getenv("WITH_DEPENDENCY", "0") == "1":
 
 libraries.extend(["m", "c"])
 
+
+class BuildExt(build_ext):
+    def run(self) -> None:
+        cmd = "gcc -shared -fPIC -D_GNU_SOURCE dependency.c -o libdependency.so -lm -lc"
+        subprocess.check_call(cmd.split())
+        super().run()
+
+
 setup(
     name="testdependencies",
     version="0.0.1",
+    cmdclass={"build_ext": BuildExt},
     ext_modules=[
         Extension(
             "testdependencies",
