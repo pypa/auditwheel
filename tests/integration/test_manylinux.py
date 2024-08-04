@@ -87,7 +87,6 @@ NUMPY_VERSION_MAP = {
 }
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
-ORIGINAL_SIX_WHEEL = "six-1.11.0-py2.py3-none-any.whl"
 SHOW_RE = re.compile(
     r'[\s](?P<wheel>\S+) is consistent with the following platform tag: "(?P<tag>\S+)"',
     flags=re.DOTALL,
@@ -321,7 +320,7 @@ class Anylinux:
         build_cmd = (
             f"cd {test_path} && "
             "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
-            "python setup.py bdist_wheel -d /io"
+            "python -m pip wheel --no-deps -w /io ."
         )
         docker_exec(manylinux_ctr, ["bash", "-c", build_cmd])
         filenames = os.listdir(io_folder)
@@ -426,23 +425,13 @@ class Anylinux:
     def test_build_repair_pure_wheel(self, any_manylinux_container, io_folder):
         policy, tag, manylinux_ctr = any_manylinux_container
 
-        if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL)):
-            # If six has already been built and put in cache, let's reuse this.
-            shutil.copy2(
-                op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL),
-                op.join(io_folder, ORIGINAL_SIX_WHEEL),
-            )
-            logger.info(f"Copied six wheel from {WHEEL_CACHE_FOLDER} to {io_folder}")
-        else:
-            docker_exec(manylinux_ctr, "pip wheel -w /io --no-binary=:all: six==1.11.0")
-            os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
-            shutil.copy2(
-                op.join(io_folder, ORIGINAL_SIX_WHEEL),
-                op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL),
-            )
+        docker_exec(
+            manylinux_ctr,
+            "pip download --no-deps -d /io --only-binary=:all: six==1.16.0",
+        )
 
         filenames = os.listdir(io_folder)
-        assert filenames == [ORIGINAL_SIX_WHEEL]
+        assert filenames == ["six-1.16.0-py2.py3-none-any.whl"]
         orig_wheel = filenames[0]
         assert "manylinux" not in orig_wheel
 
@@ -477,7 +466,7 @@ class Anylinux:
                 (
                     "cd /auditwheel_src/tests/integration/testrpath &&"
                     "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
-                    f"DTAG={dtag} python setup.py bdist_wheel -d /io"
+                    f"DTAG={dtag} python -m pip wheel --no-deps -w /io ."
                 ),
             ],
         )
@@ -860,15 +849,17 @@ class TestManylinux(Anylinux):
         #   tested.
 
         policy, tag, manylinux_ctr = any_manylinux_container
-
+        build_command = (
+            "cd /auditwheel_src/tests/integration/testdependencies && "
+            "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+            f"WITH_DEPENDENCY={with_dependency} python -m pip wheel --no-deps -w /io ."
+        )
         docker_exec(
             manylinux_ctr,
             [
                 "bash",
                 "-c",
-                "cd /auditwheel_src/tests/integration/testdependencies && "
-                f"WITH_DEPENDENCY={with_dependency} python setup.py -v build_ext -f "
-                "bdist_wheel -d /io",
+                build_command,
             ],
         )
 
