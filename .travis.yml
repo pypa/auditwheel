@@ -4,6 +4,10 @@ language: python
 python: "3.9"
 arch: arm64-graviton2
 
+branches:
+  except:
+    - /^dependabot.*$/
+
 jobs:
   include:
   - arch: arm64-graviton2
