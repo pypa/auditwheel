@@ -71,6 +71,8 @@ def rewrite_record(bdist_dir: str) -> None:
 
     def walk() -> Generator[str, None, None]:
         for dir, dirs, files in os.walk(bdist_dir):
+            dirs.sort()
+            files.sort()
             for f in files:
                 yield pjoin(dir, f)
 
