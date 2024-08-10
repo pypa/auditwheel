@@ -52,7 +52,7 @@ PYTHON_ABI_MAJ_MIN = "".join(PYTHON_MAJ_MIN)
 PYTHON_ABI_FLAGS = "m" if sys.version_info.minor < 8 else ""
 PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}{PYTHON_ABI_FLAGS}"
 PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + (
-    "-rc" if PYTHON_MAJ_MIN == ["3", "12"] else ""
+    "-rc" if PYTHON_MAJ_MIN == ["3", "13"] else ""
 )
 MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bullseye"
 MUSLLINUX_IMAGES = {
@@ -84,6 +84,7 @@ NUMPY_VERSION_MAP = {
     "310": "1.21.4",
     "311": "1.23.4",
     "312": "1.26.0",
+    "313": "2.0.1",
 }
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
