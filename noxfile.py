@@ -8,7 +8,7 @@ import nox
 
 nox.options.sessions = ["lint", "test-dist"]
 
-PYTHON_ALL_VERSIONS = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+PYTHON_ALL_VERSIONS = ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 RUNNING_CI = "TRAVIS" in os.environ or "GITHUB_ACTIONS" in os.environ
 
 
