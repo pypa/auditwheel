@@ -2,9 +2,19 @@
 
 ## HEAD
 
-Released February 3, 2024
+## 6.1.0
+
+Released August 11, 2024
+
+### User-facing changes
+- [FEATURE] Add manylinux_2_36 to manylinux_2_39 policies ([#504](https://github.com/pypa/auditwheel/pull/504))
+- [FEATURE] Add python 3.13 support ([#510](https://github.com/pypa/auditwheel/pull/510))
+- [BUGFIX] Don't create empty .libs directory ([#489](https://github.com/pypa/auditwheel/pull/489))
+- [BUGFIX] Portability fixes when running on windows ([#480](https://github.com/pypa/auditwheel/pull/480))
 
 ## 6.0.0
+
+Released February 3, 2024
 
 ### User-facing changes
 - [REMOVAL] Drop python 3.7 support ([#457](https://github.com/pypa/auditwheel/pull/457))
