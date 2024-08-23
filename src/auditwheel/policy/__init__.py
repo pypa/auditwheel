@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import platform as _platform_module
@@ -11,7 +12,12 @@ from os.path import abspath, dirname, join
 from pathlib import Path
 from typing import Any, Generator
 
-from auditwheel.elfutils import filter_undefined_symbols, is_subdir
+from auditwheel.elfutils import (
+    elf_get_platform_info,
+    filter_undefined_symbols,
+    is_subdir,
+)
+from auditwheel.wheeltools import InWheelCtx
 
 from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
@@ -27,6 +33,17 @@ _POLICY_JSON_MAP = {
     Libc.MUSL: _HERE / "musllinux-policy.json",
 }
 
+ALL_ARCHES = [
+    "x86_64",
+    "i686",
+    "aarch64",
+    "ppc64",
+    "ppc64le",
+    "s390x",
+    "armv7l",
+    "riscv64",
+]
+
 
 class WheelPolicies:
     def __init__(
@@ -35,51 +52,87 @@ class WheelPolicies:
         libc: Libc | None = None,
         musl_policy: str | None = None,
         arch: str | None = None,
+        library_path: str | None = None,
     ) -> None:
-        if libc is None:
-            libc = get_libc() if musl_policy is None else Libc.MUSL
-        if libc != Libc.MUSL and musl_policy is not None:
-            raise ValueError(f"'musl_policy' shall be None for libc {libc.name}")
-        if libc == Libc.MUSL:
-            if musl_policy is None:
-                musl_version = get_musl_version(find_musl_libc())
-                musl_policy = f"musllinux_{musl_version.major}_{musl_version.minor}"
-            elif _MUSL_POLICY_RE.match(musl_policy) is None:
-                raise ValueError(f"Invalid 'musl_policy': '{musl_policy}'")
-        if arch is None:
-            arch = get_arch_name()
-        policies = json.loads(_POLICY_JSON_MAP[libc].read_text())
-        self._policies = []
+        self._policies: list[dict[str, Any]] = []
         self._arch_name = arch
         self._libc_variant = libc
         self._musl_policy = musl_policy
+        self._library_path = library_path
+        self._reload_policies()
 
-        _validate_pep600_compliance(policies)
-        for policy in policies:
-            if self._musl_policy is not None and policy["name"] not in {
-                "linux",
-                self._musl_policy,
-            }:
-                continue
-            if (
-                self._arch_name in policy["symbol_versions"].keys()
-                or policy["name"] == "linux"
-            ):
-                if policy["name"] != "linux":
-                    policy["symbol_versions"] = policy["symbol_versions"][
-                        self._arch_name
-                    ]
-                policy["name"] = policy["name"] + "_" + self._arch_name
-                policy["aliases"] = [
-                    alias + "_" + self._arch_name for alias in policy["aliases"]
-                ]
-                policy["lib_whitelist"] = _fixup_musl_libc_soname(
-                    libc, arch, policy["lib_whitelist"]
-                )
-                self._policies.append(policy)
+    def _reload_policies(self):
+        self._policies.clear()
+
+        if self._libc_variant is None:
+            self._libc_variant = get_libc() if self._musl_policy is None else Libc.MUSL
+
+        if (
+            self._libc_variant is not None
+            and self._libc_variant != Libc.MUSL
+            and self._musl_policy is not None
+        ):
+            raise ValueError(
+                f"'musl_policy' shall be None for libc {self._libc_variant.name}"
+            )
 
         if self._libc_variant == Libc.MUSL:
+            if self._musl_policy is None:
+                libc_path = find_musl_libc(self._library_path)
+                if libc_path is not None:
+                    musl_version = get_musl_version(libc_path)
+                    self._musl_policy = (
+                        f"musllinux_{musl_version.major}_{musl_version.minor}"
+                    )
+            elif _MUSL_POLICY_RE.match(self._musl_policy) is None:
+                raise ValueError(f"Invalid 'musl_policy': '{self._musl_policy}'")
+
+        for libc, policy_path in _POLICY_JSON_MAP.items():
+            if self._libc_variant is not None and self._libc_variant != libc:
+                continue
+            policies = json.loads(policy_path.read_text())
+            _validate_pep600_compliance(policies)
+            for policy in policies:
+                if self._musl_policy is not None and policy["name"] not in {
+                    "linux",
+                    self._musl_policy,
+                }:
+                    continue
+                versioning = (
+                    policy["symbol_versions"]
+                    if policy["name"] != "linux"
+                    else {arch: [] for arch in ALL_ARCHES}
+                )
+                for arch, versions in versioning.items():
+                    if self._arch_name is not None and self._arch_name != arch:
+                        continue
+                    archpolicy = copy.copy(policy)
+
+                    archpolicy["arch"] = arch
+                    if archpolicy["name"] != "linux":
+                        archpolicy["symbol_versions"] = versions
+                    archpolicy["name"] = archpolicy["name"] + "_" + arch
+                    archpolicy["aliases"] = [
+                        alias + "_" + arch for alias in archpolicy["aliases"]
+                    ]
+                    archpolicy["lib_whitelist"] = _fixup_musl_libc_soname(
+                        libc, arch, archpolicy["lib_whitelist"]
+                    )
+                    self._policies.append(archpolicy)
+
+        if self._libc_variant == Libc.MUSL and self._arch_name is not None:
             assert len(self._policies) == 2, self._policies
+
+    def set_platform_from_wheel(self, wheel_path: str):
+        with InWheelCtx(wheel_path) as ctx:
+            for file_path in ctx.iter_files():
+                libc, arch = elf_get_platform_info(file_path)
+                if arch is not None:
+                    if libc is not None:
+                        self._libc_variant = libc
+                    self._arch_name = arch
+                    self._reload_policies()
+                    break
 
     @property
     def policies(self):
@@ -103,13 +156,35 @@ class WheelPolicies:
             raise RuntimeError("Internal error. Policies should be unique")
         return matches[0]
 
-    def get_policy_name(self, priority: int) -> str | None:
+    def get_policy_name(
+        self, priority: int, default_arch: str | None = None
+    ) -> str | None:
         matches = [p["name"] for p in self._policies if p["priority"] == priority]
         if len(matches) == 0:
             return None
-        if len(matches) > 1:
-            raise RuntimeError("Internal error. priorities should be unique")
-        return matches[0]
+        if len(matches) == 1:
+            return matches[0]
+        if default_arch is not None:
+            matches2 = [p for p in matches if p.endswith(default_arch)]
+            if matches2:
+                if len(matches2) > 1:
+                    raise RuntimeError("Internal error. Priorities should be unique.")
+                return matches2[0]
+        host_arch = get_arch_name()
+        matches2 = [p for p in matches if p.endswith(host_arch)]
+        if matches2:
+            if len(matches2) > 1:
+                raise RuntimeError("Internal error. Priorities should be unique.")
+            return matches2[0]
+        for ordered_arch in ALL_ARCHES:
+            matches2 = [p for p in matches if p.endswith(ordered_arch)]
+            if matches2:
+                if len(matches2) > 1:
+                    raise RuntimeError("Internal error. Priorities should be unique.")
+                return matches2[0]
+        raise RuntimeError(
+            "Internal error. Every policy should have a known architecture."
+        )
 
     def get_priority_by_name(self, name: str) -> int | None:
         policy = self.get_policy_by_name(name)
