@@ -1,0 +1,1 @@
+int fx(void);

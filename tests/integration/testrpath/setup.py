@@ -12,13 +12,13 @@ class BuildExt(build_ext):
         cmd = "gcc -fPIC -shared -o b/libb.so b/b.c"
         subprocess.check_call(cmd.split())
 
-        cmd = "gcc -fPIC -shared -o c/libc.so c/c.c"
+        cmd = "gcc -fPIC -shared -o x/libx.so x/x.c"
         subprocess.check_call(cmd.split())
 
         cmd = (
             "gcc -fPIC -shared -o a/liba.so "
-            "-Wl,{dtags_flag} -Wl,-rpath=$ORIGIN/../b -Wl,-rpath=$ORIGIN/../c "
-            "-Ib a/a.c -Lb -Lc -lb -lc"
+            "-Wl,{dtags_flag} -Wl,-rpath=$ORIGIN/../b "
+            "-Ib a/a.c -Lb -lb"
         ).format(
             dtags_flag=(
                 "--enable-new-dtags"
@@ -40,9 +40,13 @@ setup(
         Extension(
             "testrpath/testrpath",
             sources=["src/testrpath/testrpath.c"],
-            include_dirs=["a", "c"],
-            libraries=["a", "c"],
-            library_dirs=["a", "c"],
+            include_dirs=["a", "x"],
+            libraries=["a", "x"],
+            library_dirs=["a", "x"],
+            extra_link_args=[
+                '-Wl,-rpath,$ORIGIN/../a',
+                '-Wl,-rpath,$ORIGIN/../x'
+            ],
         )
     ],
 )
