@@ -445,7 +445,11 @@ class Anylinux:
             [
                 "python",
                 "-c",
-                "import sys; print(f'python{sys.version_info.major}.{sys.version_info.minor}')",
+                (
+                    "import sys; "
+                    "print(f'python{sys.version_info.major}."
+                    "{sys.version_info.minor}')"
+                ),
             ],
         ).strip()
         assert (
