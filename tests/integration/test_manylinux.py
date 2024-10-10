@@ -440,9 +440,17 @@ class Anylinux:
         )
 
         # testprogram should be a Python shim since we had to rewrite its RPATH.
+        python_version = docker_exec(
+            docker_python,
+            [
+                "python",
+                "-c",
+                "import sys; print(f'python{sys.version_info.major}.{sys.version_info.minor}')",
+            ],
+        ).strip()
         assert (
             docker_exec(docker_python, ["head", "-n1", "/usr/local/bin/testprogram"])
-            == "#!/usr/local/bin/python\n"
+            == f"#!/usr/local/bin/{python_version}\n"
         )
 
         # testprogram_nodeps should be the unmodified ELF binary.
