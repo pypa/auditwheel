@@ -11,6 +11,10 @@ class BuildExt(build_ext):
     def run(self) -> None:
         cmd = "gcc -fPIC -shared -o b/libb.so b/b.c"
         subprocess.check_call(cmd.split())
+
+        cmd = "gcc -fPIC -shared -o x/libx.so x/x.c"
+        subprocess.check_call(cmd.split())
+
         cmd = (
             "gcc -fPIC -shared -o a/liba.so "
             "-Wl,{dtags_flag} -Wl,-rpath=$ORIGIN/../b "
@@ -36,9 +40,10 @@ setup(
         Extension(
             "testrpath/testrpath",
             sources=["src/testrpath/testrpath.c"],
-            include_dirs=["a"],
-            libraries=["a"],
-            library_dirs=["a"],
+            include_dirs=["a", "x"],
+            libraries=["a", "x"],
+            library_dirs=["a", "x"],
+            extra_link_args=["-Wl,-rpath,$ORIGIN/../a", "-Wl,-rpath,$ORIGIN/../x"],
         )
     ],
 )

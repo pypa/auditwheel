@@ -109,7 +109,11 @@ def execute(args, p):
     from .repair import repair_wheel
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
-    exclude = frozenset(args.EXCLUDE)
+    # Split comma separated values and flatten it
+    exclude = frozenset(
+        item.strip() for sublist in args.EXCLUDE for item in sublist.split(",")
+    )
+
     wheel_policy = WheelPolicies()
 
     for wheel_file in args.WHEEL_FILE:

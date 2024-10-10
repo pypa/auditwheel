@@ -1,5 +1,6 @@
 #include <Python.h>
 #include "a.h"
+#include "x.h"
 
 static PyObject *
 func(PyObject *self, PyObject *args)
@@ -9,7 +10,7 @@ func(PyObject *self, PyObject *args)
     (void)self;
     (void)args;
 
-    res = fa();
+    res = fa() + fx();
     return PyLong_FromLong(res);
 }
 

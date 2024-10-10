@@ -329,27 +329,57 @@ class Anylinux:
         orig_wheel = filenames[0]
         assert "manylinux" not in orig_wheel
 
-        repair_command = [
-            f"LD_LIBRARY_PATH={test_path}/a:$LD_LIBRARY_PATH",
-            "auditwheel",
-            "repair",
-            f"--plat={policy}",
-            "--only-plat",
-            "-w",
-            "/io",
-            "--exclude=liba.so",
-            f"/io/{orig_wheel}",
-        ]
-        output = docker_exec(manylinux_ctr, ["bash", "-c", " ".join(repair_command)])
-        assert "Excluding liba.so" in output
-        filenames = os.listdir(io_folder)
-        assert len(filenames) == 2
-        repaired_wheel = f"testrpath-0.0.1-{PYTHON_ABI}-{tag}.whl"
-        assert repaired_wheel in filenames
+        def run_repair_test(exclude_args, expected_exclusions):
+            repair_command = (
+                [
+                    f"LD_LIBRARY_PATH={test_path}/a:$LD_LIBRARY_PATH",
+                    "auditwheel",
+                    "repair",
+                    f"--plat={policy}",
+                    "--only-plat",
+                    "-w",
+                    "/io",
+                ]
+                + exclude_args
+                + [
+                    f"/io/{orig_wheel}",
+                ]
+            )
+            output = docker_exec(
+                manylinux_ctr, ["bash", "-c", " ".join(repair_command)]
+            )
 
-        # Make sure we don't have liba.so & libb.so in the result
-        contents = zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)).namelist()
-        assert not any(x for x in contents if "/liba" in x or "/libb" in x)
+            # Check for exclusions in the output
+            for arg in exclude_args:
+                if "," in arg:
+                    libs = arg.split("=")[1].split(",")
+                    for lib in libs:
+                        assert f"Excluding {lib}" in output
+                else:
+                    lib = arg.split("=")[1]
+                    assert f"Excluding {lib}" in output
+
+            filenames = os.listdir(io_folder)
+            assert len(filenames) == 2
+            repaired_wheel = f"testrpath-0.0.1-{PYTHON_ABI}-{tag}.whl"
+            assert repaired_wheel in filenames
+
+            # Make sure we don't have the excluded libraries in the result
+            contents = zipfile.ZipFile(
+                os.path.join(io_folder, repaired_wheel)
+            ).namelist()
+            for lib in expected_exclusions:
+                assert not any(x for x in contents if f"/{lib}" in x)
+
+        # Test case 1: Exclude liba.so and libx.so using 2 --exclude parameters
+        run_repair_test(
+            ["--exclude=liba.so", "--exclude=libx.so"],
+            ["liba.so", "libb.so", "libx.so"],
+        )
+        # Test case 2: Exclude liba.so and libx.so using comma separated
+        run_repair_test(
+            ["--exclude=liba.so,libx.so"], ["liba.so", "libb.so", "libx.so"]
+        )
 
     def test_build_wheel_with_binary_executable(
         self, any_manylinux_container, docker_python, io_folder
@@ -410,9 +440,21 @@ class Anylinux:
         )
 
         # testprogram should be a Python shim since we had to rewrite its RPATH.
+        python_version = docker_exec(
+            docker_python,
+            [
+                "python",
+                "-c",
+                (
+                    "import sys; "
+                    "print(f'python{sys.version_info.major}."
+                    "{sys.version_info.minor}')"
+                ),
+            ],
+        ).strip()
         assert (
             docker_exec(docker_python, ["head", "-n1", "/usr/local/bin/testprogram"])
-            == "#!/usr/local/bin/python\n"
+            == f"#!/usr/local/bin/{python_version}\n"
         )
 
         # testprogram_nodeps should be the unmodified ELF binary.
@@ -492,8 +534,12 @@ class Anylinux:
             [
                 "bash",
                 "-c",
-                "LD_LIBRARY_PATH="
-                "/auditwheel_src/tests/integration/testrpath/a:$LD_LIBRARY_PATH "
+                (
+                    "LD_LIBRARY_PATH="
+                    "/auditwheel_src/tests/integration/testrpath/a:"
+                    "/auditwheel_src/tests/integration/testrpath/x:"
+                    "$LD_LIBRARY_PATH "
+                )
                 + repair_command,
             ],
         )
@@ -512,13 +558,15 @@ class Anylinux:
                 "from testrpath import testrpath; print(testrpath.func())",
             ],
         )
-        assert output.strip() == "11"
+        # output = fa + fx = (1+10) + 20 = 31
+        assert output.strip() == "31"
         with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as w:
             libraries = tuple(
                 name for name in w.namelist() if "testrpath.libs/lib" in name
             )
-            assert len(libraries) == 2
+            assert len(libraries) == 3
             assert any(".libs/liba" in name for name in libraries)
+            assert any(".libs/libx" in name for name in libraries)
             for name in libraries:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
