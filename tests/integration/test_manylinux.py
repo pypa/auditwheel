@@ -522,8 +522,12 @@ class Anylinux:
             [
                 "bash",
                 "-c",
-                "LD_LIBRARY_PATH="
-                "/auditwheel_src/tests/integration/testrpath/a:$LD_LIBRARY_PATH "
+                (
+                    "LD_LIBRARY_PATH="
+                    "/auditwheel_src/tests/integration/testrpath/a:"
+                    "/auditwheel_src/tests/integration/testrpath/x:"
+                    "$LD_LIBRARY_PATH "
+                )
                 + repair_command,
             ],
         )
@@ -542,13 +546,15 @@ class Anylinux:
                 "from testrpath import testrpath; print(testrpath.func())",
             ],
         )
-        assert output.strip() == "11"
+        # output = fa + fx = (1+10) + 20 = 31
+        assert output.strip() == "31"
         with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as w:
             libraries = tuple(
                 name for name in w.namelist() if "testrpath.libs/lib" in name
             )
-            assert len(libraries) == 2
+            assert len(libraries) == 3
             assert any(".libs/liba" in name for name in libraries)
+            assert any(".libs/libx" in name for name in libraries)
             for name in libraries:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
