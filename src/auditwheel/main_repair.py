@@ -111,7 +111,7 @@ def execute(args, p):
 
     # Split comma separated values and flatten it
     exclude = frozenset(
-        item.strip() for sublist in args.EXCLUDE for item in sublist.split(',')
+        item.strip() for sublist in args.EXCLUDE for item in sublist.split(",")
     )
 
     wheel_policy = WheelPolicies()

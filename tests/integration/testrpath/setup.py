@@ -43,10 +43,7 @@ setup(
             include_dirs=["a", "x"],
             libraries=["a", "x"],
             library_dirs=["a", "x"],
-            extra_link_args=[
-                '-Wl,-rpath,$ORIGIN/../a',
-                '-Wl,-rpath,$ORIGIN/../x'
-            ],
+            extra_link_args=["-Wl,-rpath,$ORIGIN/../a", "-Wl,-rpath,$ORIGIN/../x"],
         )
     ],
 )
