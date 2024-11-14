@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import glob
 import itertools
+import json
 import logging
 import os
 import platform
@@ -13,6 +15,7 @@ from pathlib import Path
 from subprocess import check_call
 
 from auditwheel.patcher import ElfPatcher
+from auditwheel.sboms import create_sbom_for_wheel
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths
 from .hashfile import hashfile
@@ -63,6 +66,9 @@ def repair_wheel(
             raise ValueError(msg)
 
         dest_dir = Path(match.group("name") + lib_sdir)
+        dist_info_dirs = glob.glob(os.path.join(ctx.path, "*.dist-info"))
+        assert len(dist_info_dirs) == 1
+        sbom_filepaths = []
 
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
@@ -79,6 +85,7 @@ def repair_wheel(
 
                 if not dest_dir.exists():
                     dest_dir.mkdir()
+                sbom_filepaths.append(src_path)
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
@@ -114,6 +121,19 @@ def repair_wheel(
             libs_to_strip = [path for (_, path) in soname_map.values()]
             extensions = external_refs_by_fn.keys()
             strip_symbols(itertools.chain(libs_to_strip, extensions))
+
+        # If we grafted packages with identities we add an SBOM to the wheel.
+        # We recalculate the checksum at this point because there can be
+        # modifications to libraries during patching.
+        sbom_data = create_sbom_for_wheel(
+            wheel_fname=wheel_fname,
+            sbom_filepaths=sbom_filepaths,
+        )
+        if sbom_data:
+            sbom_dir = os.path.join(dist_info_dirs[0], "sboms")
+            os.makedirs(sbom_dir, exist_ok=True)
+            with open(os.path.join(sbom_dir, "auditwheel.cdx.json"), mode="w") as f:
+                f.write(json.dumps(sbom_data))
 
     return ctx.out_wheel
 
