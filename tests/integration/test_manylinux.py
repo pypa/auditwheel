@@ -406,10 +406,14 @@ class Anylinux:
         )
 
         # testprogram should be a Python shim since we had to rewrite its RPATH.
-        assert (
-            docker_exec(docker_python, ["head", "-n1", "/usr/local/bin/testprogram"])
-            == "#!/usr/local/bin/python\n"
+        shebang = docker_exec(
+            docker_python, ["head", "-n1", "/usr/local/bin/testprogram"]
         )
+        assert shebang in {
+            "#!/usr/local/bin/python\n",
+            "#!/usr/local/bin/python3\n",
+            f"#!/usr/local/bin/python{'.'.join(PYTHON_MAJ_MIN)}\n",
+        }
 
         # testprogram_nodeps should be the unmodified ELF binary.
         assert (
