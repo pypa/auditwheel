@@ -51,7 +51,7 @@ PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
 PYTHON_ABI_MAJ_MIN = "".join(PYTHON_MAJ_MIN)
 PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
 PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN)
-MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bullseye"
+MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bookworm"
 MUSLLINUX_IMAGES = {
     "musllinux_1_1": f"quay.io/pypa/musllinux_1_1_{PLATFORM}:latest",
 }
