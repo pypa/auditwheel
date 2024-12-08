@@ -4,7 +4,7 @@ import argparse
 import os
 import subprocess
 import zipfile
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -27,6 +27,50 @@ def unique_by_index(sequence: Iterable[Any]) -> list[Any]:
         if element not in uniques:
             uniques.append(element)
     return uniques
+
+
+def walk(topdir: str) -> Generator[tuple[str, list[str], list[str]]]:
+    """Wrapper for `os.walk` with outputs in reproducible order
+
+    Parameters
+    ----------
+    topdir : str
+        Root of the directory tree
+
+    Yields
+    ------
+    dirpath : str
+        Path to a directory
+    dirnames : list[str]
+        List of subdirectory names in `dirpath`
+    filenames : list[str]
+        List of non-directory file names in `dirpath`
+    """
+    topdir = os.path.normpath(topdir)
+    for dirpath, dirnames, filenames in os.walk(topdir):
+        # sort list of dirnames in-place such that `os.walk`
+        # will recurse into subdirectories in reproducible order
+        dirnames.sort()
+        # recurse into any top-level .dist-info subdirectory last
+        if dirpath == topdir:
+            subdirs = []
+            dist_info = []
+            for dir in dirnames:
+                if dir.endswith(".dist-info"):
+                    dist_info.append(dir)
+                else:
+                    subdirs.append(dir)
+            dirnames[:] = subdirs
+            dirnames.extend(dist_info)
+            del dist_info
+        # sort list of filenames for iteration in reproducible order
+        filenames.sort()
+        # list any dist-info/RECORD file last
+        if dirpath.endswith(".dist-info") and os.path.dirname(dirpath) == topdir:
+            if "RECORD" in filenames:
+                filenames.remove("RECORD")
+                filenames.append("RECORD")
+        yield dirpath, dirnames, filenames
 
 
 def zip2dir(zip_fname: str, out_dir: str) -> None:
@@ -69,15 +113,16 @@ def dir2zip(in_dir: str, zip_fname: str, date_time: datetime | None = None) -> N
     date_time : Optional[datetime]
         Time stamp to set on each file in the archive
     """
+    in_dir = os.path.normpath(in_dir)
     if date_time is None:
         st = os.stat(in_dir)
         date_time = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
     date_time_args = date_time.timetuple()[:6]
     compression = zipfile.ZIP_DEFLATED
     with zipfile.ZipFile(zip_fname, "w", compression=compression) as z:
-        for root, dirs, files in os.walk(in_dir):
-            for dir in dirs:
-                dname = os.path.join(root, dir)
+        for root, dirs, files in walk(in_dir):
+            if root != in_dir:
+                dname = root
                 out_dname = os.path.relpath(dname, in_dir) + "/"
                 zinfo = zipfile.ZipInfo.from_file(dname, out_dname)
                 zinfo.date_time = date_time_args
