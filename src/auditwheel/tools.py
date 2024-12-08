@@ -76,6 +76,13 @@ def dir2zip(in_dir: str, zip_fname: str, date_time: datetime | None = None) -> N
     compression = zipfile.ZIP_DEFLATED
     with zipfile.ZipFile(zip_fname, "w", compression=compression) as z:
         for root, dirs, files in os.walk(in_dir):
+            dirs.sort()
+            files.sort()
+            if root == in_dir:
+                # Place the contents of *.dist-info at the end of
+                # the archive, as recommended by PEP 427.
+                dirs.sort(key=lambda p: p.endswith(".dist-info"))
+
             for dir in dirs:
                 dname = os.path.join(root, dir)
                 out_dname = os.path.relpath(dname, in_dir) + "/"
