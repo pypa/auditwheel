@@ -49,22 +49,19 @@ else:
 DOCKER_CONTAINER_NAME = "auditwheel-test-anylinux"
 PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
 PYTHON_ABI_MAJ_MIN = "".join(PYTHON_MAJ_MIN)
-PYTHON_ABI_FLAGS = "m" if sys.version_info.minor < 8 else ""
-PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}{PYTHON_ABI_FLAGS}"
-PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + (
-    "-rc" if PYTHON_MAJ_MIN == ["3", "12"] else ""
-)
-MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bullseye"
+PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
+PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN)
+MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bookworm"
 MUSLLINUX_IMAGES = {
-    "musllinux_1_1": f"quay.io/pypa/musllinux_1_1_{PLATFORM}:latest",
+    "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:latest",
 }
 MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
     "manylinux_2_5": "devtoolset-2",
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
-    "manylinux_2_28": "gcc-toolset-12",
-    "musllinux_1_1": "devtoolset-not-present",
+    "manylinux_2_28": "gcc-toolset-13",
+    "musllinux_1_2": "devtoolset-not-present",
 }
 PATH_DIRS = [
     f"/opt/python/{PYTHON_ABI}/bin",
@@ -79,15 +76,14 @@ PATH_DIRS = [
 PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser("~/.cache/auditwheel_tests")
 NUMPY_VERSION_MAP = {
-    "38": "1.21.4",
     "39": "1.21.4",
     "310": "1.21.4",
     "311": "1.23.4",
     "312": "1.26.0",
+    "313": "2.0.1",
 }
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
-ORIGINAL_SIX_WHEEL = "six-1.11.0-py2.py3-none-any.whl"
 SHOW_RE = re.compile(
     r'[\s](?P<wheel>\S+) is consistent with the following platform tag: "(?P<tag>\S+)"',
     flags=re.DOTALL,
@@ -205,6 +201,10 @@ def build_numpy(container, policy, output_dir):
 
     if policy.startswith("musllinux_"):
         docker_exec(container, "apk add openblas-dev")
+        if policy.endswith("_s390x"):
+            # https://github.com/numpy/numpy/issues/27932
+            fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
+            docker_exec(container, f'sh -c "{fix_hwcap}"')
     elif policy.startswith("manylinux_2_28_"):
         docker_exec(container, "dnf install -y openblas-devel")
     else:
@@ -321,7 +321,7 @@ class Anylinux:
         build_cmd = (
             f"cd {test_path} && "
             "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
-            "python setup.py bdist_wheel -d /io"
+            "python -m pip wheel --no-deps -w /io ."
         )
         docker_exec(manylinux_ctr, ["bash", "-c", build_cmd])
         filenames = os.listdir(io_folder)
@@ -410,10 +410,14 @@ class Anylinux:
         )
 
         # testprogram should be a Python shim since we had to rewrite its RPATH.
-        assert (
-            docker_exec(docker_python, ["head", "-n1", "/usr/local/bin/testprogram"])
-            == "#!/usr/local/bin/python\n"
+        shebang = docker_exec(
+            docker_python, ["head", "-n1", "/usr/local/bin/testprogram"]
         )
+        assert shebang in {
+            "#!/usr/local/bin/python\n",
+            "#!/usr/local/bin/python3\n",
+            f"#!/usr/local/bin/python{'.'.join(PYTHON_MAJ_MIN)}\n",
+        }
 
         # testprogram_nodeps should be the unmodified ELF binary.
         assert (
@@ -426,23 +430,13 @@ class Anylinux:
     def test_build_repair_pure_wheel(self, any_manylinux_container, io_folder):
         policy, tag, manylinux_ctr = any_manylinux_container
 
-        if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL)):
-            # If six has already been built and put in cache, let's reuse this.
-            shutil.copy2(
-                op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL),
-                op.join(io_folder, ORIGINAL_SIX_WHEEL),
-            )
-            logger.info(f"Copied six wheel from {WHEEL_CACHE_FOLDER} to {io_folder}")
-        else:
-            docker_exec(manylinux_ctr, "pip wheel -w /io --no-binary=:all: six==1.11.0")
-            os.makedirs(op.join(WHEEL_CACHE_FOLDER, policy), exist_ok=True)
-            shutil.copy2(
-                op.join(io_folder, ORIGINAL_SIX_WHEEL),
-                op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_SIX_WHEEL),
-            )
+        docker_exec(
+            manylinux_ctr,
+            "pip download --no-deps -d /io --only-binary=:all: six==1.16.0",
+        )
 
         filenames = os.listdir(io_folder)
-        assert filenames == [ORIGINAL_SIX_WHEEL]
+        assert filenames == ["six-1.16.0-py2.py3-none-any.whl"]
         orig_wheel = filenames[0]
         assert "manylinux" not in orig_wheel
 
@@ -477,7 +471,7 @@ class Anylinux:
                 (
                     "cd /auditwheel_src/tests/integration/testrpath &&"
                     "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
-                    f"DTAG={dtag} python setup.py bdist_wheel -d /io"
+                    f"DTAG={dtag} python -m pip wheel --no-deps -w /io ."
                 ),
             ],
         )
@@ -860,15 +854,17 @@ class TestManylinux(Anylinux):
         #   tested.
 
         policy, tag, manylinux_ctr = any_manylinux_container
-
+        build_command = (
+            "cd /auditwheel_src/tests/integration/testdependencies && "
+            "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+            f"WITH_DEPENDENCY={with_dependency} python -m pip wheel --no-deps -w /io ."
+        )
         docker_exec(
             manylinux_ctr,
             [
                 "bash",
                 "-c",
-                "cd /auditwheel_src/tests/integration/testdependencies && "
-                f"WITH_DEPENDENCY={with_dependency} python setup.py -v build_ext -f "
-                "bdist_wheel -d /io",
+                build_command,
             ],
         )
 

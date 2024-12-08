@@ -7,12 +7,12 @@ import platform
 import re
 import shutil
 import stat
+from collections.abc import Iterable
 from fnmatch import fnmatch
 from os.path import abspath, basename, dirname, exists, isabs
 from os.path import join as pjoin
 from pathlib import Path
 from subprocess import check_call
-from typing import Iterable
 
 from auditwheel.patcher import ElfPatcher
 

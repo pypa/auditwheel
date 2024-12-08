@@ -1,14 +1,15 @@
 os: linux
-dist: focal
+dist: jammy
 language: python
-python: "3.9"
-arch: arm64-graviton2
+python: "3.12"
+
+branches:
+  except:
+    - /^dependabot.*$/
 
 jobs:
   include:
-  - arch: arm64-graviton2
-    virt: vm
-    group: edge
+  - arch: arm64
   - arch: ppc64le
   - arch: s390x
   allow_failures:
@@ -37,7 +38,7 @@ install:
   - pip install nox
 
 script:
-  - nox -s tests-3.9
+  - nox -s tests-3.12
 
 after_success:
   - if [ "$(uname -m)" != "aarch64" ]; then qemu-x86_64-static ${HOME}/codecov; fi

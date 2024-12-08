@@ -64,3 +64,4 @@ target/
 wheelhoust-*
 tests/integration/testpackage/testpackage/testprogram
 tests/integration/testpackage/testpackage/testprogram_nodeps
+tests/integration/sample_extension/src/sample_extension.c

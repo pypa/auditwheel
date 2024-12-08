@@ -4,8 +4,9 @@ import argparse
 import os
 import subprocess
 import zipfile
+from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import Any, Iterable
+from typing import Any
 
 
 def unique_by_index(sequence: Iterable[Any]) -> list[Any]:

@@ -2,6 +2,8 @@ name: Test
 
 on:
   push:
+    branches-ignore:
+      - 'dependabot/**'
   pull_request:
 
 concurrency:
@@ -13,11 +15,11 @@ jobs:
     name: Pre-commit checks (Black, Flake8, MyPy, ...)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.8"
-      - uses: pre-commit/action@v3.0.0
+          python-version: "3.9"
+      - uses: pre-commit/action@v3.0.1
 
   test-dist:
     name: Test SDist & wheel
@@ -25,9 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install CPython 3.9
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
           architecture: x64
@@ -42,22 +44,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: "3.8"
           - python: "3.9"
           - python: "3.10"
           - python: "3.11"
           - python: "3.12"
+          - python: "3.13"
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/auditwheel_tests
           key: python${{ matrix.python }}-${{ hashFiles('**/test_manylinux.py') }}
           restore-keys: python${{ matrix.python }}-
       - name: Install CPython ${{ matrix.python }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "${{ matrix.python }}"
           architecture: x64
@@ -65,4 +67,6 @@ jobs:
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
