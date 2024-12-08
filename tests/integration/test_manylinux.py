@@ -26,12 +26,14 @@ MANYLINUX1_IMAGE_ID = f"quay.io/pypa/manylinux1_{PLATFORM}:latest"
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
 MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
+MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:latest"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
         "manylinux_2_5": MANYLINUX1_IMAGE_ID,
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
         "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
+        "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
     }
     POLICY_ALIASES = {
         "manylinux_2_5": ["manylinux1"],
@@ -42,6 +44,7 @@ else:
     MANYLINUX_IMAGES = {
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
         "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
+        "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
     }
     POLICY_ALIASES = {
         "manylinux_2_17": ["manylinux2014"],
@@ -61,6 +64,7 @@ DEVTOOLSET = {
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
     "manylinux_2_28": "gcc-toolset-13",
+    "manylinux_2_34": "gcc-toolset-14",
     "musllinux_1_2": "devtoolset-not-present",
 }
 PATH_DIRS = [
