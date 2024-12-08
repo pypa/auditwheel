@@ -53,7 +53,7 @@ PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
 PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN)
 MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bookworm"
 MUSLLINUX_IMAGES = {
-    "musllinux_1_1": f"quay.io/pypa/musllinux_1_1_{PLATFORM}:latest",
+    "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:latest",
 }
 MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
@@ -61,7 +61,7 @@ DEVTOOLSET = {
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
     "manylinux_2_28": "gcc-toolset-13",
-    "musllinux_1_1": "devtoolset-not-present",
+    "musllinux_1_2": "devtoolset-not-present",
 }
 PATH_DIRS = [
     f"/opt/python/{PYTHON_ABI}/bin",
