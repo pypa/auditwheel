@@ -201,6 +201,10 @@ def build_numpy(container, policy, output_dir):
 
     if policy.startswith("musllinux_"):
         docker_exec(container, "apk add openblas-dev")
+        if policy.endswith("_s390x"):
+            # https://github.com/numpy/numpy/issues/27932
+            fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
+            docker_exec(container, f'sh -c "{fix_hwcap}"')
     elif policy.startswith("manylinux_2_28_"):
         docker_exec(container, "dnf install -y openblas-devel")
     else:
