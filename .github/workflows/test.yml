@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.8"
+          python-version: "3.9"
       - uses: pre-commit/action@v3.0.1
 
   test-dist:
@@ -44,7 +44,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: "3.8"
           - python: "3.9"
           - python: "3.10"
           - python: "3.11"
