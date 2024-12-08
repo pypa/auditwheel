@@ -4,8 +4,9 @@ import argparse
 import os
 import subprocess
 import zipfile
+from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
-from typing import Any, Generator, Iterable
+from typing import Any
 
 
 def unique_by_index(sequence: Iterable[Any]) -> list[Any]:
@@ -28,7 +29,7 @@ def unique_by_index(sequence: Iterable[Any]) -> list[Any]:
     return uniques
 
 
-def walk(topdir: str) -> Generator[tuple[str, list[str], list[str]], None, None]:
+def walk(topdir: str) -> Generator[tuple[str, list[str], list[str]]]:
     """Wrapper for `os.walk` with outputs in reproducible order
 
     Parameters

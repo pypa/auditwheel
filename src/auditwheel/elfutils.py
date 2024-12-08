@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from os.path import basename
 from pathlib import Path
-from typing import Iterator
 
 from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile

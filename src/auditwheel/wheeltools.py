@@ -11,6 +11,7 @@ import hashlib
 import logging
 import os
 from base64 import urlsafe_b64encode
+from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from itertools import product
 from os.path import abspath, basename, dirname, exists
@@ -19,7 +20,6 @@ from os.path import relpath
 from os.path import sep as psep
 from os.path import splitext
 from types import TracebackType
-from typing import Generator, Iterable
 
 from packaging.utils import parse_wheel_filename
 
@@ -69,7 +69,7 @@ def rewrite_record(bdist_dir: str) -> None:
     if exists(sig_path):
         os.unlink(sig_path)
 
-    def files() -> Generator[str, None, None]:
+    def files() -> Generator[str]:
         for dir, _, files in walk(bdist_dir):
             for file in files:
                 yield pjoin(dir, file)
@@ -173,7 +173,7 @@ class InWheelCtx(InWheel):
         self.path = super().__enter__()
         return self
 
-    def iter_files(self) -> Generator[str, None, None]:
+    def iter_files(self) -> Generator[str]:
         if self.path is None:
             raise ValueError("This function should be called from context manager")
         record_names = glob.glob(os.path.join(self.path, "*.dist-info/RECORD"))

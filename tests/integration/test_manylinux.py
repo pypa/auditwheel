@@ -49,22 +49,19 @@ else:
 DOCKER_CONTAINER_NAME = "auditwheel-test-anylinux"
 PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
 PYTHON_ABI_MAJ_MIN = "".join(PYTHON_MAJ_MIN)
-PYTHON_ABI_FLAGS = "m" if sys.version_info.minor < 8 else ""
-PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}{PYTHON_ABI_FLAGS}"
-PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + (
-    "-rc" if PYTHON_MAJ_MIN == ["3", "13"] else ""
-)
-MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bullseye"
+PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
+PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN)
+MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bookworm"
 MUSLLINUX_IMAGES = {
-    "musllinux_1_1": f"quay.io/pypa/musllinux_1_1_{PLATFORM}:latest",
+    "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:latest",
 }
 MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
     "manylinux_2_5": "devtoolset-2",
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
-    "manylinux_2_28": "gcc-toolset-12",
-    "musllinux_1_1": "devtoolset-not-present",
+    "manylinux_2_28": "gcc-toolset-13",
+    "musllinux_1_2": "devtoolset-not-present",
 }
 PATH_DIRS = [
     f"/opt/python/{PYTHON_ABI}/bin",
@@ -79,7 +76,6 @@ PATH_DIRS = [
 PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items()}
 WHEEL_CACHE_FOLDER = op.expanduser("~/.cache/auditwheel_tests")
 NUMPY_VERSION_MAP = {
-    "38": "1.21.4",
     "39": "1.21.4",
     "310": "1.21.4",
     "311": "1.23.4",
@@ -205,6 +201,10 @@ def build_numpy(container, policy, output_dir):
 
     if policy.startswith("musllinux_"):
         docker_exec(container, "apk add openblas-dev")
+        if policy.endswith("_s390x"):
+            # https://github.com/numpy/numpy/issues/27932
+            fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
+            docker_exec(container, f'sh -c "{fix_hwcap}"')
     elif policy.startswith("manylinux_2_28_"):
         docker_exec(container, "dnf install -y openblas-devel")
     else:
@@ -410,10 +410,14 @@ class Anylinux:
         )
 
         # testprogram should be a Python shim since we had to rewrite its RPATH.
-        assert (
-            docker_exec(docker_python, ["head", "-n1", "/usr/local/bin/testprogram"])
-            == "#!/usr/local/bin/python\n"
+        shebang = docker_exec(
+            docker_python, ["head", "-n1", "/usr/local/bin/testprogram"]
         )
+        assert shebang in {
+            "#!/usr/local/bin/python\n",
+            "#!/usr/local/bin/python3\n",
+            f"#!/usr/local/bin/python{'.'.join(PYTHON_MAJ_MIN)}\n",
+        }
 
         # testprogram_nodeps should be the unmodified ELF binary.
         assert (

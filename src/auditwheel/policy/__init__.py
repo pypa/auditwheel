@@ -7,9 +7,10 @@ import re
 import struct
 import sys
 from collections import defaultdict
+from collections.abc import Generator
 from os.path import abspath, dirname, join
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 from auditwheel.elfutils import filter_undefined_symbols, is_subdir
 
@@ -156,9 +157,7 @@ class WheelPolicies:
     def lddtree_external_references(self, lddtree: dict, wheel_path: str) -> dict:
         # XXX: Document the lddtree structure, or put it in something
         # more stable than a big nested dict
-        def filter_libs(
-            libs: set[str], whitelist: set[str]
-        ) -> Generator[str, None, None]:
+        def filter_libs(libs: set[str], whitelist: set[str]) -> Generator[str]:
             for lib in libs:
                 if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
                     # always exclude ELF dynamic linker/loader

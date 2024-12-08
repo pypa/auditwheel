@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+requires = ["setuptools>=61", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 # enable version inference
 
 [tool.black]
-target-version = ["py38", "py39", "py310", "py311", "py312", "py313"]
+target-version = ["py39", "py310", "py311", "py312", "py313"]
 extend-exclude = "src/auditwheel/_vendor"
 
 [tool.isort]
-py_version = 38
+py_version = 39
 profile = "black"
 extend_skip_glob = "src/auditwheel/_vendor/**/*.py"
 
