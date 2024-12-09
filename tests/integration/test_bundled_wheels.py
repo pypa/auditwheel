@@ -30,6 +30,16 @@ HERE = Path(__file__).parent.resolve()
             {"libffi.so.5"},
             frozenset(["libffi.so.noexist", "libnoexist.so.*"]),
         ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            set(),
+            frozenset(["libffi.so.[4,5]"]),
+        ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            {"libffi.so.5"},
+            frozenset(["libffi.so.[6,7]"]),
+        ),
         ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["libffi.so.*"])),
         ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["*"])),
         (
