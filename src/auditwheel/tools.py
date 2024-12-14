@@ -121,7 +121,7 @@ def dir2zip(in_dir: str, zip_fname: str, date_time: datetime | None = None) -> N
     compression = zipfile.ZIP_DEFLATED
     with zipfile.ZipFile(zip_fname, "w", compression=compression) as z:
         for root, dirs, files in walk(in_dir):
-            if root != in_dir:
+            if root != in_dir and not (dirs or files):
                 dname = root
                 out_dname = os.path.relpath(dname, in_dir) + "/"
                 zinfo = zipfile.ZipInfo.from_file(dname, out_dname)
