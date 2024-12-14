@@ -3,13 +3,22 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include <pthread.h>
 #if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 28)
 #include <threads.h>
 #endif
 
 int dep_run()
 {
-#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 28)
+#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 34)
+    // pthread_mutexattr_init was moved to libc.so.6 in manylinux_2_34+
+    pthread_mutexattr_t attr;
+    int sts = pthread_mutexattr_init(&attr);
+    if (sts == 0) {
+        pthread_mutexattr_destroy(&attr);
+    }
+    return sts;
+#elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 28)
     return thrd_equal(thrd_current(), thrd_current()) ? 0 : 1;
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 24)
     return (int)nextupf(0.0F);

@@ -140,6 +140,8 @@ To update these images manually, run::
     docker pull quay.io/pypa/manylinux2010_x86_64
     docker pull quay.io/pypa/manylinux2014_x86_64
     docker pull quay.io/pypa/manylinux_2_28_x86_64
+    docker pull quay.io/pypa/manylinux_2_34_x86_64
+    docker pull quay.io/pypa/musllinux_1_2_x86_64
 
 You may also remove these images using ``docker rmi``.
 
