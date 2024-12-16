@@ -67,6 +67,6 @@ jobs:
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
