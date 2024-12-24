@@ -8,13 +8,11 @@ from contextlib import nullcontext as does_not_raise
 
 import pytest
 
-from auditwheel.error import InvalidLibc
 from auditwheel.libc import Libc
 from auditwheel.policy import (
     WheelPolicies,
     _validate_pep600_compliance,
     get_arch_name,
-    get_libc,
     get_replace_platforms,
 )
 
@@ -211,8 +209,8 @@ class TestPolicyAccess:
     def test_get_by_priority_duplicate(self):
         wheel_policy = WheelPolicies()
         wheel_policy._policies = [
-            {"name": "duplicate", "priority": 0},
-            {"name": "duplicate", "priority": 0},
+            {"name": "duplicate_i686", "priority": 0},
+            {"name": "duplicate_i686", "priority": 0},
         ]
         with pytest.raises(RuntimeError):
             wheel_policy.get_policy_name(0)
@@ -283,6 +281,7 @@ class TestLddTreeExternalReferences:
         (None, None, None, does_not_raise()),
         (Libc.GLIBC, None, None, does_not_raise()),
         (Libc.MUSL, "musllinux_1_1", None, does_not_raise()),
+        (Libc.MUSL, None, None, does_not_raise()),
         (None, "musllinux_1_1", None, does_not_raise()),
         (None, None, "aarch64", does_not_raise()),
         # invalid
@@ -293,15 +292,8 @@ class TestLddTreeExternalReferences:
             raises(ValueError, "'musl_policy' shall be None"),
         ),
         (Libc.MUSL, "manylinux_1_1", None, raises(ValueError, "Invalid 'musl_policy'")),
-        (Libc.MUSL, "musllinux_5_1", None, raises(AssertionError)),
+        (Libc.MUSL, "musllinux_5_1", "x86_64", raises(AssertionError)),
         (Libc.MUSL, "musllinux_1_1", "foo", raises(AssertionError)),
-        # platform dependant
-        (
-            Libc.MUSL,
-            None,
-            None,
-            does_not_raise() if get_libc() == Libc.MUSL else raises(InvalidLibc),
-        ),
     ],
     ids=ids,
 )
