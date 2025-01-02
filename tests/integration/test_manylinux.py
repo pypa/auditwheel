@@ -1020,7 +1020,7 @@ class TestManylinux(Anylinux):
 
     def test_zlib_blacklist(self, any_manylinux_container, docker_python, io_folder):
         policy, tag, manylinux_ctr = any_manylinux_container
-        if policy.startswith("manylinux_2_17_"):
+        if policy.startswith(("manylinux_2_17_", "manylinux_2_28_", "manylinux_2_34_")):
             pytest.skip(f"{policy} image has no blacklist symbols in libz.so.1")
 
         docker_exec(
