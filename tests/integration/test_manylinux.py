@@ -63,7 +63,7 @@ DEVTOOLSET = {
     "manylinux_2_5": "devtoolset-2",
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
-    "manylinux_2_28": "gcc-toolset-13",
+    "manylinux_2_28": "gcc-toolset-14",
     "manylinux_2_34": "gcc-toolset-14",
     "musllinux_1_2": "devtoolset-not-present",
 }
