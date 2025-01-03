@@ -111,12 +111,15 @@ def test_dir2zip_folders(tmp_path):
     dist_info_folder.joinpath("METADATA").write_text("")
     empty_folder = input_dir / "dummy" / "empty"
     empty_folder.mkdir(parents=True)
-    output_file = tmp_path / "ouput.zip"
+    output_file = tmp_path / "output.zip"
     dir2zip(str(input_dir), str(output_file))
+    expected_dirs = {"dummy/", "dummy/empty/", "dummy-1.0.dist-info/"}
     with zipfile.ZipFile(output_file, "r") as z:
-        assert len(z.filelist) == 2
+        assert len(z.filelist) == 4
         for info in z.filelist:
             if info.is_dir():
-                assert info.filename == "dummy/empty/"
+                assert info.filename in expected_dirs
+                expected_dirs.remove(info.filename)
             else:
                 assert info.filename == "dummy-1.0.dist-info/METADATA"
+    assert len(expected_dirs) == 0
