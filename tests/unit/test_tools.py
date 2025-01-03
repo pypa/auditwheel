@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import lzma
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -100,3 +101,25 @@ def test_dir2zip_deflate(tmp_path):
     output_file = tmp_path / "ouput.zip"
     dir2zip(str(input_dir), str(output_file))
     assert output_file.stat().st_size < len(buffer) / 4
+
+
+def test_dir2zip_folders(tmp_path):
+    input_dir = tmp_path / "input_dir"
+    input_dir.mkdir()
+    dist_info_folder = input_dir / "dummy-1.0.dist-info"
+    dist_info_folder.mkdir()
+    dist_info_folder.joinpath("METADATA").write_text("")
+    empty_folder = input_dir / "dummy" / "empty"
+    empty_folder.mkdir(parents=True)
+    output_file = tmp_path / "output.zip"
+    dir2zip(str(input_dir), str(output_file))
+    expected_dirs = {"dummy/", "dummy/empty/", "dummy-1.0.dist-info/"}
+    with zipfile.ZipFile(output_file, "r") as z:
+        assert len(z.filelist) == 4
+        for info in z.filelist:
+            if info.is_dir():
+                assert info.filename in expected_dirs
+                expected_dirs.remove(info.filename)
+            else:
+                assert info.filename == "dummy-1.0.dist-info/METADATA"
+    assert len(expected_dirs) == 0
