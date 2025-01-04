@@ -2,6 +2,17 @@
 
 ## HEAD
 
+## 6.2.0
+
+Released January 4, 2025
+
+### User-facing changes
+- [REMOVAL] Drop python 3.8 support ([#520](https://github.com/pypa/auditwheel/pull/520))
+- [FEATURE] Add ability to pass wildcard arguments to `--exclude` ([#508](https://github.com/pypa/auditwheel/pull/508))
+- [FEATURE] Add musllinux riscv64 support ([#526](https://github.com/pypa/auditwheel/pull/526))
+- [BUGFIX] Walk directories in sorted order for reproducibility ([#517](https://github.com/pypa/auditwheel/pull/517))
+- [BUGFIX] Fix manylinux_2_37 & manylinux_2_38 policies ([#527](https://github.com/pypa/auditwheel/pull/527))
+
 ## 6.1.0
 
 Released August 11, 2024
