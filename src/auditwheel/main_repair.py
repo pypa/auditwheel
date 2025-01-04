@@ -89,7 +89,10 @@ wheel will abort processing of subsequent wheels.
         "--exclude",
         dest="EXCLUDE",
         help="Exclude SONAME from grafting into the resulting wheel "
-        "(can be specified multiple times)",
+        "Please make sure wheel metadata reflects your dependencies. "
+        "See https://github.com/pypa/auditwheel/pull/411#issuecomment-1500826281 "
+        "(can be specified multiple times) "
+        "(can contain wildcards, for example libfoo.so.*)",
         action="append",
         default=[],
     )
