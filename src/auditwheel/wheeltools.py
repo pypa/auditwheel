@@ -25,7 +25,7 @@ from packaging.utils import parse_wheel_filename
 
 from ._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
 from .tmpdirs import InTemporaryDirectory
-from .tools import dir2zip, unique_by_index, zip2dir
+from .tools import dir2zip, unique_by_index, walk, zip2dir
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +69,10 @@ def rewrite_record(bdist_dir: str) -> None:
     if exists(sig_path):
         os.unlink(sig_path)
 
-    def walk() -> Generator[str]:
-        for dir, dirs, files in os.walk(bdist_dir):
-            for f in files:
-                yield pjoin(dir, f)
+    def files() -> Generator[str]:
+        for dir, _, files in walk(bdist_dir):
+            for file in files:
+                yield pjoin(dir, file)
 
     def skip(path: str) -> bool:
         """Wheel hashes every possible file."""
@@ -80,7 +80,7 @@ def rewrite_record(bdist_dir: str) -> None:
 
     with open(record_path, "w+", newline="", encoding="utf-8") as record_file:
         writer = csv.writer(record_file)
-        for path in walk():
+        for path in files():
             relative_path = relpath(path, bdist_dir)
             if skip(relative_path):
                 hash_ = ""

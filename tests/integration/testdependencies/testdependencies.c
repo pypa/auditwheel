@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include <pthread.h>
 #if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 28)
 #include <threads.h>
 #endif
@@ -23,6 +24,13 @@ run(PyObject *self, PyObject *args)
 
 #ifdef WITH_DEPENDENCY
     res = dep_run();
+#elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 34)
+    // pthread_mutexattr_init was moved to libc.so.6 in manylinux_2_34+
+    pthread_mutexattr_t attr;
+    res = pthread_mutexattr_init(&attr);
+    if (res == 0) {
+        pthread_mutexattr_destroy(&attr);
+    }
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 28)
     res = thrd_equal(thrd_current(), thrd_current()) ? 0 : 1;
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 24)
