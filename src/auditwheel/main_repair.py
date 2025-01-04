@@ -43,13 +43,20 @@ wheel will abort processing of subsequent wheels.
     p.add_argument(
         "--plat",
         action=EnvironmentDefault,
+        required=False,
         metavar="PLATFORM",
         env="AUDITWHEEL_PLAT",
         dest="PLAT",
         help="Desired target platform. See the available platforms under the "
-        f'PLATFORMS section below. (default: "{highest_policy}")',
+        f'PLATFORMS section below. (default on current arch: "{highest_policy}")',
         choices=policy_names,
-        default=highest_policy,
+        default=None,
+    )
+    p.add_argument(
+        "--best-plat",
+        action="store_true",
+        dest="BEST_PLAT",
+        help="Automatically determine the best target platform.",
     )
     p.add_argument(
         "-L",
@@ -118,11 +125,9 @@ def execute(args, p):
     for wheel_file in args.WHEEL_FILE:
         if not isfile(wheel_file):
             p.error("cannot access %s. No such file" % wheel_file)
+        wheel_policy.set_platform_from_wheel(wheel_file)
 
         logger.info("Repairing %s", basename(wheel_file))
-
-        if not exists(args.WHEEL_DIR):
-            os.makedirs(args.WHEEL_DIR)
 
         try:
             wheel_abi = analyze_wheel_abi(wheel_policy, wheel_file, exclude)
@@ -130,6 +135,17 @@ def execute(args, p):
             logger.info(NonPlatformWheel.LOG_MESSAGE)
             return 1
 
+        if args.BEST_PLAT:
+            if args.PLAT:
+                p.error("Cannot specify both --best-plat and --plat")
+            args.PLAT = wheel_abi.overall_tag
+
+        if not exists(args.WHEEL_DIR):
+            os.makedirs(args.WHEEL_DIR)
+
+        highest_policy = wheel_policy.get_policy_name(wheel_policy.priority_highest)
+        if args.PLAT is None:
+            args.PLAT = highest_policy
         policy = wheel_policy.get_policy_by_name(args.PLAT)
         reqd_tag = policy["priority"]
 
@@ -137,7 +153,8 @@ def execute(args, p):
             msg = (
                 'cannot repair "%s" to "%s" ABI because of the presence '
                 "of too-recent versioned symbols. You'll need to compile "
-                "the wheel on an older toolchain." % (wheel_file, args.PLAT)
+                "the wheel on an older toolchain or pick a newer platform."
+                % (wheel_file, args.PLAT)
             )
             p.error(msg)
 
@@ -187,3 +204,6 @@ def execute(args, p):
 
         if out_wheel is not None:
             logger.info("\nFixed-up wheel written to %s", out_wheel)
+
+        if args.BEST_PLAT:
+            args.PLAT = None

@@ -5,9 +5,11 @@ from os.path import basename
 from pathlib import Path
 
 from elftools.common.exceptions import ELFError
+from elftools.elf.dynamic import DynamicSegment
 from elftools.elf.elffile import ELFFile
 
 from .lddtree import parse_ld_paths
+from .libc import Libc
 
 
 def elf_read_dt_needed(fn: str) -> list[str]:
@@ -161,3 +163,37 @@ def filter_undefined_symbols(
         if intersection:
             result[lib] = sorted(intersection)
     return result
+
+
+def elf_get_platform_info(path: str) -> tuple[Libc | None, str | None]:
+    with open(path, "rb") as f:
+        try:
+            elf = ELFFile(f)
+        except ELFError:
+            return (None, None)
+        arch = {
+            "x64": "x86_64",
+            "x86": "i686",
+            "AArch64": "aarch64",
+            "64-bit PowerPC": "ppc64",
+            "IBM S/390": "s390x",
+            "ARM": "armv7l",
+            "RISC-V": "riscv64",
+        }[elf.get_machine_arch()]
+        if arch == "ppc64" and elf.header.e_ident.EI_DATA == "ELFDATA2LSB":
+            arch = "ppc64le"
+
+        libc = None
+        for seg in elf.iter_segments():
+            if not isinstance(seg, DynamicSegment):
+                continue
+            for tag in seg.iter_tags():
+                if tag.entry.d_tag == "DT_NEEDED":
+                    if tag.needed == "libc.so.6":
+                        libc = Libc.GLIBC
+                        break
+                    if tag.needed.startswith("libc.musl-"):
+                        libc = Libc.MUSL
+                        break
+            break
+        return (libc, arch)

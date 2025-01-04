@@ -34,6 +34,8 @@ def execute(args, p):
     if not isfile(args.WHEEL_FILE):
         p.error("cannot access %s. No such file" % args.WHEEL_FILE)
 
+    wheel_policy.set_platform_from_wheel(args.WHEEL_FILE)
+
     try:
         winfo = analyze_wheel_abi(wheel_policy, args.WHEEL_FILE, frozenset())
     except NonPlatformWheel:
