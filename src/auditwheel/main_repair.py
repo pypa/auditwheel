@@ -106,7 +106,7 @@ wheel will abort processing of subsequent wheels.
     p.set_defaults(func=execute)
 
 
-def execute(args, p):
+def execute(args, parser: argparse.ArgumentParser):
     import os
 
     from .repair import repair_wheel
@@ -117,7 +117,7 @@ def execute(args, p):
 
     for wheel_file in args.WHEEL_FILE:
         if not isfile(wheel_file):
-            p.error("cannot access %s. No such file" % wheel_file)
+            parser.error(f"cannot access {wheel_file}. No such file")
 
         logger.info("Repairing %s", basename(wheel_file))
 
@@ -131,46 +131,48 @@ def execute(args, p):
             return 1
 
         policy = wheel_policy.get_policy_by_name(args.PLAT)
+        assert policy is not None
         reqd_tag = policy["priority"]
 
         if reqd_tag > wheel_policy.get_priority_by_name(wheel_abi.sym_tag):
             msg = (
-                'cannot repair "%s" to "%s" ABI because of the presence '
-                "of too-recent versioned symbols. You'll need to compile "
-                "the wheel on an older toolchain." % (wheel_file, args.PLAT)
+                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because of the '
+                "presence of too-recent versioned symbols. You'll need to compile "
+                "the wheel on an older toolchain."
             )
-            p.error(msg)
+            parser.error(msg)
 
         if reqd_tag > wheel_policy.get_priority_by_name(wheel_abi.ucs_tag):
             msg = (
-                'cannot repair "%s" to "%s" ABI because it was compiled '
-                "against a UCS2 build of Python. You'll need to compile "
+                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because it was '
+                "compiled against a UCS2 build of Python. You'll need to compile "
                 "the wheel against a wide-unicode build of Python."
-                % (wheel_file, args.PLAT)
             )
-            p.error(msg)
+            parser.error(msg)
 
         if reqd_tag > wheel_policy.get_priority_by_name(wheel_abi.blacklist_tag):
             msg = (
-                'cannot repair "%s" to "%s" ABI because it depends on '
-                "black-listed symbols." % (wheel_file, args.PLAT)
+                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because it '
+                "depends on black-listed symbols."
             )
-            p.error(msg)
+            parser.error(msg)
 
         abis = [policy["name"]] + policy["aliases"]
-        if not args.ONLY_PLAT:
-            if reqd_tag < wheel_policy.get_priority_by_name(wheel_abi.overall_tag):
-                logger.info(
-                    (
-                        "Wheel is eligible for a higher priority tag. "
-                        "You requested %s but I have found this wheel is "
-                        "eligible for %s."
-                    ),
-                    args.PLAT,
-                    wheel_abi.overall_tag,
-                )
-                higher_policy = wheel_policy.get_policy_by_name(wheel_abi.overall_tag)
-                abis = [higher_policy["name"]] + higher_policy["aliases"] + abis
+        if (not args.ONLY_PLAT) and reqd_tag < wheel_policy.get_priority_by_name(
+            wheel_abi.overall_tag
+        ):
+            logger.info(
+                (
+                    "Wheel is eligible for a higher priority tag. "
+                    "You requested %s but I have found this wheel is "
+                    "eligible for %s."
+                ),
+                args.PLAT,
+                wheel_abi.overall_tag,
+            )
+            higher_policy = wheel_policy.get_policy_by_name(wheel_abi.overall_tag)
+            assert higher_policy is not None
+            abis = [higher_policy["name"]] + higher_policy["aliases"] + abis
 
         patcher = Patchelf()
         out_wheel = repair_wheel(
@@ -187,3 +189,4 @@ def execute(args, p):
 
         if out_wheel is not None:
             logger.info("\nFixed-up wheel written to %s", out_wheel)
+    return 0

@@ -15,6 +15,7 @@ def test_non_platform_wheel_repair(mode):
         ["auditwheel", mode, str(wheel)],
         stderr=subprocess.PIPE,
         text=True,
+        check=False,
     )
     assert proc.returncode == 1
     assert "This does not look like a platform wheel" in proc.stderr

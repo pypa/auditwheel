@@ -26,6 +26,7 @@ def ids(x):
         return "NoError"
     if hasattr(x, "expected_exception"):
         return x.expected_exception
+    return None
 
 
 def raises(exception, match=None, escape=True):
@@ -35,7 +36,7 @@ def raises(exception, match=None, escape=True):
 
 
 @pytest.mark.parametrize(
-    "reported_arch,expected_arch",
+    ("reported_arch", "expected_arch"),
     [
         ("armv6l", "armv6l"),
         ("armv7l", "armv7l"),
@@ -52,7 +53,7 @@ def test_32bits_arch_name(reported_arch, expected_arch, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "reported_arch,expected_arch",
+    ("reported_arch", "expected_arch"),
     [
         ("armv8l", "aarch64"),
         ("aarch64", "aarch64"),
@@ -68,7 +69,7 @@ def test_64bits_arch_name(reported_arch, expected_arch, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "maxsize, sizeof_voidp, expected",
+    ("maxsize", "sizeof_voidp", "expected"),
     [
         # 64-bit
         (9223372036854775807, 8, "x86_64"),
@@ -91,7 +92,7 @@ def test_arch_name_bits(maxsize, sizeof_voidp, expected, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "name,expected",
+    ("name", "expected"),
     [
         ("linux_aarch64", []),
         ("manylinux1_ppc64le", ["linux_ppc64le"]),
@@ -277,7 +278,7 @@ class TestLddTreeExternalReferences:
 
 
 @pytest.mark.parametrize(
-    "libc,musl_policy,arch,exception",
+    ("libc", "musl_policy", "arch", "exception"),
     [
         # valid
         (None, None, None, does_not_raise()),

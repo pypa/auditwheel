@@ -36,14 +36,14 @@ def test_environment_action(monkeypatch, environ, passed, expected):
         default="manylinux1",
     )
     args = p.parse_args(argv)
-    assert args.PLAT == expected
+    assert expected == args.PLAT
 
 
 def test_environment_action_invalid_env(monkeypatch):
     choices = ["linux", "manylinux1", "manylinux2010"]
     monkeypatch.setenv("AUDITWHEEL_PLAT", "foo")
+    p = argparse.ArgumentParser()
     with pytest.raises(argparse.ArgumentError):
-        p = argparse.ArgumentParser()
         p.add_argument(
             "--plat",
             action=EnvironmentDefault,

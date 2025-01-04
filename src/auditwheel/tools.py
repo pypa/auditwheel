@@ -66,10 +66,13 @@ def walk(topdir: str) -> Generator[tuple[str, list[str], list[str]]]:
         # sort list of filenames for iteration in reproducible order
         filenames.sort()
         # list any dist-info/RECORD file last
-        if dirpath.endswith(".dist-info") and os.path.dirname(dirpath) == topdir:
-            if "RECORD" in filenames:
-                filenames.remove("RECORD")
-                filenames.append("RECORD")
+        if (
+            dirpath.endswith(".dist-info")
+            and os.path.dirname(dirpath) == topdir
+            and "RECORD" in filenames
+        ):
+            filenames.remove("RECORD")
+            filenames.append("RECORD")
         yield dirpath, dirnames, filenames
 
 
@@ -120,7 +123,7 @@ def dir2zip(in_dir: str, zip_fname: str, date_time: datetime | None = None) -> N
     date_time_args = date_time.timetuple()[:6]
     compression = zipfile.ZIP_DEFLATED
     with zipfile.ZipFile(zip_fname, "w", compression=compression) as z:
-        for root, dirs, files in walk(in_dir):
+        for root, _, files in walk(in_dir):
             if root != in_dir:
                 dname = root
                 out_dname = os.path.relpath(dname, in_dir) + "/"
@@ -170,4 +173,7 @@ class EnvironmentDefault(argparse.Action):
         super().__init__(default=default, required=required, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
+        # use self assignment to silence ARG002
+        parser = parser  # noqa: PLW0127
+        option_string = option_string  # noqa: PLW0127
         setattr(namespace, self.dest, values)

@@ -5,15 +5,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 # enable version inference
 
-[tool.black]
-target-version = ["py39", "py310", "py311", "py312", "py313"]
-extend-exclude = "src/auditwheel/_vendor"
-
-[tool.isort]
-py_version = 39
-profile = "black"
-extend_skip_glob = "src/auditwheel/_vendor/**/*.py"
-
 [tool.mypy]
 follow_imports = "silent"
 ignore_missing_imports = true
@@ -23,3 +14,39 @@ warn_unused_ignores = true
 module = "auditwheel._vendor.*"
 follow_imports = "skip"
 ignore_errors = true
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = 20
+
+[tool.ruff]
+target-version = "py39"
+exclude = ["src/auditwheel/_vendor"]
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ICN",         # flake8-import-conventions
+  "ISC",         # flake8-implicit-str-concat
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PT",          # flake8-pytest-style
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "TID251",      # flake8-tidy-imports.banned-api
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "PYI",         # flake8-pyi
+]
+ignore = [
+  "ISC001", # Conflicts with formatter
+  "PLR",    # Design related pylint codes
+]

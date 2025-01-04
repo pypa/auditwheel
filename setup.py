@@ -6,7 +6,7 @@ extras = {
     "test": ["pytest>=3.4", "jsonschema", "pypatchelf", "pretend", "docker"],
     "coverage": ["pytest-cov"],
 }
-extras["develop"] = sum(extras.values(), [])
 extras["coverage"] += extras["test"]
+extras["develop"] = list({dep for deps in extras.values() for dep in deps})
 
 setup(extras_require=extras)

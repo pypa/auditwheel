@@ -106,12 +106,12 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
     for ldpath in str_ldpaths.split(":"):
         if ldpath == "":
             # The ldso treats "" paths as $PWD.
-            ldpath = os.getcwd()
+            ldpath_ = os.getcwd()
         elif "$ORIGIN" in ldpath:
-            ldpath = ldpath.replace("$ORIGIN", os.path.dirname(os.path.abspath(path)))
+            ldpath_ = ldpath.replace("$ORIGIN", os.path.dirname(os.path.abspath(path)))
         else:
-            ldpath = root + ldpath
-        ldpaths.append(normpath(ldpath))
+            ldpath_ = root + ldpath
+        ldpaths.append(normpath(ldpath_))
     return [p for p in dedupe(ldpaths) if os.path.isdir(p)]
 
 
@@ -140,8 +140,8 @@ def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> li
     try:
         log.debug("%sparse_ld_so_conf(%s)", dbg_pfx, ldso_conf)
         with open(ldso_conf) as f:
-            for line in f.readlines():
-                line = line.split("#", 1)[0].strip()
+            for input_line in f.readlines():
+                line = input_line.split("#", 1)[0].strip()
                 if not line:
                     continue
                 if line.startswith("include "):
@@ -242,15 +242,7 @@ def compatible_elfs(elf1: ELFFile, elf2: ELFFile) -> bool:
     """
     osabis = frozenset(e.header["e_ident"]["EI_OSABI"] for e in (elf1, elf2))
     compat_sets = (
-        frozenset(
-            "ELFOSABI_%s" % x
-            for x in (
-                "NONE",
-                "SYSV",
-                "GNU",
-                "LINUX",
-            )
-        ),
+        frozenset(f"ELFOSABI_{x}" for x in ("NONE", "SYSV", "GNU", "LINUX")),
     )
     return (
         (len(osabis) == 1 or any(osabis.issubset(x) for x in compat_sets))
@@ -302,8 +294,7 @@ def lddtree(
     ldpaths: dict[str, list[str]] | None = None,
     display: str | None = None,
     exclude: frozenset[str] = frozenset(),
-    _first: bool = True,
-    _all_libs: dict = {},
+    _all_libs: dict | None = None,
 ) -> dict:
     """Parse the ELF dependency tree of the specified file
 
@@ -324,8 +315,6 @@ def lddtree(
         The path to show rather than ``path``
     exclude
         List of soname (DT_NEEDED) to exclude from the tree
-    _first
-        Recursive use only; is this the first ELF?
     _all_libs
         Recursive use only; dict of all libs we've seen
 
@@ -350,7 +339,8 @@ def lddtree(
     if not ldpaths:
         ldpaths = load_ld_paths().copy()
 
-    if _first:
+    _first = _all_libs is None
+    if _all_libs is None:
         _all_libs = {}
 
     ret: dict[str, Any] = {
@@ -363,7 +353,7 @@ def lddtree(
         "libs": _all_libs,
     }
 
-    log.debug("lddtree(%s)" % path)
+    log.debug("lddtree(%s)", path)
 
     with open(path, "rb") as f:
         elf = ELFFile(f)
@@ -407,7 +397,7 @@ def lddtree(
                     runpaths = parse_ld_paths(t.runpath, path=path, root=root)
                 elif t.entry.d_tag == "DT_NEEDED":
                     if any(fnmatch(t.needed, e) for e in exclude):
-                        log.info(f"Excluding {t.needed}")
+                        log.info("Excluding %s", t.needed)
                     else:
                         libs.append(t.needed)
             if runpaths:
@@ -457,7 +447,6 @@ def lddtree(
                     ldpaths,
                     display=fullpath,
                     exclude=exclude,
-                    _first=False,
                     _all_libs=_all_libs,
                 )
                 _all_libs[lib]["needed"] = lret["needed"]

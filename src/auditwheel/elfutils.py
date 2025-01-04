@@ -16,7 +16,8 @@ def elf_read_dt_needed(fn: str) -> list[str]:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynamic")
         if section is None:
-            raise ValueError("Could not find soname in %s" % fn)
+            msg = f"Could not find soname in {fn}"
+            raise ValueError(msg)
 
         for t in section.iter_tags():
             if t.entry.d_tag == "DT_NEEDED":

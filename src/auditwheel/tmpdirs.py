@@ -1,5 +1,4 @@
-""" Contexts for *with* statement providing temporary directories
-"""
+"""Contexts for *with* statement providing temporary directories"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-""" General tools for working with wheels
+"""General tools for working with wheels
 
 Tools that aren't specific to delocation
 """
@@ -14,11 +14,9 @@ from base64 import urlsafe_b64encode
 from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from itertools import product
-from os.path import abspath, basename, dirname, exists
+from os.path import abspath, basename, dirname, exists, relpath, splitext
 from os.path import join as pjoin
-from os.path import relpath
 from os.path import sep as psep
-from os.path import splitext
 from types import TracebackType
 
 from packaging.utils import parse_wheel_filename
@@ -45,7 +43,8 @@ def _dist_info_dir(bdist_dir: str) -> str:
 
     info_dirs = glob.glob(pjoin(bdist_dir, "*.dist-info"))
     if len(info_dirs) != 1:
-        raise WheelToolsError("Should be exactly one `*.dist_info` directory")
+        msg = "Should be exactly one `*.dist_info` directory"
+        raise WheelToolsError(msg)
     return info_dirs[0]
 
 
@@ -70,9 +69,9 @@ def rewrite_record(bdist_dir: str) -> None:
         os.unlink(sig_path)
 
     def files() -> Generator[str]:
-        for dir, _, files in walk(bdist_dir):
+        for dir_, _, files in walk(bdist_dir):
             for file in files:
-                yield pjoin(dir, file)
+                yield pjoin(dir_, file)
 
     def skip(path: str) -> bool:
         """Wheel hashes every possible file."""
@@ -175,10 +174,12 @@ class InWheelCtx(InWheel):
 
     def iter_files(self) -> Generator[str]:
         if self.path is None:
-            raise ValueError("This function should be called from context manager")
+            msg = "This function should be called from context manager"
+            raise ValueError(msg)
         record_names = glob.glob(os.path.join(self.path, "*.dist-info/RECORD"))
         if len(record_names) != 1:
-            raise ValueError("Should be exactly one `*.dist_info` directory")
+            msg = "Should be exactly one `*.dist_info` directory"
+            raise ValueError(msg)
 
         with open(record_names[0]) as f:
             record = f.read()
@@ -210,9 +211,8 @@ def add_platforms(
     definitely_not_purelib = False
 
     if wheel_ctx.path is None:
-        raise ValueError(
-            "This function should be called from wheel_ctx context manager"
-        )
+        msg = "This function should be called from wheel_ctx context manager"
+        raise ValueError(msg)
 
     info_fname = pjoin(_dist_info_dir(wheel_ctx.path), "WHEEL")
     info = read_pkg_info(info_fname)
