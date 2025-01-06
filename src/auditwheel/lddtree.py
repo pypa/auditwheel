@@ -434,6 +434,9 @@ def lddtree(
                     + ldpaths["interp"]
                 )
             realpath, fullpath = find_lib(elf, lib, all_ldpaths, root)
+            if any(fnmatch(realpath, e) for e in exclude):
+                log.info("Excluding %s", realpath)
+                continue
             _all_libs[lib] = {
                 "realpath": realpath,
                 "path": fullpath,
