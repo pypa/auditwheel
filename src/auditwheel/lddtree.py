@@ -410,7 +410,9 @@ def lddtree(
                 elif t.entry.d_tag == "DT_RUNPATH":
                     runpaths = parse_ld_paths(t.runpath, path=path, root=root)
                 elif t.entry.d_tag == "DT_NEEDED":
-                    if t.needed in _excluded_libs or any(fnmatch(t.needed, e) for e in exclude):
+                    if t.needed in _excluded_libs or any(
+                        fnmatch(t.needed, e) for e in exclude
+                    ):
                         log.info("Excluding %s", t.needed)
                         _excluded_libs.add(t.needed)
                     else:
