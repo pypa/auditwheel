@@ -283,19 +283,6 @@ def find_lib(
                 libelf = ELFFile(f)
                 if compatible_elfs(elf, libelf):
                     return (target, path)
-    
-    for ldpath in ldpaths:
-        print(f'{ldpath}, exist: {os.path.exists(ldpath)}')
-        path = os.path.join(ldpath, lib)
-        print(f'{path}, exist: {os.path.exists(path)}')
-        target = readlink(path, root, prefixed=True)
-        print(f'{target}, exist: {os.path.exists(target)}')
-
-        if os.path.exists(target):
-            with open(target, "rb") as f:
-                libelf = ELFFile(f)
-                if compatible_elfs(elf, libelf):
-                    return (target, path)
 
     return (None, None)
 
