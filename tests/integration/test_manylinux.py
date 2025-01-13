@@ -984,7 +984,7 @@ class TestManylinux(Anylinux):
             policy_ = f"{pep600_policy}_{PLATFORM}"
             aliases_ = [f"{p}_{PLATFORM}" for p in aliases]
             if target_policy == policy_ or target_policy in aliases_:
-                target_tag = f'{policy_}.{".".join(aliases_)}'
+                target_tag = f"{policy_}.{'.'.join(aliases_)}"
 
         only_plat_arg = "--only-plat" if only_plat else ""
         # we shall ba able to repair the wheel for all targets
@@ -1010,9 +1010,9 @@ class TestManylinux(Anylinux):
 
         with zipfile.ZipFile(os.path.join(io_folder, repaired_wheel)) as z:
             for file in z.namelist():
-                assert not file.startswith(
-                    "testsimple.libs"
-                ), "should not have empty .libs folder"
+                assert not file.startswith("testsimple.libs"), (
+                    "should not have empty .libs folder"
+                )
 
         docker_exec(docker_python, f"pip install /io/{repaired_wheel}")
         docker_exec(
