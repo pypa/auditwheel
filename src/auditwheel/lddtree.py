@@ -283,6 +283,19 @@ def find_lib(
                 libelf = ELFFile(f)
                 if compatible_elfs(elf, libelf):
                     return (target, path)
+    
+    for ldpath in ldpaths:
+        print(f'{ldpath}, exist: {os.path.exists(ldpath)}')
+        path = os.path.join(ldpath, lib)
+        print(f'{path}, exist: {os.path.exists(path)}')
+        target = readlink(path, root, prefixed=True)
+        print(f'{target}, exist: {os.path.exists(target)}')
+
+        if os.path.exists(target):
+            with open(target, "rb") as f:
+                libelf = ELFFile(f)
+                if compatible_elfs(elf, libelf):
+                    return (target, path)
 
     return (None, None)
 
@@ -435,10 +448,11 @@ def lddtree(
                     + ldpaths["interp"]
                 )
             realpath, fullpath = find_lib(elf, lib, all_ldpaths, root)
-            if lib in _excluded_libs or any(fnmatch(realpath, e) for e in exclude):
-                log.info("Excluding %s", realpath)
-                _excluded_libs.add(lib)
-                continue
+            if realpath is not None:
+                if lib in _excluded_libs or any(fnmatch(realpath, e) for e in exclude):
+                    log.info("Excluding %s", realpath)
+                    _excluded_libs.add(lib)
+                    continue
             _all_libs[lib] = {
                 "realpath": realpath,
                 "path": fullpath,
