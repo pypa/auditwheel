@@ -7,6 +7,7 @@ import sys
 import zipfile
 from argparse import Namespace
 from datetime import datetime, timezone
+from os.path import isabs
 from pathlib import Path
 from unittest import mock
 from unittest.mock import Mock
@@ -58,7 +59,7 @@ HERE = Path(__file__).parent.resolve()
 def test_analyze_wheel_abi(file, external_libs, exclude):
     # If exclude libs contain path, LD_LIBRARY_PATH need to be modified to find the libs
     # `lddtree.load_ld_paths` needs to be reloaded for it's `lru_cache`-ed.
-    modify_ld_library_path = any(f"{HERE}" in e for e in exclude)
+    modify_ld_library_path = any(isabs(e) for e in exclude)
 
     with pytest.MonkeyPatch.context() as cp:
         if modify_ld_library_path:
