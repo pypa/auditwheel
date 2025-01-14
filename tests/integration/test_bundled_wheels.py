@@ -64,14 +64,14 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
 
     with pytest.MonkeyPatch.context() as cp:
         if modify_ld_library_path:
-            cp.setenv("LD_LIBRARY_PATH", f"{HERE}", prepend=os.pathsep)
+            cp.setenv("LD_LIBRARY_PATH", f"{HERE}")
             importlib.reload(lddtree)
 
         wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch="x86_64")
         winfo = analyze_wheel_abi(wheel_policies, str(HERE / file), exclude)
         assert (
             set(winfo.external_refs["manylinux_2_5_x86_64"]["libs"]) == external_libs
-        ), f"{HERE}, {exclude}, {os.environ.get('LD_LIBRARY_PATH')}"
+        ), f"{HERE}, {exclude}, {os.environ}"
 
     if modify_ld_library_path:
         importlib.reload(lddtree)
