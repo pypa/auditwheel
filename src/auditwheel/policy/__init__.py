@@ -287,6 +287,7 @@ def _fixup_musl_libc_soname(libc: Libc, arch: str, whitelist):
             "ppc64le": "libc.musl-ppc64le.so.1",
             "armv7l": "libc.musl-armv7.so.1",
             "riscv64": "libc.musl-riscv64.so.1",
+            "loongarch64": "libc.musl-loongarch64.so.1",
         }
     }
     new_whitelist = []
