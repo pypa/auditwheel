@@ -55,9 +55,7 @@ wheel will abort processing of subsequent wheels.
         "-L",
         "--lib-sdir",
         dest="LIB_SDIR",
-        help=(
-            "Subdirectory in packages to store copied libraries." ' (default: ".libs")'
-        ),
+        help=('Subdirectory in packages to store copied libraries. (default: ".libs")'),
         default=".libs",
     )
     p.add_argument(
@@ -65,7 +63,7 @@ wheel will abort processing of subsequent wheels.
         "--wheel-dir",
         dest="WHEEL_DIR",
         type=abspath,
-        help=("Directory to store delocated wheels (default:" ' "wheelhouse/")'),
+        help=('Directory to store delocated wheels (default: "wheelhouse/")'),
         default="wheelhouse/",
     )
     p.add_argument(

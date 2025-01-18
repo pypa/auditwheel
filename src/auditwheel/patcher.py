@@ -37,7 +37,7 @@ def _verify_patchelf() -> None:
     m = re.match(r"patchelf\s+(\d+(.\d+)?)", version)
     if m and tuple(int(x) for x in m.group(1).split(".")) >= (0, 14):
         return
-    msg = f"patchelf {version} found. auditwheel repair requires " "patchelf >= 0.14."
+    msg = f"patchelf {version} found. auditwheel repair requires patchelf >= 0.14."
     raise ValueError(msg)
 
 
