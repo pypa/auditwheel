@@ -37,18 +37,14 @@ jobs:
         run: pipx run nox -s test-dist -- 3.9
 
   test:
-    name: CPython ${{ matrix.python }}
+    name: CPython ${{ matrix.python }} on ${{ matrix.runner }}
     needs: test-dist
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - python: "3.9"
-          - python: "3.10"
-          - python: "3.11"
-          - python: "3.12"
-          - python: "3.13"
+        runner: [ ubuntu-24.04, ubuntu-24.04-arm ]
+        python: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,7 +58,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "${{ matrix.python }}"
-          architecture: x64
           allow-prereleases: true
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
