@@ -52,8 +52,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/auditwheel_tests
-          key: python${{ matrix.python }}-${{ hashFiles('**/test_manylinux.py') }}
-          restore-keys: python${{ matrix.python }}-
+          key: python${{ matrix.python }}-${{ runner.arch }}-${{ hashFiles('**/test_manylinux.py') }}
+          restore-keys: python${{ matrix.python }}-${{ runner.arch }}-
       - name: Install CPython ${{ matrix.python }}
         uses: actions/setup-python@v5
         with:
