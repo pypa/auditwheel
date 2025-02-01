@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import functools
 import itertools
-import json
 import logging
 import os
 from collections import defaultdict, namedtuple
@@ -10,6 +9,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from os.path import basename
 
+from . import json
 from .elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
@@ -18,7 +18,7 @@ from .elfutils import (
     elf_references_PyFPE_jbuf,
 )
 from .genericpkgctx import InGenericPkgCtx
-from .lddtree import lddtree
+from .lddtree import ldd
 from .policy import WheelPolicies
 
 log = logging.getLogger(__name__)
@@ -82,7 +82,7 @@ def get_wheel_elfdata(
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
-                elftree = lddtree(fn, exclude=exclude)
+                elftree = ldd(fn, exclude=exclude)
 
                 for key, value in elf_find_versioned_symbols(elf):
                     log.debug("key %s, value %s", key, value)
@@ -127,7 +127,7 @@ def get_wheel_elfdata(
         needed_libs = {
             lib
             for elf in itertools.chain(full_elftree.values(), nonpy_elftree.values())
-            for lib in elf["needed"]
+            for lib in elf.needed
         }
 
         for fn, elf_tree in nonpy_elftree.items():
@@ -144,10 +144,9 @@ def get_wheel_elfdata(
                 elf_tree, ctx.path
             )
 
-    log.debug("full_elftree:\n%s", json.dumps(full_elftree, indent=4))
+    log.debug("full_elftree:\n%s", json.dumps(full_elftree))
     log.debug(
-        "full_external_refs (will be repaired):\n%s",
-        json.dumps(full_external_refs, indent=4),
+        "full_external_refs (will be repaired):\n%s", json.dumps(full_external_refs)
     )
 
     return (
@@ -247,7 +246,7 @@ def analyze_wheel_abi(
         update(external_refs, external_refs_by_fn[fn])
 
     log.debug("external reference info")
-    log.debug(json.dumps(external_refs, indent=4))
+    log.debug(json.dumps(external_refs))
 
     external_libs = get_external_libs(external_refs)
     external_versioned_symbols = get_versioned_symbols(external_libs)

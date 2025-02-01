@@ -8,8 +8,7 @@
 """Read the ELF dependency tree
 
 This does not work like `ldd` in that we do not execute/load code (only read
-files on disk), and we parse the dependency structure as a tree rather than
- a flat list.
+files on disk).
 """
 
 from __future__ import annotations
@@ -19,16 +18,35 @@ import functools
 import glob
 import logging
 import os
+from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any
 
 from elftools.elf.elffile import ELFFile
 
 from .libc import Libc, get_libc
 
 log = logging.getLogger(__name__)
-__all__ = ["lddtree"]
+__all__ = ["DynamicExecutable", "DynamicLibrary", "ldd"]
+
+
+@dataclass(frozen=True)
+class DynamicLibrary:
+    soname: str
+    path: str | None
+    realpath: str | None
+    needed: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
+class DynamicExecutable:
+    interpreter: str | None
+    path: str
+    realpath: str
+    needed: frozenset[str]
+    rpath: tuple[str, ...]
+    runpath: tuple[str, ...]
+    libraries: dict[str, DynamicLibrary]
 
 
 def normpath(path: str) -> str:
@@ -282,20 +300,20 @@ def find_lib(
             with open(target, "rb") as f:
                 libelf = ELFFile(f)
                 if compatible_elfs(elf, libelf):
-                    return (target, path)
+                    return target, path
 
-    return (None, None)
+    return None, None
 
 
-def lddtree(
+def ldd(
     path: str,
     root: str = "/",
     prefix: str = "",
     ldpaths: dict[str, list[str]] | None = None,
     display: str | None = None,
     exclude: frozenset[str] = frozenset(),
-    _all_libs: dict | None = None,
-) -> dict:
+    _all_libs: dict[str, DynamicLibrary] | None = None,
+) -> DynamicExecutable:
     """Parse the ELF dependency tree of the specified file
 
     Parameters
@@ -343,17 +361,13 @@ def lddtree(
     if _all_libs is None:
         _all_libs = {}
 
-    ret: dict[str, Any] = {
-        "interp": None,
-        "path": path if display is None else display,
-        "realpath": path,
-        "needed": [],
-        "rpath": [],
-        "runpath": [],
-        "libs": _all_libs,
-    }
+    log.debug("ldd(%s)", path)
 
-    log.debug("lddtree(%s)", path)
+    interpreter: str | None = None
+    needed: set[str] = set()
+    rpaths: list[str] = []
+    runpaths: list[str] = []
+    _excluded_libs: set[str] = set()
 
     with open(path, "rb") as f:
         elf = ELFFile(f)
@@ -366,12 +380,7 @@ def lddtree(
 
                 interp = segment.get_interp_name()
                 log.debug("  interp           = %s", interp)
-                ret["interp"] = normpath(root + interp)
-                ret["libs"][os.path.basename(interp)] = {
-                    "path": ret["interp"],
-                    "realpath": readlink(ret["interp"], root, prefixed=True),
-                    "needed": [],
-                }
+                interpreter = normpath(root + interp)
                 # XXX: Should read it and scan for /lib paths.
                 ldpaths["interp"] = [
                     normpath(root + os.path.dirname(interp)),
@@ -383,10 +392,6 @@ def lddtree(
                 break
 
         # Parse the ELF's dynamic tags.
-        libs: list[str] = []
-        rpaths: list[str] = []
-        runpaths: list[str] = []
-        _excluded_libs: set[str] = set()
         for segment in elf.iter_segments():
             if segment.header.p_type != "PT_DYNAMIC":
                 continue
@@ -397,13 +402,7 @@ def lddtree(
                 elif t.entry.d_tag == "DT_RUNPATH":
                     runpaths = parse_ld_paths(t.runpath, path=path, root=root)
                 elif t.entry.d_tag == "DT_NEEDED":
-                    if t.needed in _excluded_libs or any(
-                        fnmatch(t.needed, e) for e in exclude
-                    ):
-                        log.info("Excluding %s", t.needed)
-                        _excluded_libs.add(t.needed)
-                    else:
-                        libs.append(t.needed)
+                    needed.add(t.needed)
             if runpaths:
                 # If both RPATH and RUNPATH are set, only the latter is used.
                 rpaths = []
@@ -411,6 +410,7 @@ def lddtree(
             # XXX: We assume there is only one PT_DYNAMIC.  This is
             # probably fine since the runtime ldso does the same.
             break
+
         if _first:
             # Propagate the rpaths used by the main ELF since those will be
             # used at runtime to locate things.
@@ -418,50 +418,62 @@ def lddtree(
             ldpaths["runpath"] = runpaths
             log.debug("  ldpaths[rpath]   = %s", rpaths)
             log.debug("  ldpaths[runpath] = %s", runpaths)
-        ret["rpath"] = rpaths
-        ret["runpath"] = runpaths
 
         # Search for the libs this ELF uses.
-        all_ldpaths: list[str] | None = None
-        for lib in libs:
-            if lib in _all_libs:
+        all_ldpaths = (
+            ldpaths["rpath"]
+            + rpaths
+            + runpaths
+            + ldpaths["env"]
+            + ldpaths["runpath"]
+            + ldpaths["conf"]
+            + ldpaths["interp"]
+        )
+        for soname in needed:
+            if soname in _all_libs:
                 continue
-            if all_ldpaths is None:
-                all_ldpaths = (
-                    ldpaths["rpath"]
-                    + rpaths
-                    + runpaths
-                    + ldpaths["env"]
-                    + ldpaths["runpath"]
-                    + ldpaths["conf"]
-                    + ldpaths["interp"]
-                )
-            realpath, fullpath = find_lib(elf, lib, all_ldpaths, root)
-            if lib in _excluded_libs or (
-                realpath is not None and any(fnmatch(realpath, e) for e in exclude)
-            ):
+            if soname in _excluded_libs:
+                continue
+            if any(fnmatch(soname, e) for e in exclude):
+                log.info("Excluding %s", soname)
+                _excluded_libs.add(soname)
+                continue
+            # TODO we should avoid keeping elf here, related to compat
+            realpath, fullpath = find_lib(elf, soname, all_ldpaths, root)
+            if realpath is not None and any(fnmatch(realpath, e) for e in exclude):
                 log.info("Excluding %s", realpath)
-                _excluded_libs.add(lib)
+                _excluded_libs.add(soname)
                 continue
-            _all_libs[lib] = {
-                "realpath": realpath,
-                "path": fullpath,
-                "needed": [],
-            }
-            if realpath and fullpath:
-                lret = lddtree(
-                    realpath,
-                    root,
-                    prefix,
-                    ldpaths,
-                    display=fullpath,
-                    exclude=exclude,
-                    _all_libs=_all_libs,
-                )
-                _all_libs[lib]["needed"] = lret["needed"]
+            _all_libs[soname] = DynamicLibrary(soname, fullpath, realpath)
+            if realpath is None or fullpath is None:
+                continue
+            lret = ldd(
+                realpath,
+                root,
+                prefix,
+                ldpaths,
+                display=fullpath,
+                exclude=exclude,
+                _all_libs=_all_libs,
+            )
+            _all_libs[soname] = DynamicLibrary(
+                soname, fullpath, realpath, lret.needed
+            )
 
         del elf
 
-        ret["needed"] = [lib for lib in libs if lib not in _excluded_libs]
+    if interpreter is not None:
+        soname = os.path.basename(interpreter)
+        _all_libs[soname] = DynamicLibrary(
+            soname, interpreter, readlink(interpreter, root, prefixed=True)
+        )
 
-    return ret
+    return DynamicExecutable(
+        interpreter,
+        path if display is None else display,
+        path,
+        frozenset(needed - _excluded_libs),
+        tuple(rpaths),
+        tuple(runpaths),
+        _all_libs,
+    )

@@ -14,6 +14,7 @@ from typing import Any
 
 from auditwheel.elfutils import filter_undefined_symbols, is_subdir
 
+from ..lddtree import DynamicExecutable
 from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
 
@@ -159,10 +160,10 @@ class WheelPolicies:
 
         return max(matching_policies)
 
-    def lddtree_external_references(self, lddtree: dict, wheel_path: str) -> dict:
-        # XXX: Document the lddtree structure, or put it in something
-        # more stable than a big nested dict
-        def filter_libs(libs: set[str], whitelist: set[str]) -> Generator[str]:
+    def lddtree_external_references(
+        self, lddtree: DynamicExecutable, wheel_path: str
+    ) -> dict:
+        def filter_libs(libs: frozenset[str], whitelist: set[str]) -> Generator[str]:
             for lib in libs:
                 if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
                     # always exclude ELF dynamic linker/loader
@@ -185,7 +186,7 @@ class WheelPolicies:
             while libs:
                 lib = libs.pop()
                 reqs.add(lib)
-                for dep in filter_libs(lddtree["libs"][lib]["needed"], whitelist):
+                for dep in filter_libs(lddtree.libraries[lib].needed, whitelist):
                     if dep not in reqs:
                         libs.add(dep)
             return reqs
@@ -201,23 +202,23 @@ class WheelPolicies:
                 # whitelist is the complete set of all libraries. so nothing
                 # is considered "external" that needs to be copied in.
                 whitelist = set(p["lib_whitelist"])
-                blacklist_libs = set(p["blacklist"].keys()) & set(lddtree["needed"])
+                blacklist_libs = set(p["blacklist"].keys()) & lddtree.needed
                 blacklist = {k: p["blacklist"][k] for k in blacklist_libs}
-                blacklist = filter_undefined_symbols(lddtree["realpath"], blacklist)
+                blacklist = filter_undefined_symbols(lddtree.realpath, blacklist)
                 needed_external_libs = get_req_external(
-                    set(filter_libs(lddtree["needed"], whitelist)), whitelist
+                    set(filter_libs(lddtree.needed, whitelist)), whitelist
                 )
 
             pol_ext_deps = {}
             for lib in needed_external_libs:
-                if is_subdir(lddtree["libs"][lib]["realpath"], wheel_path):
+                if is_subdir(lddtree.libraries[lib].realpath, wheel_path):
                     # we didn't filter libs that resolved via RPATH out
                     # earlier because we wanted to make sure to pick up
                     # our elf's indirect dependencies. But now we want to
                     # filter these ones out, since they're not "external".
                     logger.debug("RPATH FTW: %s", lib)
                     continue
-                pol_ext_deps[lib] = lddtree["libs"][lib]["realpath"]
+                pol_ext_deps[lib] = lddtree.libraries[lib].realpath
             ret[p["name"]] = {
                 "libs": pol_ext_deps,
                 "priority": p["priority"],

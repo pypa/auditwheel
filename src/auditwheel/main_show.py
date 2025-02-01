@@ -23,9 +23,9 @@ def printp(text: str) -> None:
 
 
 def execute(args, parser: argparse.ArgumentParser):
-    import json
     from os.path import basename, isfile
 
+    from . import json
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
     wheel_policy = WheelPolicies()
@@ -99,7 +99,7 @@ def execute(args, parser: argparse.ArgumentParser):
         printp("The wheel requires no external shared libraries! :)")
     else:
         printp("The following external shared libraries are required by the wheel:")
-        print(json.dumps(dict(sorted(libs.items())), indent=4))
+        print(json.dumps(dict(sorted(libs.items()))))
 
     for p in sorted(wheel_policy.policies, key=lambda p: p["priority"]):
         if p["priority"] > wheel_policy.get_priority_by_name(winfo.overall_tag):

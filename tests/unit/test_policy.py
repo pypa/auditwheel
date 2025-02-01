@@ -9,6 +9,7 @@ from contextlib import nullcontext as does_not_raise
 import pytest
 
 from auditwheel.error import InvalidLibc
+from auditwheel.lddtree import DynamicExecutable, DynamicLibrary
 from auditwheel.libc import Libc
 from auditwheel.policy import (
     WheelPolicies,
@@ -262,11 +263,18 @@ class TestLddTreeExternalReferences:
         unfiltered_libs = ["libfoo.so.1.0", "libbar.so.999.999.999"]
         libs = filtered_libs + unfiltered_libs
 
-        lddtree = {
-            "realpath": "/path/to/lib",
-            "needed": libs,
-            "libs": {lib: {"needed": [], "realpath": "/path/to/lib"} for lib in libs},
-        }
+        lddtree = DynamicExecutable(
+            interpreter=None,
+            path="/path/to/lib",
+            realpath="/path/to/lib",
+            needed=frozenset(libs),
+            libraries={
+                lib: DynamicLibrary(lib, f"/path/to/{lib}", f"/path/to/{lib}")
+                for lib in libs
+            },
+            rpath=(),
+            runpath=(),
+        )
         wheel_policy = WheelPolicies()
         full_external_refs = wheel_policy.lddtree_external_references(
             lddtree, "/path/to/wheel"
