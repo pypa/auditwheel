@@ -8,17 +8,15 @@ from auditwheel.json import dumps
 
 
 def test_dataclass():
-
     @dataclass(frozen=True)
     class Dummy:
         first: str = "val0"
         second: int = 2
 
-    assert {"first": "val0", "second": 2} == loads(dumps(Dummy()))
+    assert loads(dumps(Dummy())) == {"first": "val0", "second": 2}
 
 
 def test_enum():
-
     class Dummy(Enum):
         value: str
 
@@ -37,8 +35,8 @@ def test_frozenset():
 
 
 def test_invalid_type():
-
     class Dummy:
         pass
+
     with pytest.raises(TypeError):
         dumps(Dummy())
