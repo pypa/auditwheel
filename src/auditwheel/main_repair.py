@@ -133,8 +133,8 @@ def execute(args, parser: argparse.ArgumentParser):
             wheel_abi = analyze_wheel_abi(
                 wheel_policy, wheel_file, exclude, args.DISABLE_ISA_EXT_CHECK
             )
-        except NonPlatformWheel:
-            logger.info(NonPlatformWheel.message)
+        except NonPlatformWheel as e:
+            logger.info(e.message)
             return 1
 
         policy = wheel_policy.get_policy_by_name(args.PLAT)

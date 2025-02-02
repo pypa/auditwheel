@@ -46,8 +46,8 @@ def execute(args, parser: argparse.ArgumentParser):
         winfo = analyze_wheel_abi(
             wheel_policy, args.WHEEL_FILE, frozenset(), args.DISABLE_ISA_EXT_CHECK
         )
-    except NonPlatformWheel:
-        logger.info(NonPlatformWheel.message)
+    except NonPlatformWheel as e:
+        logger.info(e.message)
         return 1
 
     libs_with_versions = [

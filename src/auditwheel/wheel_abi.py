@@ -65,7 +65,7 @@ class NonPlatformWheel(WheelAbiError):
         super().__init__(msg)
 
     @property
-    def message(self):
+    def message(self) -> str:
         return self.args[0]
 
 
