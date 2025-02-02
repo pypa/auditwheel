@@ -8,32 +8,40 @@ from auditwheel.architecture import Architecture
 
 
 @pytest.mark.parametrize(
-    ("reported_arch", "expected_arch"),
+    ("sys_platform", "reported_arch", "expected_arch"),
     [
-        ("armv7l", Architecture.armv7l),
-        ("armv8l", Architecture.armv7l),
-        ("aarch64", Architecture.armv7l),
-        ("i686", Architecture.i686),
-        ("x86_64", Architecture.i686),
+        ("linux", "armv7l", Architecture.armv7l),
+        ("linux", "armv8l", Architecture.armv7l),
+        ("linux", "aarch64", Architecture.armv7l),
+        ("linux", "i686", Architecture.i686),
+        ("linux", "x86_64", Architecture.i686),
+        ("win32", "x86", Architecture.i686),
+        ("win32", "AMD64", Architecture.i686),
     ],
 )
-def test_32bits_arch_name(reported_arch, expected_arch, monkeypatch):
+def test_32bits_arch_name(sys_platform, reported_arch, expected_arch, monkeypatch):
+    monkeypatch.setattr(sys, "platform", sys_platform)
     monkeypatch.setattr(platform, "machine", lambda: reported_arch)
     machine = Architecture.get_native_architecture(bits=32)
     assert machine == expected_arch
 
 
 @pytest.mark.parametrize(
-    ("reported_arch", "expected_arch"),
+    ("sys_platform", "reported_arch", "expected_arch"),
     [
-        ("armv8l", Architecture.aarch64),
-        ("aarch64", Architecture.aarch64),
-        ("ppc64le", Architecture.ppc64le),
-        ("i686", Architecture.x86_64),
-        ("x86_64", Architecture.x86_64),
+        ("linux", "armv8l", Architecture.aarch64),
+        ("linux", "aarch64", Architecture.aarch64),
+        ("linux", "ppc64le", Architecture.ppc64le),
+        ("linux", "i686", Architecture.x86_64),
+        ("linux", "x86_64", Architecture.x86_64),
+        ("darwin", "arm64", Architecture.aarch64),
+        ("darwin", "x86_64", Architecture.x86_64),
+        ("win32", "ARM64", Architecture.aarch64),
+        ("win32", "AMD64", Architecture.x86_64),
     ],
 )
-def test_64bits_arch_name(reported_arch, expected_arch, monkeypatch):
+def test_64bits_arch_name(sys_platform, reported_arch, expected_arch, monkeypatch):
+    monkeypatch.setattr(sys, "platform", sys_platform)
     monkeypatch.setattr(platform, "machine", lambda: reported_arch)
     machine = Architecture.get_native_architecture(bits=64)
     assert machine == expected_arch
