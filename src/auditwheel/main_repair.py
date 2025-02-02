@@ -101,6 +101,13 @@ wheel will abort processing of subsequent wheels.
         help="Do not check for higher policy compatibility",
         default=False,
     )
+    p.add_argument(
+        "--disable-isa-ext-check",
+        dest="DISABLE_ISA_EXT_CHECK",
+        action="store_true",
+        help="Do not check for extended ISA compatibility (e.g. x86_64_v2)",
+        default=False,
+    )
     p.set_defaults(func=execute)
 
 
@@ -123,7 +130,9 @@ def execute(args, parser: argparse.ArgumentParser):
             os.makedirs(args.WHEEL_DIR)
 
         try:
-            wheel_abi = analyze_wheel_abi(wheel_policy, wheel_file, exclude)
+            wheel_abi = analyze_wheel_abi(
+                wheel_policy, wheel_file, exclude, args.DISABLE_ISA_EXT_CHECK
+            )
         except NonPlatformWheel:
             logger.info(NonPlatformWheel.LOG_MESSAGE)
             return 1
@@ -152,6 +161,13 @@ def execute(args, parser: argparse.ArgumentParser):
             msg = (
                 f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because it '
                 "depends on black-listed symbols."
+            )
+            parser.error(msg)
+
+        if reqd_tag > wheel_policy.get_priority_by_name(wheel_abi.machine_tag):
+            msg = (
+                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because it '
+                "depends on unsupported ISA extensions."
             )
             parser.error(msg)
 

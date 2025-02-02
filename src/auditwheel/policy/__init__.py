@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-import platform as _platform_module
 import re
-import struct
-import sys
 from collections import defaultdict
 from collections.abc import Generator
 from os.path import abspath, dirname, join
@@ -14,6 +11,7 @@ from typing import Any
 
 from auditwheel.elfutils import filter_undefined_symbols, is_subdir
 
+from ..architecture import Architecture
 from ..lddtree import DynamicExecutable
 from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
@@ -36,7 +34,7 @@ class WheelPolicies:
         *,
         libc: Libc | None = None,
         musl_policy: str | None = None,
-        arch: str | None = None,
+        arch: Architecture | None = None,
     ) -> None:
         if libc is None:
             libc = get_libc() if musl_policy is None else Libc.MUSL
@@ -51,13 +49,14 @@ class WheelPolicies:
                 msg = f"Invalid 'musl_policy': '{musl_policy}'"
                 raise ValueError(msg)
         if arch is None:
-            arch = get_arch_name()
+            arch = Architecture.get_native_architecture()
         policies = json.loads(_POLICY_JSON_MAP[libc].read_text())
         self._policies = []
-        self._arch_name = arch
+        self._architecture = arch
         self._libc_variant = libc
         self._musl_policy = musl_policy
 
+        base_arch = arch.baseline.value
         _validate_pep600_compliance(policies)
         for policy in policies:
             if self._musl_policy is not None and policy["name"] not in {
@@ -65,17 +64,12 @@ class WheelPolicies:
                 self._musl_policy,
             }:
                 continue
-            if (
-                self._arch_name in policy["symbol_versions"]
-                or policy["name"] == "linux"
-            ):
+            if arch.value in policy["symbol_versions"] or policy["name"] == "linux":
                 if policy["name"] != "linux":
-                    policy["symbol_versions"] = policy["symbol_versions"][
-                        self._arch_name
-                    ]
-                policy["name"] = policy["name"] + "_" + self._arch_name
+                    policy["symbol_versions"] = policy["symbol_versions"][base_arch]
+                policy["name"] = policy["name"] + "_" + base_arch
                 policy["aliases"] = [
-                    alias + "_" + self._arch_name for alias in policy["aliases"]
+                    alias + "_" + base_arch for alias in policy["aliases"]
                 ]
                 policy["lib_whitelist"] = _fixup_musl_libc_soname(
                     libc, arch, policy["lib_whitelist"]
@@ -84,6 +78,10 @@ class WheelPolicies:
 
         if self._libc_variant == Libc.MUSL:
             assert len(self._policies) == 2, self._policies
+
+    @property
+    def architecture(self) -> Architecture:
+        return self._architecture
 
     @property
     def policies(self):
@@ -97,29 +95,30 @@ class WheelPolicies:
     def priority_lowest(self):
         return min(p["priority"] for p in self._policies)
 
-    def get_policy_by_name(self, name: str) -> dict | None:
+    def get_policy_by_name(self, name: str) -> dict:
         matches = [
             p for p in self._policies if p["name"] == name or name in p["aliases"]
         ]
         if len(matches) == 0:
-            return None
+            msg = f"no policy named {name!r} found"
+            raise LookupError(msg)
         if len(matches) > 1:
             msg = "Internal error. Policies should be unique"
             raise RuntimeError(msg)
         return matches[0]
 
-    def get_policy_name(self, priority: int) -> str | None:
+    def get_policy_name(self, priority: int) -> str:
         matches = [p["name"] for p in self._policies if p["priority"] == priority]
         if len(matches) == 0:
-            return None
+            msg = f"no policy with priority {priority} found"
+            raise LookupError(msg)
         if len(matches) > 1:
             msg = "Internal error. priorities should be unique"
             raise RuntimeError(msg)
         return matches[0]
 
-    def get_priority_by_name(self, name: str) -> int | None:
-        policy = self.get_policy_by_name(name)
-        return None if policy is None else policy["priority"]
+    def get_priority_by_name(self, name: str) -> int:
+        return self.get_policy_by_name(name)["priority"]
 
     def versioned_symbols_policy(self, versioned_symbols: dict[str, set[str]]) -> int:
         def policy_is_satisfied(
@@ -227,23 +226,6 @@ class WheelPolicies:
         return ret
 
 
-def get_arch_name(*, bits: int | None = None) -> str:
-    machine = _platform_module.machine()
-    if sys.platform == "darwin" and machine == "arm64":
-        return "aarch64"
-
-    if bits is None:
-        # c.f. https://github.com/pypa/packaging/pull/711
-        bits = 8 * struct.calcsize("P")
-
-    if machine in {"x86_64", "i686"}:
-        return {64: "x86_64", 32: "i686"}[bits]
-    if machine in {"aarch64", "armv8l"}:
-        # use armv7l policy for 64-bit arm kernel in 32-bit mode (armv8l)
-        return {64: "aarch64", 32: "armv7l"}[bits]
-    return machine
-
-
 def _validate_pep600_compliance(policies) -> None:
     symbol_versions: dict[str, dict[str, set[str]]] = {}
     lib_whitelist: set[str] = set()
@@ -276,25 +258,25 @@ def _validate_pep600_compliance(policies) -> None:
             symbol_versions[arch] = symbol_versions_arch
 
 
-def _fixup_musl_libc_soname(libc: Libc, arch: str, whitelist):
+def _fixup_musl_libc_soname(libc: Libc, arch: Architecture, whitelist):
     if libc != Libc.MUSL:
         return whitelist
     soname_map = {
         "libc.so": {
-            "x86_64": "libc.musl-x86_64.so.1",
-            "i686": "libc.musl-x86.so.1",
-            "aarch64": "libc.musl-aarch64.so.1",
-            "s390x": "libc.musl-s390x.so.1",
-            "ppc64le": "libc.musl-ppc64le.so.1",
-            "armv7l": "libc.musl-armv7.so.1",
-            "riscv64": "libc.musl-riscv64.so.1",
-            "loongarch64": "libc.musl-loongarch64.so.1",
+            Architecture.x86_64: "libc.musl-x86_64.so.1",
+            Architecture.i686: "libc.musl-x86.so.1",
+            Architecture.aarch64: "libc.musl-aarch64.so.1",
+            Architecture.s390x: "libc.musl-s390x.so.1",
+            Architecture.ppc64le: "libc.musl-ppc64le.so.1",
+            Architecture.armv7l: "libc.musl-armv7.so.1",
+            Architecture.riscv64: "libc.musl-riscv64.so.1",
+            Architecture.loongarch64: "libc.musl-loongarch64.so.1",
         }
     }
     new_whitelist = []
     for soname in whitelist:
         if soname in soname_map:
-            new_soname = soname_map[soname][arch]
+            new_soname = soname_map[soname][arch.baseline]
             logger.debug("Replacing whitelisted '%s' by '%s'", soname, new_soname)
             new_whitelist.append(new_soname)
         else:

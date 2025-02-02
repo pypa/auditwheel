@@ -4,10 +4,12 @@ import functools
 import itertools
 import logging
 import os
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from os.path import basename
+from typing import Any
 
 from . import json
 from .elfutils import (
@@ -18,23 +20,23 @@ from .elfutils import (
     elf_references_PyFPE_jbuf,
 )
 from .genericpkgctx import InGenericPkgCtx
-from .lddtree import ldd
+from .lddtree import DynamicExecutable, ldd
 from .policy import WheelPolicies
 
 log = logging.getLogger(__name__)
-WheelAbIInfo = namedtuple(  # noqa: PYI024
-    "WheelAbIInfo",
-    [
-        "overall_tag",
-        "external_refs",
-        "ref_tag",
-        "versioned_symbols",
-        "sym_tag",
-        "ucs_tag",
-        "pyfpe_tag",
-        "blacklist_tag",
-    ],
-)
+
+
+@dataclass(frozen=True)
+class WheelAbIInfo:
+    overall_tag: str
+    external_refs: dict[str, Any]
+    ref_tag: str
+    versioned_symbols: dict[str, set[str]]
+    sym_tag: str
+    ucs_tag: str
+    pyfpe_tag: str
+    blacklist_tag: str
+    machine_tag: str
 
 
 class WheelAbiError(Exception):
@@ -64,25 +66,38 @@ def get_wheel_elfdata(
 
     with InGenericPkgCtx(wheel_fn) as ctx:
         shared_libraries_in_purelib = []
+        shared_libraries_with_invalid_machine = []
 
         platform_wheel = False
         for fn, elf in elf_file_filter(ctx.iter_files()):
-            platform_wheel = True
-
             # Check for invalid binary wheel format: no shared library should
             # be found in purelib
             so_path_split = fn.split(os.sep)
+            so_name = so_path_split[-1]
 
             # If this is in purelib, add it to the list of shared libraries in
             # purelib
             if "purelib" in so_path_split:
-                shared_libraries_in_purelib.append(so_path_split[-1])
+                shared_libraries_in_purelib.append(so_name)
 
             # If at least one shared library exists in purelib, this is going
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
                 elftree = ldd(fn, exclude=exclude)
+
+                try:
+                    arch = elftree.platform.baseline_architecture
+                    if arch != wheel_policy.architecture.baseline:
+                        shared_libraries_with_invalid_machine.append(so_name)
+                        log.warning("ignoring: %s with %s architecture", so_name, arch)
+                        continue
+                except ValueError:
+                    shared_libraries_with_invalid_machine.append(so_name)
+                    log.warning("ignoring: %s with unknown architecture", so_name)
+                    continue
+
+                platform_wheel = True
 
                 for key, value in elf_find_versioned_symbols(elf):
                     log.debug("key %s, value %s", key, value)
@@ -109,9 +124,6 @@ def get_wheel_elfdata(
                     # its internal references later.
                     nonpy_elftree[fn] = elftree
 
-        if not platform_wheel:
-            raise NonPlatformWheel
-
         # If at least one shared library exists in purelib, raise an error
         if shared_libraries_in_purelib:
             libraries = "\n\t".join(shared_libraries_in_purelib)
@@ -122,6 +134,16 @@ def get_wheel_elfdata(
                 "auditwheel."
             )
             raise RuntimeError(msg)
+
+        if not platform_wheel:
+            if not shared_libraries_with_invalid_machine:
+                raise NonPlatformWheel
+            libraries = "\n\t".join(shared_libraries_with_invalid_machine)
+            msg = (
+                "Invalid binary wheel, found the following shared library/libraries "
+                f"with a different target architecture:\n\t{libraries}\n"
+            )
+            raise NonPlatformWheel(msg)
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
@@ -226,8 +248,50 @@ def get_symbol_policies(
     return result
 
 
+def _get_machine_policy(
+    wheel_policy: WheelPolicies,
+    elftree_by_fn: dict[str, DynamicExecutable],
+    external_so_names: frozenset[str],
+) -> int:
+    result = wheel_policy.priority_highest
+    machine_to_check = {}
+    for fn, dynamic_executable in elftree_by_fn.items():
+        if fn in machine_to_check:
+            continue
+        machine_to_check[fn] = dynamic_executable.platform.extended_architecture
+        for dependency in dynamic_executable.libraries.values():
+            if dependency.soname not in external_so_names:
+                continue
+            if dependency.realpath is None:
+                continue
+            assert dependency.platform is not None
+            if dependency.realpath in machine_to_check:
+                continue
+            machine_to_check[dependency.realpath] = (
+                dependency.platform.extended_architecture
+            )
+
+    for fn, extended_architecture in machine_to_check.items():
+        if extended_architecture is None:
+            continue
+        if wheel_policy.architecture.is_superset(extended_architecture):
+            continue
+        log.warning(
+            "ELF file %r requires %r instruction set, not in %r",
+            fn,
+            extended_architecture.value,
+            wheel_policy.architecture.value,
+        )
+        result = wheel_policy.priority_lowest
+
+    return result
+
+
 def analyze_wheel_abi(
-    wheel_policy: WheelPolicies, wheel_fn: str, exclude: frozenset[str]
+    wheel_policy: WheelPolicies,
+    wheel_fn: str,
+    exclude: frozenset[str],
+    disable_isa_ext_check: bool,
 ) -> WheelAbIInfo:
     external_refs = {
         p["name"]: {"libs": {}, "blacklist": {}, "priority": p["priority"]}
@@ -271,6 +335,13 @@ def analyze_wheel_abi(
         default=wheel_policy.priority_lowest,
     )
 
+    if disable_isa_ext_check:
+        machine_policy = wheel_policy.priority_highest
+    else:
+        machine_policy = _get_machine_policy(
+            wheel_policy, elftree_by_fn, frozenset(external_libs.values())
+        )
+
     if has_ucs2:
         ucs_policy = wheel_policy.priority_lowest
     else:
@@ -286,8 +357,16 @@ def analyze_wheel_abi(
     ucs_tag = wheel_policy.get_policy_name(ucs_policy)
     pyfpe_tag = wheel_policy.get_policy_name(pyfpe_policy)
     blacklist_tag = wheel_policy.get_policy_name(blacklist_policy)
+    machine_tag = wheel_policy.get_policy_name(machine_policy)
     overall_tag = wheel_policy.get_policy_name(
-        min(symbol_policy, ref_policy, ucs_policy, pyfpe_policy, blacklist_policy)
+        min(
+            symbol_policy,
+            ref_policy,
+            ucs_policy,
+            pyfpe_policy,
+            blacklist_policy,
+            machine_policy,
+        )
     )
 
     return WheelAbIInfo(
@@ -299,6 +378,7 @@ def analyze_wheel_abi(
         ucs_tag,
         pyfpe_tag,
         blacklist_tag,
+        machine_tag,
     )
 
 

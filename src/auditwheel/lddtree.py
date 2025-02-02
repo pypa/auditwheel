@@ -22,8 +22,11 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 
+from elftools.elf.constants import E_FLAGS
 from elftools.elf.elffile import ELFFile
+from elftools.elf.sections import NoteSection
 
+from .architecture import Architecture
 from .libc import Libc, get_libc
 
 log = logging.getLogger(__name__)
@@ -31,10 +34,46 @@ __all__ = ["DynamicExecutable", "DynamicLibrary", "ldd"]
 
 
 @dataclass(frozen=True)
+class Platform:
+    _elf_osabi: str
+    _elf_class: int
+    _elf_little_endian: bool
+    _elf_machine: str
+    _base_arch: Architecture | None
+    _ext_arch: Architecture | None
+    _error_msg: str | None
+
+    def is_compatible(self, other: Platform) -> bool:
+        os_abis = frozenset((self._elf_osabi, other._elf_osabi))
+        compat_sets = (
+            frozenset(f"ELFOSABI_{x}" for x in ("NONE", "SYSV", "GNU", "LINUX")),
+        )
+        return (
+            (len(os_abis) == 1 or any(os_abis.issubset(x) for x in compat_sets))
+            and self._elf_class == other._elf_class
+            and self._elf_little_endian == other._elf_little_endian
+            and self._elf_machine == other._elf_machine
+        )
+
+    @property
+    def baseline_architecture(self) -> Architecture:
+        if self._base_arch is not None:
+            return self._base_arch
+        raise ValueError(self._error_msg)
+
+    @property
+    def extended_architecture(self) -> Architecture | None:
+        if self._error_msg is not None:
+            raise ValueError(self._error_msg)
+        return self._ext_arch
+
+
+@dataclass(frozen=True)
 class DynamicLibrary:
     soname: str
     path: str | None
     realpath: str | None
+    platform: Platform | None = None
     needed: frozenset[str] = frozenset()
 
 
@@ -43,10 +82,78 @@ class DynamicExecutable:
     interpreter: str | None
     path: str
     realpath: str
+    platform: Platform
     needed: frozenset[str]
     rpath: tuple[str, ...]
     runpath: tuple[str, ...]
     libraries: dict[str, DynamicLibrary]
+
+
+def _get_platform(elf: ELFFile) -> Platform:
+    elf_osabi = elf.header["e_ident"]["EI_OSABI"]
+    elf_class = elf.elfclass
+    elf_little_endian = elf.little_endian
+    elf_machine = elf["e_machine"]
+    base_arch = {
+        ("EM_386", 32, True): Architecture.i686,
+        ("EM_X86_64", 64, True): Architecture.x86_64,
+        ("EM_PPC64", 64, True): Architecture.ppc64le,
+        ("EM_PPC64", 64, False): Architecture.ppc64,
+        ("EM_RISCV", 64, True): Architecture.riscv64,
+        ("EM_AARCH64", 64, True): Architecture.aarch64,
+        ("EM_S390", 64, False): Architecture.s390x,
+        ("EM_ARM", 32, True): Architecture.armv7l,
+        ("EM_LOONGARCH", 64, True): Architecture.loongarch64,
+    }.get((elf_machine, elf_class, elf_little_endian), None)
+    ext_arch: Architecture | None = None
+    error_msg: str | None = None
+    flags = elf["e_flags"]
+    assert base_arch is None or base_arch.baseline == base_arch
+    if base_arch is None:
+        error_msg = "Unknown architecture"
+    elif base_arch == Architecture.x86_64:
+        for section in elf.iter_sections():
+            if not isinstance(section, NoteSection):
+                continue
+            for note in section.iter_notes():
+                if note["n_type"] != "NT_GNU_PROPERTY_TYPE_0":
+                    continue
+                if note["n_name"] != "GNU":
+                    continue
+                for prop in note["n_desc"]:
+                    if prop.pr_type != "GNU_PROPERTY_X86_ISA_1_NEEDED":
+                        continue
+                    if prop.pr_datasz != 4:
+                        continue
+                    data = prop.pr_data
+                    data -= data & 1  # clear baseline
+                    if data & 8 == 8:
+                        ext_arch = Architecture.x86_64_v4
+                        break
+                    if data & 4 == 4:
+                        ext_arch = Architecture.x86_64_v3
+                        break
+                    if data & 2 == 2:
+                        ext_arch = Architecture.x86_64_v2
+                        break
+                    if data != 0:
+                        error_msg = "unknown x86_64 ISA"
+                break
+    elif base_arch == Architecture.armv7l:
+        if (flags & E_FLAGS.EF_ARM_EABIMASK) != E_FLAGS.EF_ARM_EABI_VER5:
+            error_msg = "Invalid ARM EABI version for armv7l"
+        elif (flags & E_FLAGS.EF_ARM_ABI_FLOAT_HARD) != E_FLAGS.EF_ARM_ABI_FLOAT_HARD:
+            error_msg = "armv7l shall use hard-float"
+
+    return Platform(
+        elf_osabi,
+        elf_class,
+        elf_little_endian,
+        elf_machine,
+        base_arch,
+        ext_arch,
+        error_msg,
+    )
 
 
 def normpath(path: str) -> str:
@@ -243,43 +350,16 @@ def load_ld_paths(root: str = "/", prefix: str = "") -> dict[str, list[str]]:
     return ldpaths
 
 
-def compatible_elfs(elf1: ELFFile, elf2: ELFFile) -> bool:
-    """See if two ELFs are compatible
-
-    This compares the aspects of the ELF to see if they're compatible:
-    bit size, endianness, machine type, and operating system.
-
-    Parameters
-    ----------
-    elf1 : ELFFile
-    elf2 : ELFFile
-
-    Returns
-    -------
-    True if compatible, False otherwise
-    """
-    osabis = frozenset(e.header["e_ident"]["EI_OSABI"] for e in (elf1, elf2))
-    compat_sets = (
-        frozenset(f"ELFOSABI_{x}" for x in ("NONE", "SYSV", "GNU", "LINUX")),
-    )
-    return (
-        (len(osabis) == 1 or any(osabis.issubset(x) for x in compat_sets))
-        and elf1.elfclass == elf2.elfclass
-        and elf1.little_endian == elf2.little_endian
-        and elf1.header["e_machine"] == elf2.header["e_machine"]
-    )
-
-
 def find_lib(
-    elf: ELFFile, lib: str, ldpaths: list[str], root: str = "/"
+    platform: Platform, lib: str, ldpaths: list[str], root: str = "/"
 ) -> tuple[str | None, str | None]:
     """Try to locate a ``lib`` that is compatible to ``elf`` in the given
     ``ldpaths``
 
     Parameters
     ----------
-    elf : ELFFile
-        The elf which the library should be compatible with (ELF wise)
+    platform : Platform
+        The platform which the library should be compatible with (ELF wise)
     lib : str
         The library (basename) to search for
     ldpaths : list[str]
@@ -299,7 +379,7 @@ def find_lib(
         if os.path.exists(target):
             with open(target, "rb") as f:
                 libelf = ELFFile(f)
-                if compatible_elfs(elf, libelf):
+                if platform.is_compatible(_get_platform(libelf)):
                     return target, path
 
     return None, None
@@ -371,7 +451,6 @@ def ldd(
 
     with open(path, "rb") as f:
         elf = ELFFile(f)
-
         # If this is the first ELF, extract the interpreter.
         if _first:
             for segment in elf.iter_segments():
@@ -390,6 +469,9 @@ def ldd(
                 ]
                 log.debug("  ldpaths[interp]  = %s", ldpaths["interp"])
                 break
+
+        # get the platform
+        platform = _get_platform(elf)
 
         # Parse the ELF's dynamic tags.
         for segment in elf.iter_segments():
@@ -411,67 +493,63 @@ def ldd(
             # probably fine since the runtime ldso does the same.
             break
 
-        if _first:
-            # Propagate the rpaths used by the main ELF since those will be
-            # used at runtime to locate things.
-            ldpaths["rpath"] = rpaths
-            ldpaths["runpath"] = runpaths
-            log.debug("  ldpaths[rpath]   = %s", rpaths)
-            log.debug("  ldpaths[runpath] = %s", runpaths)
-
-        # Search for the libs this ELF uses.
-        all_ldpaths = (
-            ldpaths["rpath"]
-            + rpaths
-            + runpaths
-            + ldpaths["env"]
-            + ldpaths["runpath"]
-            + ldpaths["conf"]
-            + ldpaths["interp"]
-        )
-        for soname in needed:
-            if soname in _all_libs:
-                continue
-            if soname in _excluded_libs:
-                continue
-            if any(fnmatch(soname, e) for e in exclude):
-                log.info("Excluding %s", soname)
-                _excluded_libs.add(soname)
-                continue
-            # TODO we should avoid keeping elf here, related to compat
-            realpath, fullpath = find_lib(elf, soname, all_ldpaths, root)
-            if realpath is not None and any(fnmatch(realpath, e) for e in exclude):
-                log.info("Excluding %s", realpath)
-                _excluded_libs.add(soname)
-                continue
-            _all_libs[soname] = DynamicLibrary(soname, fullpath, realpath)
-            if realpath is None or fullpath is None:
-                continue
-            lret = ldd(
-                realpath,
-                root,
-                prefix,
-                ldpaths,
-                display=fullpath,
-                exclude=exclude,
-                _all_libs=_all_libs,
-            )
-            _all_libs[soname] = DynamicLibrary(
-                soname, fullpath, realpath, lret.needed
-            )
-
         del elf
+
+    if _first:
+        # Propagate the rpaths used by the main ELF since those will be
+        # used at runtime to locate things.
+        ldpaths["rpath"] = rpaths
+        ldpaths["runpath"] = runpaths
+        log.debug("  ldpaths[rpath]   = %s", rpaths)
+        log.debug("  ldpaths[runpath] = %s", runpaths)
+
+    # Search for the libs this ELF uses.
+    all_ldpaths = (
+        ldpaths["rpath"]
+        + rpaths
+        + runpaths
+        + ldpaths["env"]
+        + ldpaths["runpath"]
+        + ldpaths["conf"]
+        + ldpaths["interp"]
+    )
+    for soname in needed:
+        if soname in _all_libs:
+            continue
+        if soname in _excluded_libs:
+            continue
+        if any(fnmatch(soname, e) for e in exclude):
+            log.info("Excluding %s", soname)
+            _excluded_libs.add(soname)
+            continue
+        realpath, fullpath = find_lib(platform, soname, all_ldpaths, root)
+        if realpath is not None and any(fnmatch(realpath, e) for e in exclude):
+            log.info("Excluding %s", realpath)
+            _excluded_libs.add(soname)
+            continue
+        _all_libs[soname] = DynamicLibrary(soname, fullpath, realpath)
+        if realpath is None or fullpath is None:
+            continue
+        dependency = ldd(realpath, root, prefix, ldpaths, fullpath, exclude, _all_libs)
+        _all_libs[soname] = DynamicLibrary(
+            soname,
+            fullpath,
+            realpath,
+            dependency.platform,
+            dependency.needed,
+        )
 
     if interpreter is not None:
         soname = os.path.basename(interpreter)
         _all_libs[soname] = DynamicLibrary(
-            soname, interpreter, readlink(interpreter, root, prefixed=True)
+            soname, interpreter, readlink(interpreter, root, prefixed=True), platform
         )
 
     return DynamicExecutable(
         interpreter,
         path if display is None else display,
         path,
+        platform,
         frozenset(needed - _excluded_libs),
         tuple(rpaths),
         tuple(runpaths),
