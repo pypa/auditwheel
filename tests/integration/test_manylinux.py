@@ -90,7 +90,7 @@ NUMPY_VERSION_MAP = {
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
 SHOW_RE = re.compile(
-    r'[\s](?P<wheel>\S+) is consistent with the following platform tag: "(?P<tag>\S+)"',
+    r'.*[\s](?P<wheel>\S+) is consistent with the following platform tag: "(?P<tag>\S+)".*',
     flags=re.DOTALL,
 )
 TAG_RE = re.compile(r"^manylinux_(?P<major>[0-9]+)_(?P<minor>[0-9]+)_(?P<arch>\S+)$")
@@ -817,6 +817,57 @@ class Anylinux:
                 "from testentropy import run; exit(run())",
             ],
         )
+
+    @pytest.mark.skipif(
+        PLATFORM != "x86_64", reason="ISA extension only implemented on x86_64"
+    )
+    @pytest.mark.parametrize("isa_ext", ["x86-64-v2", "x86-64-v3", "x86-64-v4"])
+    def test_isa_variants(self, any_manylinux_container, io_folder, isa_ext):
+        policy, tag, manylinux_ctr = any_manylinux_container
+        if policy.startswith(("manylinux_2_5_", "manylinux_2_12_", "manylinux_2_17_")):
+            pytest.skip("skip old gcc")
+        build_command = (
+            "cd /auditwheel_src/tests/integration/testdependencies && "
+            "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+            f"WITH_DEPENDENCY=1 WITH_ARCH={isa_ext} python -m pip wheel --no-deps -w /io ."
+        )
+        docker_exec(
+            manylinux_ctr,
+            [
+                "bash",
+                "-c",
+                build_command,
+            ],
+        )
+
+        filenames = os.listdir(io_folder)
+        orig_wheel = filenames[0]
+        assert "manylinux" not in orig_wheel
+
+        # repair failure with ISA check
+        repair_command = (
+            "LD_LIBRARY_PATH="
+            "/auditwheel_src/tests/integration/testdependencies:$LD_LIBRARY_PATH "
+            f"auditwheel repair --plat {policy} -w /io /io/{orig_wheel}"
+        )
+        with pytest.raises(CalledProcessError):
+            docker_exec(manylinux_ctr, ["bash", "-c", repair_command])
+
+        repair_command = (
+            "LD_LIBRARY_PATH="
+            "/auditwheel_src/tests/integration/testdependencies:$LD_LIBRARY_PATH "
+            f"auditwheel repair --disable-isa-ext-check --plat {policy} -w /io /io/{orig_wheel}"
+        )
+        docker_exec(manylinux_ctr, ["bash", "-c", repair_command])
+
+        filenames = os.listdir(io_folder)
+        assert len(filenames) == 2
+        repaired_wheel = f"testdependencies-0.0.1-{PYTHON_ABI}-{policy}.whl"
+        assert repaired_wheel in filenames
+        assert_show_output(manylinux_ctr, repaired_wheel, policy, True, False)
+
+        # with ISA check, we shall not report a manylinux/musllinux policy
+        assert_show_output(manylinux_ctr, repaired_wheel, f"linux_{PLATFORM}", True)
 
 
 class TestManylinux(Anylinux):
