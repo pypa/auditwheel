@@ -12,6 +12,7 @@ from os.path import basename
 from typing import Any
 
 from . import json
+from .architecture import Architecture
 from .elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
@@ -46,11 +47,26 @@ class WheelAbiError(Exception):
 class NonPlatformWheel(WheelAbiError):
     """No ELF binaries in the wheel"""
 
-    LOG_MESSAGE = (
-        "This does not look like a platform wheel, no ELF executable "
-        "or shared library file (including compiled Python C extension) "
-        "found in the wheel archive"
-    )
+    def __init__(self, architecture: Architecture, libraries: list[str]) -> None:
+        if not libraries:
+            msg = (
+                "This does not look like a platform wheel, no ELF executable "
+                "or shared library file (including compiled Python C extension) "
+                "found in the wheel archive"
+            )
+        else:
+            libraries_str = "\n\t".join(libraries)
+            msg = (
+                "Invalid binary wheel: no ELF executable or shared library file "
+                "(including compiled Python C extension) with a "
+                f"{architecture.value!r} architecure found. The following "
+                f"ELF files were found:\n\t{libraries_str}\n"
+            )
+        super().__init__(msg)
+
+    @property
+    def message(self):
+        return self.args[0]
 
 
 @functools.lru_cache
@@ -136,14 +152,9 @@ def get_wheel_elfdata(
             raise RuntimeError(msg)
 
         if not platform_wheel:
-            if not shared_libraries_with_invalid_machine:
-                raise NonPlatformWheel
-            libraries = "\n\t".join(shared_libraries_with_invalid_machine)
-            msg = (
-                "Invalid binary wheel, found the following shared library/libraries "
-                f"with a different target architecture:\n\t{libraries}\n"
+            raise NonPlatformWheel(
+                wheel_policy.architecture, shared_libraries_with_invalid_machine
             )
-            raise NonPlatformWheel(msg)
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {

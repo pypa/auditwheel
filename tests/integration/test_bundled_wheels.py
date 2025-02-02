@@ -19,7 +19,7 @@ from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
 from auditwheel.policy import WheelPolicies
-from auditwheel.wheel_abi import analyze_wheel_abi
+from auditwheel.wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
 
@@ -92,6 +92,17 @@ def test_analyze_wheel_abi_pyfpe():
     assert (
         winfo.pyfpe_tag == "linux_x86_64"
     )  # but for having the pyfpe reference, it gets just linux
+
+
+def test_analyze_wheel_abi_bad_architecture():
+    wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.aarch64)
+    with pytest.raises(NonPlatformWheel):
+        analyze_wheel_abi(
+            wheel_policies,
+            str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl"),
+            frozenset(),
+            False,
+        )
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="only checked on x86_64")

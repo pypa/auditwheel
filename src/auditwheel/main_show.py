@@ -47,7 +47,7 @@ def execute(args, parser: argparse.ArgumentParser):
             wheel_policy, args.WHEEL_FILE, frozenset(), args.DISABLE_ISA_EXT_CHECK
         )
     except NonPlatformWheel:
-        logger.info(NonPlatformWheel.LOG_MESSAGE)
+        logger.info(NonPlatformWheel.message)
         return 1
 
     libs_with_versions = [
