@@ -12,6 +12,13 @@ def configure_parser(sub_parsers):
     help = "Audit a wheel for external shared library dependencies."
     p = sub_parsers.add_parser("show", help=help, description=help)
     p.add_argument("WHEEL_FILE", help="Path to wheel file.")
+    p.add_argument(
+        "--disable-isa-ext-check",
+        dest="DISABLE_ISA_EXT_CHECK",
+        action="store_true",
+        help="Do not check for extended ISA compatibility (e.g. x86_64_v2)",
+        default=False,
+    )
     p.set_defaults(func=execute)
 
 
@@ -23,9 +30,9 @@ def printp(text: str) -> None:
 
 
 def execute(args, parser: argparse.ArgumentParser):
-    import json
     from os.path import basename, isfile
 
+    from . import json
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
     wheel_policy = WheelPolicies()
@@ -36,9 +43,11 @@ def execute(args, parser: argparse.ArgumentParser):
         parser.error(f"cannot access {args.WHEEL_FILE}. No such file")
 
     try:
-        winfo = analyze_wheel_abi(wheel_policy, args.WHEEL_FILE, frozenset())
-    except NonPlatformWheel:
-        logger.info(NonPlatformWheel.LOG_MESSAGE)
+        winfo = analyze_wheel_abi(
+            wheel_policy, args.WHEEL_FILE, frozenset(), args.DISABLE_ISA_EXT_CHECK
+        )
+    except NonPlatformWheel as e:
+        logger.info(e.message)
         return 1
 
     libs_with_versions = [
@@ -67,6 +76,14 @@ def execute(args, parser: argparse.ArgumentParser):
             "version of Python, which is not compatible with the "
             "manylinux1 tag."
         )
+        if args.verbose < 1:
+            return None
+
+    if (
+        wheel_policy.get_priority_by_name(winfo.machine_tag)
+        < wheel_policy.priority_highest
+    ):
+        printp("This wheel depends on unsupported ISA extensions.")
         if args.verbose < 1:
             return None
 
@@ -99,7 +116,7 @@ def execute(args, parser: argparse.ArgumentParser):
         printp("The wheel requires no external shared libraries! :)")
     else:
         printp("The following external shared libraries are required by the wheel:")
-        print(json.dumps(dict(sorted(libs.items())), indent=4))
+        print(json.dumps(dict(sorted(libs.items()))))
 
     for p in sorted(wheel_policy.policies, key=lambda p: p["priority"]):
         if p["priority"] > wheel_policy.get_priority_by_name(winfo.overall_tag):
