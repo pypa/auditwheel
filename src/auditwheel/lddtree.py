@@ -144,6 +144,8 @@ def _get_platform(elf: ELFFile) -> Platform:
             error_msg = "Invalid ARM EABI version for armv7l"
         elif (flags & E_FLAGS.EF_ARM_ABI_FLOAT_HARD) != E_FLAGS.EF_ARM_ABI_FLOAT_HARD:
             error_msg = "armv7l shall use hard-float"
+        if error_msg is not None:
+            base_arch = None
 
     return Platform(
         elf_osabi,
