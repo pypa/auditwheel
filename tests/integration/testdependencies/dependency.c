@@ -4,13 +4,17 @@
 #include <stdint.h>
 #include <math.h>
 #include <pthread.h>
-#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 28)
+#if defined(__GLIBC_PREREQ)
+#if __GLIBC_PREREQ(2, 28)
 #include <threads.h>
+#endif
 #endif
 
 int dep_run()
 {
-#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 34)
+#if defined(__GLIBC_PREREQ)
+
+#if __GLIBC_PREREQ(2, 34)
     // pthread_mutexattr_init was moved to libc.so.6 in manylinux_2_34+
     pthread_mutexattr_t attr;
     int sts = pthread_mutexattr_init(&attr);
@@ -26,6 +30,10 @@ int dep_run()
     return (int)(intptr_t)secure_getenv("NON_EXISTING_ENV_VARIABLE");
 #elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 10)
     return malloc_info(0, stdout);
+#else
+    return 0;
+#endif
+
 #else
     return 0;
 #endif

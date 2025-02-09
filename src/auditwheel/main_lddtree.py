@@ -14,8 +14,7 @@ def configure_subparser(sub_parsers):
 
 
 def execute(args, p: argparse.ArgumentParser):  # noqa: ARG001
-    import json
+    from . import json
+    from .lddtree import ldd
 
-    from .lddtree import lddtree
-
-    logger.info(json.dumps(lddtree(args.file), indent=4))
+    logger.info(json.dumps(ldd(args.file)))

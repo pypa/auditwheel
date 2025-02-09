@@ -16,12 +16,13 @@ import docker
 import pytest
 from elftools.elf.elffile import ELFFile
 
-from auditwheel.policy import WheelPolicies, get_arch_name
+from auditwheel.architecture import Architecture
+from auditwheel.policy import WheelPolicies
 
 logger = logging.getLogger(__name__)
 
 ENCODING = "utf-8"
-PLATFORM = get_arch_name()
+PLATFORM = Architecture.get_native_architecture().value
 MANYLINUX1_IMAGE_ID = f"quay.io/pypa/manylinux1_{PLATFORM}:latest"
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
@@ -89,7 +90,7 @@ NUMPY_VERSION_MAP = {
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
 SHOW_RE = re.compile(
-    r'[\s](?P<wheel>\S+) is consistent with the following platform tag: "(?P<tag>\S+)"',
+    r'.*[\s](?P<wheel>\S+) is consistent with the following platform tag: "(?P<tag>\S+)".*',
     flags=re.DOTALL,
 )
 TAG_RE = re.compile(r"^manylinux_(?P<major>[0-9]+)_(?P<minor>[0-9]+)_(?P<arch>\S+)$")
@@ -189,11 +190,14 @@ def tmp_docker_image(base, commands, setup_env=None):
         client.images.remove(image.id)
 
 
-def assert_show_output(manylinux_ctr, wheel, expected_tag, strict):
-    output = docker_exec(manylinux_ctr, f"auditwheel show /io/{wheel}")
+def assert_show_output(manylinux_ctr, wheel, expected_tag, strict, isa_ext_check=True):
+    isa_ext_check_arg = "" if isa_ext_check else "--disable-isa-ext-check"
+    output = docker_exec(
+        manylinux_ctr, f"auditwheel show {isa_ext_check_arg} /io/{wheel}"
+    )
     output = output.replace("\n", " ")
     match = SHOW_RE.match(output)
-    assert match
+    assert match, f"{SHOW_RE.pattern!r} not found in:\n{output}"
     assert match["wheel"] == wheel
     if strict or "musllinux" in expected_tag:
         assert match["tag"] == expected_tag
@@ -218,7 +222,7 @@ def build_numpy(container, policy, output_dir):
             # https://github.com/numpy/numpy/issues/27932
             fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
             docker_exec(container, f'sh -c "{fix_hwcap}"')
-    elif policy.startswith("manylinux_2_28_"):
+    elif policy.startswith(("manylinux_2_28_", "manylinux_2_34_")):
         docker_exec(container, "dnf install -y openblas-devel")
     else:
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
@@ -391,16 +395,18 @@ class Anylinux:
         orig_wheel = filenames[0]
         assert "manylinux" not in orig_wheel
 
+        # manylinux_2_34_x86_64 uses x86_64_v2 for this test
+        isa_ext_check = policy != "manylinux_2_34_x86_64"
+        isa_ext_check_arg = "" if isa_ext_check else "--disable-isa-ext-check"
+
         # Repair the wheel using the appropriate manylinux container
-        repair_command = (
-            f"auditwheel repair --plat {policy} --only-plat -w /io /io/{orig_wheel}"
-        )
+        repair_command = f"auditwheel repair --plat {policy} {isa_ext_check_arg} --only-plat -w /io /io/{orig_wheel}"
         docker_exec(manylinux_ctr, repair_command)
         filenames = os.listdir(io_folder)
         assert len(filenames) == 2
         repaired_wheel = f"testpackage-0.0.1-py3-none-{tag}.whl"
         assert repaired_wheel in filenames
-        assert_show_output(manylinux_ctr, repaired_wheel, policy, False)
+        assert_show_output(manylinux_ctr, repaired_wheel, policy, False, isa_ext_check)
 
         docker_exec(docker_python, "pip install /io/" + repaired_wheel)
         output = docker_exec(
@@ -811,6 +817,57 @@ class Anylinux:
                 "from testentropy import run; exit(run())",
             ],
         )
+
+    @pytest.mark.skipif(
+        PLATFORM != "x86_64", reason="ISA extension only implemented on x86_64"
+    )
+    @pytest.mark.parametrize("isa_ext", ["x86-64-v2", "x86-64-v3", "x86-64-v4"])
+    def test_isa_variants(self, any_manylinux_container, io_folder, isa_ext):
+        policy, tag, manylinux_ctr = any_manylinux_container
+        if policy.startswith(("manylinux_2_5_", "manylinux_2_12_", "manylinux_2_17_")):
+            pytest.skip("skip old gcc")
+        build_command = (
+            "cd /auditwheel_src/tests/integration/testdependencies && "
+            "if [ -d ./build ]; then rm -rf ./build ./*.egg-info; fi && "
+            f"WITH_DEPENDENCY=1 WITH_ARCH={isa_ext} python -m pip wheel --no-deps -w /io ."
+        )
+        docker_exec(
+            manylinux_ctr,
+            [
+                "bash",
+                "-c",
+                build_command,
+            ],
+        )
+
+        filenames = os.listdir(io_folder)
+        orig_wheel = filenames[0]
+        assert "manylinux" not in orig_wheel
+
+        # repair failure with ISA check
+        repair_command = (
+            "LD_LIBRARY_PATH="
+            "/auditwheel_src/tests/integration/testdependencies:$LD_LIBRARY_PATH "
+            f"auditwheel repair --plat {policy} -w /io /io/{orig_wheel}"
+        )
+        with pytest.raises(CalledProcessError):
+            docker_exec(manylinux_ctr, ["bash", "-c", repair_command])
+
+        repair_command = (
+            "LD_LIBRARY_PATH="
+            "/auditwheel_src/tests/integration/testdependencies:$LD_LIBRARY_PATH "
+            f"auditwheel repair --disable-isa-ext-check --plat {policy} -w /io /io/{orig_wheel}"
+        )
+        docker_exec(manylinux_ctr, ["bash", "-c", repair_command])
+
+        filenames = os.listdir(io_folder)
+        assert len(filenames) == 2
+        repaired_wheel = f"testdependencies-0.0.1-{PYTHON_ABI}-{policy}.whl"
+        assert repaired_wheel in filenames
+        assert_show_output(manylinux_ctr, repaired_wheel, policy, True, False)
+
+        # with ISA check, we shall not report a manylinux/musllinux policy
+        assert_show_output(manylinux_ctr, repaired_wheel, f"linux_{PLATFORM}", True)
 
 
 class TestManylinux(Anylinux):

@@ -16,9 +16,10 @@ from unittest.mock import Mock
 import pytest
 
 from auditwheel import lddtree, main_repair
+from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
 from auditwheel.policy import WheelPolicies
-from auditwheel.wheel_abi import analyze_wheel_abi
+from auditwheel.wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
 
@@ -67,8 +68,8 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
             cp.setenv("LD_LIBRARY_PATH", f"{HERE}")
             importlib.reload(lddtree)
 
-        wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch="x86_64")
-        winfo = analyze_wheel_abi(wheel_policies, str(HERE / file), exclude)
+        wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+        winfo = analyze_wheel_abi(wheel_policies, str(HERE / file), exclude, False)
         assert (
             set(winfo.external_refs["manylinux_2_5_x86_64"]["libs"]) == external_libs
         ), f"{HERE}, {exclude}, {os.environ}"
@@ -78,11 +79,12 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
 
 
 def test_analyze_wheel_abi_pyfpe():
-    wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch="x86_64")
+    wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
     winfo = analyze_wheel_abi(
         wheel_policies,
         str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl"),
         frozenset(),
+        False,
     )
     assert (
         winfo.sym_tag == "manylinux_2_5_x86_64"
@@ -90,6 +92,17 @@ def test_analyze_wheel_abi_pyfpe():
     assert (
         winfo.pyfpe_tag == "linux_x86_64"
     )  # but for having the pyfpe reference, it gets just linux
+
+
+def test_analyze_wheel_abi_bad_architecture():
+    wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.aarch64)
+    with pytest.raises(NonPlatformWheel):
+        analyze_wheel_abi(
+            wheel_policies,
+            str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl"),
+            frozenset(),
+            False,
+        )
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="only checked on x86_64")
@@ -120,6 +133,7 @@ def test_wheel_source_date_epoch(tmp_path, monkeypatch):
         WHEEL_DIR=str(wheel_output_path),
         WHEEL_FILE=[str(wheel_path)],
         EXCLUDE=[],
+        DISABLE_ISA_EXT_CHECK=False,
         cmd="repair",
         func=Mock(),
         prog="auditwheel",
