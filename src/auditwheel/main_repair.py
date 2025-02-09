@@ -12,7 +12,7 @@ from .tools import EnvironmentDefault
 logger = logging.getLogger(__name__)
 
 
-def configure_parser(sub_parsers):
+def configure_parser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
     wheel_policy = WheelPolicies()
     policies = wheel_policy.policies
     policy_names = [p["name"] for p in policies]
@@ -111,7 +111,7 @@ wheel will abort processing of subsequent wheels.
     p.set_defaults(func=execute)
 
 
-def execute(args, parser: argparse.ArgumentParser):
+def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     import os
 
     from .repair import repair_wheel

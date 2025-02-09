@@ -23,11 +23,11 @@ class Architecture(Enum):
     x86_64_v3 = "x86_64_v3"
     x86_64_v4 = "x86_64_v4"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
     @property
-    def baseline(self):
+    def baseline(self) -> Architecture:
         if self.value.startswith("x86_64"):
             return Architecture.x86_64
         return self

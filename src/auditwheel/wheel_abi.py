@@ -66,11 +66,12 @@ class NonPlatformWheel(WheelAbiError):
 
     @property
     def message(self) -> str:
+        assert isinstance(self.args[0], str)
         return self.args[0]
 
 
 @functools.lru_cache
-def get_wheel_elfdata(
+def get_wheel_elfdata(  # type: ignore[no-untyped-def]
     wheel_policy: WheelPolicies, wheel_fn: str, exclude: frozenset[str]
 ):
     full_elftree = {}
@@ -191,7 +192,7 @@ def get_wheel_elfdata(
     )
 
 
-def get_external_libs(external_refs) -> dict[str, str]:
+def get_external_libs(external_refs: dict[str, dict[str, Any]]) -> dict[str, str]:
     """Get external library dependencies for all policies excluding the default
     linux policy
     :param external_refs: external references for all policies
@@ -210,7 +211,7 @@ def get_external_libs(external_refs) -> dict[str, str]:
     return result
 
 
-def get_versioned_symbols(libs):
+def get_versioned_symbols(libs: dict[str, str]) -> dict[str, dict[str, set[str]]]:
     """Get versioned symbols used in libraries
     :param libs: {realpath: soname} dict to search for versioned symbols e.g.
     {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
@@ -221,7 +222,7 @@ def get_versioned_symbols(libs):
     for path, elf in elf_file_filter(libs.keys()):
         # {depname: set(symbol_version)}, e.g.
         # {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
-        elf_versioned_symbols = defaultdict(set)
+        elf_versioned_symbols: dict[str, set[str]] = defaultdict(set)
         for key, value in elf_find_versioned_symbols(elf):
             log.debug("path %s, key %s, value %s", path, key, value)
             elf_versioned_symbols[key].add(value)
@@ -230,8 +231,11 @@ def get_versioned_symbols(libs):
 
 
 def get_symbol_policies(
-    wheel_policy, versioned_symbols, external_versioned_symbols, external_refs
-):
+    wheel_policy: WheelPolicies,
+    versioned_symbols: dict[str, set[str]],
+    external_versioned_symbols: dict[str, dict[str, set[str]]],
+    external_refs: dict[str, dict[str, Any]],
+) -> list[tuple[int, dict[str, set[str]]]]:
     """Get symbol policies
     Since white-list is different per policy, this function inspects
     versioned_symbol per policy when including external refs
@@ -393,7 +397,7 @@ def analyze_wheel_abi(
     )
 
 
-def update(d, u):
+def update(d: dict[str, Any], u: Mapping[str, Any]) -> dict[str, Any]:
     for k, v in u.items():
         if k == "blacklist":
             for lib, symbols in v.items():

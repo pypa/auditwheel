@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from os.path import basename
 from pathlib import Path
 
@@ -26,7 +26,7 @@ def elf_read_dt_needed(fn: str) -> list[str]:
     return needed
 
 
-def elf_file_filter(paths: Iterator[str]) -> Iterator[tuple[str, ELFFile]]:
+def elf_file_filter(paths: Iterable[str]) -> Iterator[tuple[str, ELFFile]]:
     """Filter through an iterator of filenames and load up only ELF
     files
     """

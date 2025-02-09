@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -14,10 +15,10 @@ from auditwheel.elfutils import (
 )
 
 
-class MockSymbol(dict):
+class MockSymbol(dict[str, Any]):
     """Mock representing a Symbol in ELFTools."""
 
-    def __init__(self, name, **kwargs):
+    def __init__(self, name: str, **kwargs):  # type: ignore[no-untyped-def]
         super().__init__(**kwargs)
         self._name = name
 
@@ -139,9 +140,9 @@ class TestFindUcs2Symbols:
             st_shndx="SHN_UNDEF",
             st_info={"type": "STT_FUNC"},
         )
-        symbols = (asunicode, Mock())
-        symbols[1].name = "foobar"
-        elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
+        elf_symbols = (asunicode, Mock())
+        elf_symbols[1].name = "foobar"
+        elf.get_section_by_name.return_value.iter_symbols.return_value = elf_symbols
 
         # WHEN
         symbols = list(elf_find_ucs2_symbols(elf))
@@ -154,8 +155,8 @@ class TestFindUcs2Symbols:
         # GIVEN
         elf = Mock()
 
-        symbols = (MockSymbol("FooSymbol"),)
-        elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
+        elf_symbols = (MockSymbol("FooSymbol"),)
+        elf.get_section_by_name.return_value.iter_symbols.return_value = elf_symbols
 
         # WHEN/THEN
         symbols = list(elf_find_ucs2_symbols(elf))

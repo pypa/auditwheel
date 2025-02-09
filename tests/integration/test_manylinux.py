@@ -7,9 +7,11 @@ import re
 import shutil
 import sys
 import zipfile
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from subprocess import CalledProcessError
+from typing import Any
 
 import docker
 import pytest
@@ -114,7 +116,7 @@ class AnyLinuxContainer:
 
     def exec(
         self,
-        cmd,
+        cmd: str | list[str],
         *,
         expected_retcode: int = 0,
         cwd: str | None = None,
@@ -131,7 +133,7 @@ class AnyLinuxContainer:
         verbose: bool = False,
         isa_ext_check: bool = True,
         expected_retcode: int = 0,
-    ):
+    ) -> str:
         isa_ext_check_arg = "" if isa_ext_check else "--disable-isa-ext-check"
         verbose_arg = "-v" if verbose else ""
         cmd = f"auditwheel {verbose_arg} show {isa_ext_check_arg} /io/{wheel}"
@@ -148,7 +150,7 @@ class AnyLinuxContainer:
         strip: bool = False,
         library_paths: list[str] | None = None,
         excludes: list[str] | None = None,
-    ):
+    ) -> str:
         plat = plat or self._policy
         args = []
         if library_paths:
@@ -225,7 +227,7 @@ class PythonContainer:
     def install_wheel(self, filename: str) -> str:
         return self.pip_install(f"/io/{filename}")
 
-    def run(self, cmd: str):
+    def run(self, cmd: str) -> str:
         args: str | list[str]
         if cmd.startswith(("from ", "import ")):
             # run python code
@@ -234,7 +236,7 @@ class PythonContainer:
             args = f"python {cmd}"
         return self.exec(args)
 
-    def exec(self, cmd, expected_retcode: int = 0) -> str:
+    def exec(self, cmd: str | list[str], expected_retcode: int = 0) -> str:
         return docker_exec(self._container, cmd, expected_retcode=expected_retcode)
 
 
@@ -279,7 +281,7 @@ def docker_start(
 @contextmanager
 def docker_container_ctx(
     image: str, io_dir: Path | None = None, env_variables: dict[str, str] | None = None
-):
+) -> Generator[Container, None, None]:
     src_folder = find_src_folder()
     if src_folder is None:
         pytest.skip("Can only be run from the source folder")
@@ -324,7 +326,7 @@ def docker_exec(
 @contextmanager
 def tmp_docker_image(
     base: str, commands: list[str], setup_env: dict[str, str] | None = None
-):
+) -> Generator[Any, None, None]:
     """Make a temporary docker image for tests
 
     Pulls the *base* image, runs *commands* inside it with *setup_env*, and
@@ -355,7 +357,7 @@ def assert_show_output(
     expected_tag: str,
     strict: bool,
     isa_ext_check: bool = True,
-):
+) -> None:
     output = anylinux_ctr.show(wheel, isa_ext_check=isa_ext_check)
     output = output.replace("\n", " ")
     match = SHOW_RE.match(output)
@@ -415,12 +417,16 @@ class Anylinux:
         return d
 
     @pytest.fixture
-    def python(self, docker_python_img, io_folder: Path):
+    def python(
+        self, docker_python_img: str, io_folder: Path
+    ) -> Generator[PythonContainer, None, None]:
         with docker_container_ctx(docker_python_img, io_folder) as container:
             yield PythonContainer(container)
 
     @pytest.fixture
-    def anylinux(self, any_manylinux_img, io_folder: Path):
+    def anylinux(
+        self, any_manylinux_img: tuple[str, str], io_folder: Path
+    ) -> Generator[AnyLinuxContainer, None, None]:
         policy, manylinux_img = any_manylinux_img
         env = {"PATH": PATH[policy]}
         for key in os.environ:
@@ -435,7 +441,7 @@ class Anylinux:
                 f"{policy}_{PLATFORM}", platform_tag, container, io_folder
             )
 
-    def test_numpy(self, anylinux: AnyLinuxContainer, python: PythonContainer):
+    def test_numpy(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
         # Integration test: repair numpy built from scratch
         policy = anylinux.policy
 
@@ -470,7 +476,7 @@ class Anylinux:
         # at once in the same Python program:
         python.run("import numpy; import foo")
 
-    def test_exclude(self, anylinux: AnyLinuxContainer):
+    def test_exclude(self, anylinux: AnyLinuxContainer) -> None:
         """Test the --exclude argument to avoid grafting certain libraries."""
         test_path = "/auditwheel_src/tests/integration/testrpath"
         orig_wheel = anylinux.build_wheel(test_path)
@@ -487,7 +493,7 @@ class Anylinux:
 
     def test_with_binary_executable(
         self, anylinux: AnyLinuxContainer, python: PythonContainer
-    ):
+    ) -> None:
         # Test building a wheel that contains a binary executable (e.g., a program)
         policy = anylinux.policy
         if policy.startswith("musllinux_"):
@@ -535,7 +541,7 @@ class Anylinux:
             == "\x7fELF"
         )
 
-    def test_pure_wheel(self, anylinux: AnyLinuxContainer):
+    def test_pure_wheel(self, anylinux: AnyLinuxContainer) -> None:
         anylinux.exec(
             "pip download --no-deps -d /io --only-binary=:all: six==1.16.0",
         )
@@ -550,7 +556,9 @@ class Anylinux:
         assert "This does not look like a platform wheel" in output
 
     @pytest.mark.parametrize("dtag", ["rpath", "runpath"])
-    def test_rpath(self, anylinux: AnyLinuxContainer, python: PythonContainer, dtag):
+    def test_rpath(
+        self, anylinux: AnyLinuxContainer, python: PythonContainer, dtag: str
+    ) -> None:
         # Test building a wheel that contains an extension depending on a library
         # with RPATH or RUNPATH set.
         # Following checks are performed:
@@ -608,7 +616,7 @@ class Anylinux:
 
     def test_multiple_top_level(
         self, anylinux: AnyLinuxContainer, python: PythonContainer
-    ):
+    ) -> None:
         policy = anylinux.policy
 
         test_path = "/auditwheel_src/tests/integration/multiple_top_level"
@@ -636,7 +644,9 @@ class Anylinux:
                     for name in w.namelist()
                 )
 
-    def test_internal_rpath(self, anylinux: AnyLinuxContainer, python: PythonContainer):
+    def test_internal_rpath(
+        self, anylinux: AnyLinuxContainer, python: PythonContainer
+    ) -> None:
         policy = anylinux.policy
 
         test_path = "/auditwheel_src/tests/integration/internal_rpath"
@@ -666,7 +676,7 @@ class Anylinux:
                     for name in w.namelist()
                 )
 
-    def test_strip(self, anylinux: AnyLinuxContainer, python: PythonContainer):
+    def test_strip(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
         policy = anylinux.policy
 
         test_path = "/auditwheel_src/tests/integration/sample_extension"
@@ -684,7 +694,9 @@ class Anylinux:
         )
         assert output.strip() == "2"
 
-    def test_nonpy_rpath(self, anylinux: AnyLinuxContainer, python: PythonContainer):
+    def test_nonpy_rpath(
+        self, anylinux: AnyLinuxContainer, python: PythonContainer
+    ) -> None:
         # Tests https://github.com/pypa/auditwheel/issues/136
         policy = anylinux.policy
 
@@ -702,7 +714,9 @@ class Anylinux:
             "import nonpy_rpath; assert nonpy_rpath.crypt_something().startswith('*')"
         )
 
-    def test_glibcxx_3_4_25(self, anylinux: AnyLinuxContainer, python: PythonContainer):
+    def test_glibcxx_3_4_25(
+        self, anylinux: AnyLinuxContainer, python: PythonContainer
+    ) -> None:
         policy = anylinux.policy
 
         test_path = "/auditwheel_src/tests/integration/test_glibcxx_3_4_25"
@@ -728,7 +742,7 @@ class Anylinux:
         PLATFORM != "x86_64", reason="ISA extension only implemented on x86_64"
     )
     @pytest.mark.parametrize("isa_ext", ["x86-64-v2", "x86-64-v3", "x86-64-v4"])
-    def test_isa_variants(self, anylinux: AnyLinuxContainer, isa_ext: str):
+    def test_isa_variants(self, anylinux: AnyLinuxContainer, isa_ext: str) -> None:
         policy = anylinux.policy
         if policy.startswith(("manylinux_2_5_", "manylinux_2_12_", "manylinux_2_17_")):
             pytest.skip("skip old gcc")
@@ -789,8 +803,8 @@ class TestManylinux(Anylinux):
 
     @pytest.mark.parametrize("with_dependency", ["0", "1"])
     def test_image_dependencies(
-        self, with_dependency, anylinux: AnyLinuxContainer, python: PythonContainer
-    ):
+        self, with_dependency: str, anylinux: AnyLinuxContainer, python: PythonContainer
+    ) -> None:
         # try to repair the wheel targeting different policies
         #
         # with_dependency == 0
@@ -846,11 +860,11 @@ class TestManylinux(Anylinux):
     @pytest.mark.parametrize("only_plat", [True, False])
     def test_compat(
         self,
-        target_policy,
-        only_plat,
+        target_policy: str,
+        only_plat: bool,
         anylinux: AnyLinuxContainer,
         python: PythonContainer,
-    ):
+    ) -> None:
         # test building wheels with compatibility with older spec
         # check aliases for older spec
         test_path = "/auditwheel_src/tests/integration/testsimple"
@@ -889,7 +903,7 @@ class TestManylinux(Anylinux):
         python.install_wheel(repaired_wheel)
         python.run("from testsimple import run; exit(run())")
 
-    def test_zlib_blacklist(self, anylinux: AnyLinuxContainer):
+    def test_zlib_blacklist(self, anylinux: AnyLinuxContainer) -> None:
         policy = anylinux.policy
         if policy.startswith(("manylinux_2_17_", "manylinux_2_28_", "manylinux_2_34_")):
             pytest.skip(f"{policy} image has no blacklist symbols in libz.so.1")

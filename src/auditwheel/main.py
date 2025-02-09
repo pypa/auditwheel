@@ -50,5 +50,5 @@ def main() -> int | None:
     if not hasattr(args, "func"):
         p.print_help()
         return None
-
-    return args.func(args, p)
+    result: int | None = args.func(args, p)
+    return result

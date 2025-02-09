@@ -166,9 +166,9 @@ class InWheelCtx(InWheel):
             discard
         """
         super().__init__(in_wheel, out_wheel)
-        self.path = None
+        self.path: str | None = None
 
-    def __enter__(self):
+    def __enter__(self):  # type: ignore[no-untyped-def]
         self.path = super().__enter__()
         return self
 
@@ -208,11 +208,12 @@ def add_platforms(
         platform tags to remove to the wheel filename and WHEEL tags, e.g.
         ``('linux_x86_64',)`` when ``('manylinux_x86_64')`` is added
     """
-    definitely_not_purelib = False
-
     if wheel_ctx.path is None:
         msg = "This function should be called from wheel_ctx context manager"
         raise ValueError(msg)
+
+    to_remove = list(remove_platforms)  # we might want to modify this, make a copy
+    definitely_not_purelib = False
 
     info_fname = pjoin(_dist_info_dir(wheel_ctx.path), "WHEEL")
     info = read_pkg_info(info_fname)
@@ -227,13 +228,13 @@ def add_platforms(
     _, _, _, in_tags = parse_wheel_filename(wheel_fname)
     original_fname_tags = sorted({tag.platform for tag in in_tags})
     logger.info("Previous filename tags: %s", ", ".join(original_fname_tags))
-    fname_tags = [tag for tag in original_fname_tags if tag not in remove_platforms]
+    fname_tags = [tag for tag in original_fname_tags if tag not in to_remove]
     fname_tags = unique_by_index(fname_tags + platforms)
 
     # Can't be 'any' and another platform
     if "any" in fname_tags and len(fname_tags) > 1:
         fname_tags.remove("any")
-        remove_platforms.append("any")
+        to_remove.append("any")
         definitely_not_purelib = True
 
     if fname_tags != original_fname_tags:
@@ -258,7 +259,7 @@ def add_platforms(
     # Add new platform tags for each Python version, C-API combination
     wanted_tags = ["-".join(tup) for tup in product(pyc_apis, platforms)]
     new_tags = [tag for tag in wanted_tags if tag not in in_info_tags]
-    unwanted_tags = ["-".join(tup) for tup in product(pyc_apis, remove_platforms)]
+    unwanted_tags = ["-".join(tup) for tup in product(pyc_apis, to_remove)]
     updated_tags = [tag for tag in in_info_tags if tag not in unwanted_tags]
     updated_tags += new_tags
     if updated_tags != in_info_tags:
