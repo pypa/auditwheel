@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 import json
 from enum import Enum
@@ -15,5 +17,5 @@ def _encode_value(value: Any) -> Any:
     raise TypeError(msg)
 
 
-def dumps(obj: Any):
+def dumps(obj: Any) -> str:
     return json.dumps(obj, indent=4, default=_encode_value)

@@ -449,7 +449,6 @@ def ldd(
     needed: set[str] = set()
     rpaths: list[str] = []
     runpaths: list[str] = []
-    _excluded_libs: set[str] = set()
 
     with open(path, "rb") as f:
         elf = ELFFile(f)
@@ -515,6 +514,7 @@ def ldd(
         + ldpaths["conf"]
         + ldpaths["interp"]
     )
+    _excluded_libs: set[str] = set()
     for soname in needed:
         if soname in _all_libs:
             continue
