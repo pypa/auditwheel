@@ -218,12 +218,12 @@ def build_numpy(container, policy, output_dir):
             # https://github.com/numpy/numpy/issues/27932
             fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
             docker_exec(container, f'sh -c "{fix_hwcap}"')
-    elif policy.startswith("manylinux_2_28_"):
-        docker_exec(container, "dnf install -y openblas-devel")
-    else:
+    elif policy.startswith(("manylinux_2_5_", "manylinux_2_12_", "manylinux_2_17_")):
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
             pytest.skip("numpy>=1.26 requires openblas")
         docker_exec(container, "yum install -y atlas atlas-devel")
+    else:
+        docker_exec(container, "dnf install -y openblas-devel")
 
     if op.exists(op.join(WHEEL_CACHE_FOLDER, policy, ORIGINAL_NUMPY_WHEEL)):
         # If numpy has already been built and put in cache, let's reuse this.
