@@ -69,7 +69,7 @@ def repair_wheel(
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
-            ext_libs: dict[str, str] = v[abis[0]]["libs"]
+            ext_libs: dict[str, str | None] = v[abis[0]]["libs"]
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
                 assert not any(fnmatch(soname, e) for e in exclude)

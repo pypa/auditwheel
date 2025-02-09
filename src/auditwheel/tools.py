@@ -6,10 +6,12 @@ import subprocess
 import zipfile
 from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypeVar
+
+_T = TypeVar("_T")
 
 
-def unique_by_index(sequence: Iterable[Any]) -> list[Any]:
+def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
     """unique elements in `sequence` in the order in which they occur
 
     Parameters
@@ -148,32 +150,40 @@ def tarbz2todir(tarbz2_fname: str, out_dir: str) -> None:
 class EnvironmentDefault(argparse.Action):
     """Get values from environment variable."""
 
-    def __init__(self, env, required=True, default=None, **kwargs):
+    def __init__(
+        self,
+        env: str,
+        required: bool = True,
+        default: str | None = None,
+        choices: Iterable[str] | None = None,
+        **kwargs: Any,
+    ) -> None:
         self.env_default = os.environ.get(env)
         self.env = env
         if self.env_default:
             default = self.env_default
         if default:
             required = False
-        if self.env_default and "choices" in kwargs:
-            choices = kwargs["choices"]
-            if self.env_default not in choices:
-                self.option_strings = kwargs["option_strings"]
-                args = {
-                    "value": self.env_default,
-                    "choices": ", ".join(map(repr, choices)),
-                    "env": self.env,
-                }
-                msg = (
-                    "invalid choice: %(value)r from environment variable "
-                    "%(env)r (choose from %(choices)s)"
-                )
-                raise argparse.ArgumentError(self, msg % args)
+        if self.env_default and choices is not None and self.env_default not in choices:
+            self.option_strings = kwargs["option_strings"]
+            args = {
+                "value": self.env_default,
+                "choices": ", ".join(map(repr, choices)),
+                "env": self.env,
+            }
+            msg = (
+                "invalid choice: %(value)r from environment variable "
+                "%(env)r (choose from %(choices)s)"
+            )
+            raise argparse.ArgumentError(self, msg % args)
 
-        super().__init__(default=default, required=required, **kwargs)
+        super().__init__(default=default, required=required, choices=choices, **kwargs)
 
-    def __call__(self, parser, namespace, values, option_string=None):
-        # use self assignment to silence ARG002
-        parser = parser  # noqa: PLW0127
-        option_string = option_string  # noqa: PLW0127
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,  # noqa: ARG002
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,  # noqa: ARG002
+    ) -> None:
         setattr(namespace, self.dest, values)

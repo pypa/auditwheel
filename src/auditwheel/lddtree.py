@@ -311,7 +311,7 @@ def load_ld_paths(root: str = "/", prefix: str = "") -> dict[str, list[str]]:
     -------
     dict containing library paths to search
     """
-    ldpaths: dict = {"conf": [], "env": [], "interp": []}
+    ldpaths: dict[str, list[str]] = {"conf": [], "env": [], "interp": []}
 
     # Load up $LD_LIBRARY_PATH.
     env_ldpath = os.environ.get("LD_LIBRARY_PATH")

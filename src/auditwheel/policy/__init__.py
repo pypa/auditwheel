@@ -51,7 +51,7 @@ class WheelPolicies:
         if arch is None:
             arch = Architecture.get_native_architecture()
         policies = json.loads(_POLICY_JSON_MAP[libc].read_text())
-        self._policies = []
+        self._policies: list[dict[str, Any]] = []
         self._architecture = arch
         self._libc_variant = libc
         self._musl_policy = musl_policy
@@ -84,18 +84,18 @@ class WheelPolicies:
         return self._architecture
 
     @property
-    def policies(self):
+    def policies(self):  # type: ignore[no-untyped-def]
         return self._policies
 
     @property
-    def priority_highest(self):
-        return max(p["priority"] for p in self._policies)
+    def priority_highest(self) -> int:
+        return max(int(p["priority"]) for p in self._policies)
 
     @property
-    def priority_lowest(self):
-        return min(p["priority"] for p in self._policies)
+    def priority_lowest(self) -> int:
+        return min(int(p["priority"]) for p in self._policies)
 
-    def get_policy_by_name(self, name: str) -> dict:
+    def get_policy_by_name(self, name: str) -> dict[str, Any]:
         matches = [
             p for p in self._policies if p["name"] == name or name in p["aliases"]
         ]
@@ -108,7 +108,7 @@ class WheelPolicies:
         return matches[0]
 
     def get_policy_name(self, priority: int) -> str:
-        matches = [p["name"] for p in self._policies if p["priority"] == priority]
+        matches = [str(p["name"]) for p in self._policies if p["priority"] == priority]
         if len(matches) == 0:
             msg = f"no policy with priority {priority} found"
             raise LookupError(msg)
@@ -118,7 +118,7 @@ class WheelPolicies:
         return matches[0]
 
     def get_priority_by_name(self, name: str) -> int:
-        return self.get_policy_by_name(name)["priority"]
+        return int(self.get_policy_by_name(name)["priority"])
 
     def versioned_symbols_policy(self, versioned_symbols: dict[str, set[str]]) -> int:
         def policy_is_satisfied(
@@ -161,7 +161,7 @@ class WheelPolicies:
 
     def lddtree_external_references(
         self, lddtree: DynamicExecutable, wheel_path: str
-    ) -> dict:
+    ) -> dict[str, dict[str, Any]]:
         def filter_libs(libs: frozenset[str], whitelist: set[str]) -> Generator[str]:
             for lib in libs:
                 if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
@@ -226,7 +226,7 @@ class WheelPolicies:
         return ret
 
 
-def _validate_pep600_compliance(policies) -> None:
+def _validate_pep600_compliance(policies) -> None:  # type: ignore[no-untyped-def]
     symbol_versions: dict[str, dict[str, set[str]]] = {}
     lib_whitelist: set[str] = set()
     for policy in sorted(policies, key=lambda x: x["priority"], reverse=True):
@@ -258,7 +258,9 @@ def _validate_pep600_compliance(policies) -> None:
             symbol_versions[arch] = symbol_versions_arch
 
 
-def _fixup_musl_libc_soname(libc: Libc, arch: Architecture, whitelist):
+def _fixup_musl_libc_soname(
+    libc: Libc, arch: Architecture, whitelist: list[str]
+) -> list[str]:
     if libc != Libc.MUSL:
         return whitelist
     soname_map = {
@@ -306,7 +308,7 @@ def get_replace_platforms(name: str) -> list[str]:
     return ["linux_" + "_".join(name.split("_")[1:])]
 
 
-def _load_policy_schema():
+def _load_policy_schema():  # type: ignore[no-untyped-def]
     with open(join(dirname(abspath(__file__)), "policy-schema.json")) as f_:
         return json.load(f_)
 

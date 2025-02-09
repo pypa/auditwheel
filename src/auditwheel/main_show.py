@@ -8,7 +8,7 @@ from auditwheel.policy import WheelPolicies
 logger = logging.getLogger(__name__)
 
 
-def configure_parser(sub_parsers):
+def configure_parser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
     help = "Audit a wheel for external shared library dependencies."
     p = sub_parsers.add_parser("show", help=help, description=help)
     p.add_argument("WHEEL_FILE", help="Path to wheel file.")
@@ -29,7 +29,7 @@ def printp(text: str) -> None:
     print("\n".join(wrap(text, break_long_words=False, break_on_hyphens=False)))
 
 
-def execute(args, parser: argparse.ArgumentParser):
+def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     from os.path import basename, isfile
 
     from . import json
@@ -68,7 +68,7 @@ def execute(args, parser: argparse.ArgumentParser):
             "#fpectl-builds-vs-no-fpectl-builds)"
         )
         if args.verbose < 1:
-            return None
+            return 0
 
     if wheel_policy.get_priority_by_name(winfo.ucs_tag) < wheel_policy.priority_highest:
         printp(
@@ -77,7 +77,7 @@ def execute(args, parser: argparse.ArgumentParser):
             "manylinux1 tag."
         )
         if args.verbose < 1:
-            return None
+            return 0
 
     if (
         wheel_policy.get_priority_by_name(winfo.machine_tag)
@@ -85,7 +85,7 @@ def execute(args, parser: argparse.ArgumentParser):
     ):
         printp("This wheel depends on unsupported ISA extensions.")
         if args.verbose < 1:
-            return None
+            return 0
 
     if len(libs_with_versions) == 0:
         printp(
@@ -107,7 +107,7 @@ def execute(args, parser: argparse.ArgumentParser):
             "a recent manylinux image."
         )
         if args.verbose < 1:
-            return None
+            return 0
 
     libs = winfo.external_refs[
         wheel_policy.get_policy_name(wheel_policy.priority_lowest)

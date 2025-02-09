@@ -26,7 +26,7 @@ class InCondaPkgCtx(InCondaPkg):
         super().__init__(in_conda_pkg)
         self.path: str | None = None
 
-    def __enter__(self):
+    def __enter__(self):  # type: ignore[no-untyped-def]
         self.path = super().__enter__()
         return self
 
