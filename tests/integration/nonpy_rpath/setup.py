@@ -94,7 +94,7 @@ crypt_example = Library(
 
 setup(
     name="nonpy_rpath",
-    version="0.1.0",
+    version="0.0.1",
     packages=find_packages(),
     description="Test package for nonpy_rpath",
     ext_modules=[crypt_example, nonpy_rpath_module],

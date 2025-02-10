@@ -5,7 +5,7 @@ from setuptools import Extension, find_packages, setup
 package_name = "internal_rpath"
 setup(
     name=package_name,
-    version="1.0",
+    version="0.0.1",
     description="Auditwheel multiple top-level extensions example",
     package_data={package_name: ["liba.so"]},
     packages=find_packages(),

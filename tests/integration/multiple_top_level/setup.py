@@ -4,7 +4,7 @@ from setuptools import Extension, find_packages, setup
 
 setup(
     name="multiple_top_level",
-    version="1.0",
+    version="0.0.1",
     description="Auditwheel multiple top-level extensions example",
     packages=find_packages(where="src"),
     ext_modules=[
