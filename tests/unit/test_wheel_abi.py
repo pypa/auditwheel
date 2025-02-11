@@ -6,7 +6,8 @@ import pretend
 import pytest
 
 from auditwheel import wheel_abi
-from auditwheel.policy import WheelPolicies
+from auditwheel.architecture import Architecture
+from auditwheel.libc import Libc
 
 
 class TestGetWheelElfdata:
@@ -47,9 +48,10 @@ class TestGetWheelElfdata:
             "elf_file_filter",
             lambda fns: [(fn, pretend.stub()) for fn in fns],
         )
-        wheel_policy = WheelPolicies()
 
         with pytest.raises(RuntimeError) as exec_info:
-            wheel_abi.get_wheel_elfdata(wheel_policy, Path("/fakepath"), frozenset())
+            wheel_abi.get_wheel_elfdata(
+                Libc.GLIBC, Architecture.x86_64, Path("/fakepath"), frozenset()
+            )
 
         assert exec_info.value.args == (message,)
