@@ -49,7 +49,7 @@ class Architecture(Enum):
         return other.is_subset(self)
 
     @staticmethod
-    def get_native_architecture(*, bits: int | None = None) -> Architecture:
+    def detect(*, bits: int | None = None) -> Architecture:
         machine = platform.machine()
         if sys.platform.startswith("win"):
             machine = {"AMD64": "x86_64", "ARM64": "aarch64", "x86": "i686"}.get(
