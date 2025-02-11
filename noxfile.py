@@ -62,7 +62,21 @@ def tests(session: nox.Session) -> None:
     """
     posargs = session.posargs
     extras = "coverage" if RUNNING_CI else "test"
+    session.install("-U", "pip")
     session.install("-e", f".[{extras}]")
+    # for tests/integration/test_bundled_wheels.py::test_analyze_wheel_abi_static_exe
+    session.run(
+        "pip",
+        "download",
+        "--only-binary",
+        ":all:",
+        "--no-deps",
+        "--platform",
+        "manylinux1_x86_64",
+        "-d",
+        "./tests/integration/",
+        "patchelf==0.17.2.1",
+    )
     if RUNNING_CI:
         posargs.extend(["--cov", "auditwheel", "--cov-branch"])
         # pull manylinux images that will be used.
