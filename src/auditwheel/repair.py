@@ -8,7 +8,6 @@ import re
 import shutil
 import stat
 from collections.abc import Iterable
-from fnmatch import fnmatch
 from os.path import isabs
 from pathlib import Path
 from subprocess import check_call
@@ -17,8 +16,8 @@ from auditwheel.patcher import ElfPatcher
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths, is_subdir
 from .hashfile import hashfile
-from .policy import WheelPolicies, get_replace_platforms
-from .wheel_abi import get_wheel_elfdata
+from .policy import get_replace_platforms
+from .wheel_abi import WheelAbIInfo
 from .wheeltools import InWheelCtx, add_platforms
 
 logger = logging.getLogger(__name__)
@@ -33,19 +32,16 @@ WHEEL_INFO_RE = re.compile(
 
 
 def repair_wheel(
-    wheel_policy: WheelPolicies,
+    wheel_abi: WheelAbIInfo,
     wheel_path: Path,
     abis: list[str],
     lib_sdir: str,
     out_dir: Path,
     update_tags: bool,
     patcher: ElfPatcher,
-    exclude: frozenset[str],
     strip: bool = False,
 ) -> Path | None:
-    elf_data = get_wheel_elfdata(wheel_policy, wheel_path, exclude)
-    external_refs_by_fn = elf_data.full_external_refs
-
+    external_refs_by_fn = wheel_abi.full_external_refs
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:
         return None
@@ -71,8 +67,6 @@ def repair_wheel(
             ext_libs = v[abis[0]].libs
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
-                assert not any(fnmatch(soname, e) for e in exclude)
-
                 if src_path is None:
                     msg = (
                         "Cannot repair wheel, because required "
