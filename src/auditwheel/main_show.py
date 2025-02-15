@@ -55,13 +55,10 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     ]
 
     printp(
-        f'{fn} is consistent with the following platform tag: "{winfo.overall_tag}".'
+        f'{fn} is consistent with the following platform tag: "{winfo.overall_policy.name}".'
     )
 
-    if (
-        wheel_policy.get_priority_by_name(winfo.pyfpe_tag)
-        < wheel_policy.priority_highest
-    ):
+    if winfo.pyfpe_policy < wheel_policy.highest:
         printp(
             "This wheel uses the PyFPE_jbuf function, which is not compatible with the"
             " manylinux1 tag. (see https://www.python.org/dev/peps/pep-0513/"
@@ -70,7 +67,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         if args.verbose < 1:
             return 0
 
-    if wheel_policy.get_priority_by_name(winfo.ucs_tag) < wheel_policy.priority_highest:
+    if winfo.ucs_policy < wheel_policy.highest:
         printp(
             "This wheel is compiled against a narrow unicode (UCS2) "
             "version of Python, which is not compatible with the "
@@ -79,10 +76,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         if args.verbose < 1:
             return 0
 
-    if (
-        wheel_policy.get_priority_by_name(winfo.machine_tag)
-        < wheel_policy.priority_highest
-    ):
+    if winfo.machine_policy < wheel_policy.highest:
         printp("This wheel depends on unsupported ISA extensions.")
         if args.verbose < 1:
             return 0
@@ -98,9 +92,9 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             f"system-provided shared libraries: {', '.join(libs_with_versions)}"
         )
 
-    if wheel_policy.get_priority_by_name(winfo.sym_tag) < wheel_policy.priority_highest:
+    if winfo.sym_policy < wheel_policy.highest:
         printp(
-            f'This constrains the platform tag to "{winfo.sym_tag}". '
+            f'This constrains the platform tag to "{winfo.sym_policy.name}". '
             "In order to achieve a more compatible tag, you would "
             "need to recompile a new wheel from source on a system "
             "with earlier versions of these libraries, such as "
@@ -109,29 +103,27 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         if args.verbose < 1:
             return 0
 
-    libs = winfo.external_refs[
-        wheel_policy.get_policy_name(wheel_policy.priority_lowest)
-    ]["libs"]
+    libs = winfo.external_refs[wheel_policy.lowest.name].libs
     if len(libs) == 0:
         printp("The wheel requires no external shared libraries! :)")
     else:
         printp("The following external shared libraries are required by the wheel:")
         print(json.dumps(dict(sorted(libs.items()))))
 
-    for p in sorted(wheel_policy.policies, key=lambda p: p["priority"]):
-        if p["priority"] > wheel_policy.get_priority_by_name(winfo.overall_tag):
-            libs = winfo.external_refs[p["name"]]["libs"]
+    for p in wheel_policy.policies:
+        if p > winfo.overall_policy:
+            libs = winfo.external_refs[p.name].libs
             if len(libs):
                 printp(
-                    f'In order to achieve the tag platform tag "{p["name"]}" '
+                    f"In order to achieve the tag platform tag {p.name!r} "
                     "the following shared library dependencies "
                     "will need to be eliminated:"
                 )
                 printp(", ".join(sorted(libs.keys())))
-            blacklist = winfo.external_refs[p["name"]]["blacklist"]
+            blacklist = winfo.external_refs[p.name].blacklist
             if len(blacklist):
                 printp(
-                    f'In order to achieve the tag platform tag "{p["name"]}" '
+                    f"In order to achieve the tag platform tag {p.name!r} "
                     "the following black-listed symbol dependencies "
                     "will need to be eliminated:"
                 )

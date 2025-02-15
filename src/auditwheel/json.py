@@ -8,7 +8,9 @@ from typing import Any
 
 def _encode_value(value: Any) -> Any:
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return dataclasses.asdict(value)
+        as_dict = dataclasses.asdict(value)
+        as_dict.pop("policy", None)  # don't dump full policy in logs
+        return as_dict
     if isinstance(value, frozenset):
         return sorted(value)
     if isinstance(value, Enum):

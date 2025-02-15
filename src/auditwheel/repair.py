@@ -44,8 +44,8 @@ def repair_wheel(
     exclude: frozenset[str],
     strip: bool = False,
 ) -> str | None:
-    external_refs_by_fn = get_wheel_elfdata(wheel_policy, wheel_path, exclude)[1]
-
+    elf_data = get_wheel_elfdata(wheel_policy, wheel_path, exclude)
+    external_refs_by_fn = elf_data.full_external_refs
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:
         return None
@@ -69,7 +69,7 @@ def repair_wheel(
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
         for fn, v in external_refs_by_fn.items():
-            ext_libs: dict[str, str | None] = v[abis[0]]["libs"]
+            ext_libs = v[abis[0]].libs
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
                 assert not any(fnmatch(soname, e) for e in exclude)

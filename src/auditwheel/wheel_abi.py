@@ -22,22 +22,31 @@ from .elfutils import (
 )
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import DynamicExecutable, ldd
-from .policy import WheelPolicies
+from .policy import ExternalReference, Policy, WheelPolicies
 
 log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class WheelAbIInfo:
-    overall_tag: str
-    external_refs: dict[str, Any]
-    ref_tag: str
+    overall_policy: Policy
+    external_refs: dict[str, ExternalReference]
+    ref_policy: Policy
     versioned_symbols: dict[str, set[str]]
-    sym_tag: str
-    ucs_tag: str
-    pyfpe_tag: str
-    blacklist_tag: str
-    machine_tag: str
+    sym_policy: Policy
+    ucs_policy: Policy
+    pyfpe_policy: Policy
+    blacklist_policy: Policy
+    machine_policy: Policy
+
+
+@dataclass(frozen=True)
+class WheelElfData:
+    full_elftree: dict[str, DynamicExecutable]
+    full_external_refs: dict[str, dict[str, ExternalReference]]
+    versioned_symbols: dict[str, set[str]]
+    uses_ucs2_symbols: bool
+    uses_PyFPE_jbuf: bool
 
 
 class WheelAbiError(Exception):
@@ -71,9 +80,9 @@ class NonPlatformWheel(WheelAbiError):
 
 
 @functools.lru_cache
-def get_wheel_elfdata(  # type: ignore[no-untyped-def]
+def get_wheel_elfdata(
     wheel_policy: WheelPolicies, wheel_fn: str, exclude: frozenset[str]
-):
+) -> WheelElfData:
     full_elftree = {}
     nonpy_elftree = {}
     full_external_refs = {}
@@ -183,7 +192,7 @@ def get_wheel_elfdata(  # type: ignore[no-untyped-def]
         "full_external_refs (will be repaired):\n%s", json.dumps(full_external_refs)
     )
 
-    return (
+    return WheelElfData(
         full_elftree,
         full_external_refs,
         versioned_symbols,
@@ -192,7 +201,7 @@ def get_wheel_elfdata(  # type: ignore[no-untyped-def]
     )
 
 
-def get_external_libs(external_refs: dict[str, dict[str, Any]]) -> dict[str, str]:
+def get_external_libs(external_refs: dict[str, ExternalReference]) -> dict[str, str]:
     """Get external library dependencies for all policies excluding the default
     linux policy
     :param external_refs: external references for all policies
@@ -200,12 +209,12 @@ def get_external_libs(external_refs: dict[str, dict[str, Any]]) -> dict[str, str
     {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
     """
     result: dict[str, str] = {}
-    for policy in external_refs.values():
+    for external_ref in external_refs.values():
         # linux tag (priority 0) has no white-list, do not analyze it
-        if policy["priority"] == 0:
+        if external_ref.policy.priority == 0:
             continue
         # go through all libs, retrieving their soname and realpath
-        for libname, realpath in policy["libs"].items():
+        for libname, realpath in external_ref.libs.items():
             if realpath and realpath not in result:
                 result[realpath] = libname
     return result
@@ -234,24 +243,24 @@ def get_symbol_policies(
     wheel_policy: WheelPolicies,
     versioned_symbols: dict[str, set[str]],
     external_versioned_symbols: dict[str, dict[str, set[str]]],
-    external_refs: dict[str, dict[str, Any]],
-) -> list[tuple[int, dict[str, set[str]]]]:
+    external_refs: dict[str, ExternalReference],
+) -> list[tuple[Policy, dict[str, set[str]]]]:
     """Get symbol policies
     Since white-list is different per policy, this function inspects
     versioned_symbol per policy when including external refs
     :param versioned_symbols: versioned symbols for the current wheel
     :param external_versioned_symbols: versioned symbols for external libs
     :param external_refs: external references for all policies
-    :return: list of tuples of the form (policy_priority, versioned_symbols),
-    e.g. [(100, {'libc.so.6', set(['GLIBC_2.5'])})]
+    :return: list of tuples of the form (policy, versioned_symbols),
+    e.g. [(<Policy: manylinux...>, {'libc.so.6', set(['GLIBC_2.5'])})]
     """
     result = []
-    for policy in external_refs.values():
+    for external_ref in external_refs.values():
         # skip the linux policy
-        if policy["priority"] == 0:
+        if external_ref.policy.priority == 0:
             continue
         policy_symbols = deepcopy(versioned_symbols)
-        for soname in policy["libs"]:
+        for soname in external_ref.libs:
             if soname not in external_versioned_symbols:
                 continue
             ext_symbols = external_versioned_symbols[soname]
@@ -267,8 +276,8 @@ def _get_machine_policy(
     wheel_policy: WheelPolicies,
     elftree_by_fn: dict[str, DynamicExecutable],
     external_so_names: frozenset[str],
-) -> int:
-    result = wheel_policy.priority_highest
+) -> Policy:
+    result = wheel_policy.highest
     machine_to_check = {}
     for fn, dynamic_executable in elftree_by_fn.items():
         if fn in machine_to_check:
@@ -297,7 +306,7 @@ def _get_machine_policy(
             extended_architecture.value,
             wheel_policy.architecture.value,
         )
-        result = wheel_policy.priority_lowest
+        result = wheel_policy.lowest
 
     return result
 
@@ -308,18 +317,16 @@ def analyze_wheel_abi(
     exclude: frozenset[str],
     disable_isa_ext_check: bool,
 ) -> WheelAbIInfo:
-    external_refs = {
-        p["name"]: {"libs": {}, "blacklist": {}, "priority": p["priority"]}
-        for p in wheel_policy.policies
+    external_refs: dict[str, ExternalReference] = {
+        p.name: ExternalReference({}, {}, p) for p in wheel_policy.policies
     }
 
-    (
-        elftree_by_fn,
-        external_refs_by_fn,
-        versioned_symbols,
-        has_ucs2,
-        uses_PyFPE_jbuf,
-    ) = get_wheel_elfdata(wheel_policy, wheel_fn, exclude)
+    elf_data = get_wheel_elfdata(wheel_policy, wheel_fn, exclude)
+    elftree_by_fn = elf_data.full_elftree
+    external_refs_by_fn = elf_data.full_external_refs
+    versioned_symbols = elf_data.versioned_symbols
+    has_ucs2 = elf_data.uses_ucs2_symbols
+    uses_PyFPE_jbuf = elf_data.uses_PyFPE_jbuf
 
     for fn in elftree_by_fn:
         update(external_refs, external_refs_by_fn[fn])
@@ -341,76 +348,65 @@ def analyze_wheel_abi(
     )
 
     ref_policy = max(
-        (e["priority"] for e in external_refs.values() if len(e["libs"]) == 0),
-        default=wheel_policy.priority_lowest,
+        (e.policy for e in external_refs.values() if len(e.libs) == 0),
+        default=wheel_policy.lowest,
     )
 
     blacklist_policy = max(
-        (e["priority"] for e in external_refs.values() if len(e["blacklist"]) == 0),
-        default=wheel_policy.priority_lowest,
+        (e.policy for e in external_refs.values() if len(e.blacklist) == 0),
+        default=wheel_policy.lowest,
     )
 
     if disable_isa_ext_check:
-        machine_policy = wheel_policy.priority_highest
+        machine_policy = wheel_policy.highest
     else:
         machine_policy = _get_machine_policy(
             wheel_policy, elftree_by_fn, frozenset(external_libs.values())
         )
 
-    if has_ucs2:
-        ucs_policy = wheel_policy.priority_lowest
-    else:
-        ucs_policy = wheel_policy.priority_highest
+    ucs_policy = wheel_policy.lowest if has_ucs2 else wheel_policy.highest
+    pyfpe_policy = wheel_policy.lowest if uses_PyFPE_jbuf else wheel_policy.highest
 
-    if uses_PyFPE_jbuf:
-        pyfpe_policy = wheel_policy.priority_lowest
-    else:
-        pyfpe_policy = wheel_policy.priority_highest
-
-    ref_tag = wheel_policy.get_policy_name(ref_policy)
-    sym_tag = wheel_policy.get_policy_name(symbol_policy)
-    ucs_tag = wheel_policy.get_policy_name(ucs_policy)
-    pyfpe_tag = wheel_policy.get_policy_name(pyfpe_policy)
-    blacklist_tag = wheel_policy.get_policy_name(blacklist_policy)
-    machine_tag = wheel_policy.get_policy_name(machine_policy)
-    overall_tag = wheel_policy.get_policy_name(
-        min(
-            symbol_policy,
-            ref_policy,
-            ucs_policy,
-            pyfpe_policy,
-            blacklist_policy,
-            machine_policy,
-        )
+    overall_policy = min(
+        symbol_policy,
+        ref_policy,
+        ucs_policy,
+        pyfpe_policy,
+        blacklist_policy,
+        machine_policy,
     )
 
     return WheelAbIInfo(
-        overall_tag,
+        overall_policy,
         external_refs,
-        ref_tag,
+        ref_policy,
         versioned_symbols,
-        sym_tag,
-        ucs_tag,
-        pyfpe_tag,
-        blacklist_tag,
-        machine_tag,
+        symbol_policy,
+        ucs_policy,
+        pyfpe_policy,
+        blacklist_policy,
+        machine_policy,
     )
 
 
-def update(d: dict[str, Any], u: Mapping[str, Any]) -> dict[str, Any]:
+def update(d: dict[str, Any], u: Mapping[str, Any]) -> None:
     for k, v in u.items():
-        if k == "blacklist":
-            for lib, symbols in v.items():
-                if lib not in d[k]:
-                    d[k][lib] = list(symbols)
+        if isinstance(v, ExternalReference):
+            assert k in d
+            assert isinstance(d[k], ExternalReference)
+            assert d[k].policy == v.policy
+            # update blacklist
+            for lib, symbols in v.blacklist.items():
+                if lib not in d[k].blacklist:
+                    d[k].blacklist[lib] = sorted(symbols)
                 else:
-                    d[k][lib] = sorted(set(d[k][lib]) | set(symbols))
-        elif isinstance(v, Mapping):
-            r = update(d.get(k, {}), v)
-            d[k] = r
+                    d[k].blacklist[lib] = sorted(
+                        set(d[k].blacklist[lib]) | set(symbols)
+                    )
+            # libs
+            update(d[k].libs, v.libs)
         elif isinstance(v, (str, int, float, type(None))):
             d[k] = u[k]
         else:
             msg = f"can't update {d} {k}"
             raise RuntimeError(msg)
-    return d

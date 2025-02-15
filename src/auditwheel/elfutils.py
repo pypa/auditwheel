@@ -151,14 +151,14 @@ def get_undefined_symbols(path: str) -> set[str]:
 
 
 def filter_undefined_symbols(
-    path: str, symbols: dict[str, list[str]]
+    path: str, symbols: dict[str, frozenset[str]]
 ) -> dict[str, list[str]]:
     if not symbols:
         return {}
     undef_symbols = set("*") | get_undefined_symbols(path)
     result = {}
     for lib, sym_list in symbols.items():
-        intersection = set(sym_list) & undef_symbols
+        intersection = sym_list & undef_symbols
         if intersection:
             result[lib] = sorted(intersection)
     return result

@@ -10,6 +10,7 @@ from auditwheel.error import InvalidLibc
 from auditwheel.lddtree import DynamicExecutable, DynamicLibrary, Platform
 from auditwheel.libc import Libc
 from auditwheel.policy import (
+    Policy,
     WheelPolicies,
     _validate_pep600_compliance,
     get_libc,
@@ -136,57 +137,31 @@ def test_pep600_compliance():
 
 
 class TestPolicyAccess:
-    def test_get_by_priority(self):
-        arch = Architecture.get_native_architecture()
-        wheel_policy = WheelPolicies()
-        assert wheel_policy.get_policy_name(65) == f"manylinux_2_27_{arch}"
-        assert wheel_policy.get_policy_name(70) == f"manylinux_2_24_{arch}"
-        assert wheel_policy.get_policy_name(80) == f"manylinux_2_17_{arch}"
-        if arch in {Architecture.x86_64, Architecture.i686}:
-            assert wheel_policy.get_policy_name(90) == f"manylinux_2_12_{arch}"
-            assert wheel_policy.get_policy_name(100) == f"manylinux_2_5_{arch}"
-        assert wheel_policy.get_policy_name(0) == f"linux_{arch}"
-
-    def test_get_by_priority_missing(self):
-        wheel_policy = WheelPolicies()
-        with pytest.raises(LookupError):
-            wheel_policy.get_policy_name(101)
-
-    def test_get_by_priority_duplicate(self):
-        wheel_policy = WheelPolicies()
-        wheel_policy._policies = [
-            {"name": "duplicate", "priority": 0},
-            {"name": "duplicate", "priority": 0},
-        ]
-        with pytest.raises(RuntimeError):
-            wheel_policy.get_policy_name(0)
-
     def test_get_by_name(self):
         arch = Architecture.get_native_architecture()
-        wheel_policy = WheelPolicies()
-        assert wheel_policy.get_priority_by_name(f"manylinux_2_27_{arch}") == 65
-        assert wheel_policy.get_priority_by_name(f"manylinux_2_24_{arch}") == 70
-        assert wheel_policy.get_priority_by_name(f"manylinux2014_{arch}") == 80
-        assert wheel_policy.get_priority_by_name(f"manylinux_2_17_{arch}") == 80
-        if arch in {Architecture.x86_64, Architecture.i686}:
-            assert wheel_policy.get_priority_by_name(f"manylinux2010_{arch}") == 90
-            assert wheel_policy.get_priority_by_name(f"manylinux_2_12_{arch}") == 90
-            assert wheel_policy.get_priority_by_name(f"manylinux1_{arch}") == 100
-            assert wheel_policy.get_priority_by_name(f"manylinux_2_5_{arch}") == 100
+        wheel_policy = WheelPolicies(libc=Libc.GLIBC, arch=arch)
+        assert wheel_policy.get_policy_by_name(f"manylinux_2_27_{arch}").priority == 65
+        assert wheel_policy.get_policy_by_name(f"manylinux_2_24_{arch}").priority == 70
+        assert wheel_policy.get_policy_by_name(f"manylinux2014_{arch}").priority == 80
+        assert wheel_policy.get_policy_by_name(f"manylinux_2_17_{arch}").priority == 80
+        if arch not in {Architecture.x86_64, Architecture.i686}:
+            return
+        assert wheel_policy.get_policy_by_name(f"manylinux2010_{arch}").priority == 90
+        assert wheel_policy.get_policy_by_name(f"manylinux_2_12_{arch}").priority == 90
+        assert wheel_policy.get_policy_by_name(f"manylinux1_{arch}").priority == 100
+        assert wheel_policy.get_policy_by_name(f"manylinux_2_5_{arch}").priority == 100
 
     def test_get_by_name_missing(self):
         wheel_policy = WheelPolicies()
         with pytest.raises(LookupError):
-            wheel_policy.get_priority_by_name("nosuchpolicy")
+            wheel_policy.get_policy_by_name("nosuchpolicy")
 
     def test_get_by_name_duplicate(self):
         wheel_policy = WheelPolicies()
-        wheel_policy._policies = [
-            {"name": "duplicate", "priority": 0},
-            {"name": "duplicate", "priority": 0},
-        ]
+        policy = Policy("duplicate", (), 0, {}, frozenset(), {})
+        wheel_policy._policies = [policy, policy]
         with pytest.raises(RuntimeError):
-            wheel_policy.get_priority_by_name("duplicate")
+            wheel_policy.get_policy_by_name("duplicate")
 
 
 class TestLddTreeExternalReferences:
@@ -227,7 +202,7 @@ class TestLddTreeExternalReferences:
 
         # Assert that each policy only has the unfiltered libs.
         for policy in full_external_refs:
-            assert set(full_external_refs[policy]["libs"]) == set(unfiltered_libs)
+            assert set(full_external_refs[policy].libs) == set(unfiltered_libs)
 
 
 @pytest.mark.parametrize(
