@@ -70,9 +70,9 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
 
         wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
         winfo = analyze_wheel_abi(wheel_policies, str(HERE / file), exclude, False)
-        assert (
-            set(winfo.external_refs["manylinux_2_5_x86_64"]["libs"]) == external_libs
-        ), f"{HERE}, {exclude}, {os.environ}"
+        assert set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs, (
+            f"{HERE}, {exclude}, {os.environ}"
+        )
 
     if modify_ld_library_path:
         importlib.reload(lddtree)
@@ -87,10 +87,10 @@ def test_analyze_wheel_abi_pyfpe():
         False,
     )
     assert (
-        winfo.sym_tag == "manylinux_2_5_x86_64"
+        winfo.sym_policy.name == "manylinux_2_5_x86_64"
     )  # for external symbols, it could get manylinux1
     assert (
-        winfo.pyfpe_tag == "linux_x86_64"
+        winfo.pyfpe_policy.name == "linux_x86_64"
     )  # but for having the pyfpe reference, it gets just linux
 
 
