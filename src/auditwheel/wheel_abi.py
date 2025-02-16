@@ -3,13 +3,12 @@ from __future__ import annotations
 import functools
 import itertools
 import logging
-import os
 from collections import defaultdict
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
-from os.path import basename
-from typing import Any
+from pathlib import Path
+from typing import Optional, TypeVar
 
 from . import json
 from .architecture import Architecture
@@ -42,8 +41,8 @@ class WheelAbIInfo:
 
 @dataclass(frozen=True)
 class WheelElfData:
-    full_elftree: dict[str, DynamicExecutable]
-    full_external_refs: dict[str, dict[str, ExternalReference]]
+    full_elftree: dict[Path, DynamicExecutable]
+    full_external_refs: dict[Path, dict[str, ExternalReference]]
     versioned_symbols: dict[str, set[str]]
     uses_ucs2_symbols: bool
     uses_PyFPE_jbuf: bool
@@ -81,7 +80,7 @@ class NonPlatformWheel(WheelAbiError):
 
 @functools.lru_cache
 def get_wheel_elfdata(
-    wheel_policy: WheelPolicies, wheel_fn: str, exclude: frozenset[str]
+    wheel_policy: WheelPolicies, wheel_fn: Path, exclude: frozenset[str]
 ) -> WheelElfData:
     full_elftree = {}
     nonpy_elftree = {}
@@ -98,12 +97,11 @@ def get_wheel_elfdata(
         for fn, elf in elf_file_filter(ctx.iter_files()):
             # Check for invalid binary wheel format: no shared library should
             # be found in purelib
-            so_path_split = fn.split(os.sep)
-            so_name = so_path_split[-1]
+            so_name = fn.name
 
             # If this is in purelib, add it to the list of shared libraries in
             # purelib
-            if "purelib" in so_path_split:
+            if any(p.name == "purelib" for p in fn.parents):
                 shared_libraries_in_purelib.append(so_name)
 
             # If at least one shared library exists in purelib, this is going
@@ -177,7 +175,7 @@ def get_wheel_elfdata(
             # If a non-pyextension ELF file is not needed by something else
             # inside the wheel, then it was not checked by the logic above and
             # we should walk its elftree.
-            if basename(fn) not in needed_libs:
+            if fn.name not in needed_libs:
                 full_elftree[fn] = elf_tree
 
             # Even if a non-pyextension ELF file is not needed, we
@@ -201,14 +199,14 @@ def get_wheel_elfdata(
     )
 
 
-def get_external_libs(external_refs: dict[str, ExternalReference]) -> dict[str, str]:
+def get_external_libs(external_refs: dict[str, ExternalReference]) -> dict[Path, str]:
     """Get external library dependencies for all policies excluding the default
     linux policy
     :param external_refs: external references for all policies
     :return: {realpath: soname} e.g.
     {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
     """
-    result: dict[str, str] = {}
+    result: dict[Path, str] = {}
     for external_ref in external_refs.values():
         # linux tag (priority 0) has no white-list, do not analyze it
         if external_ref.policy.priority == 0:
@@ -216,11 +214,11 @@ def get_external_libs(external_refs: dict[str, ExternalReference]) -> dict[str, 
         # go through all libs, retrieving their soname and realpath
         for libname, realpath in external_ref.libs.items():
             if realpath and realpath not in result:
-                result[realpath] = libname
+                result[Path(realpath)] = libname
     return result
 
 
-def get_versioned_symbols(libs: dict[str, str]) -> dict[str, dict[str, set[str]]]:
+def get_versioned_symbols(libs: dict[Path, str]) -> dict[str, dict[str, set[str]]]:
     """Get versioned symbols used in libraries
     :param libs: {realpath: soname} dict to search for versioned symbols e.g.
     {'/path/to/external_ref.so.1.2.3': 'external_ref.so.1'}
@@ -274,7 +272,7 @@ def get_symbol_policies(
 
 def _get_machine_policy(
     wheel_policy: WheelPolicies,
-    elftree_by_fn: dict[str, DynamicExecutable],
+    elftree_by_fn: dict[Path, DynamicExecutable],
     external_so_names: frozenset[str],
 ) -> Policy:
     result = wheel_policy.highest
@@ -313,7 +311,7 @@ def _get_machine_policy(
 
 def analyze_wheel_abi(
     wheel_policy: WheelPolicies,
-    wheel_fn: str,
+    wheel_fn: Path,
     exclude: frozenset[str],
     disable_isa_ext_check: bool,
 ) -> WheelAbIInfo:
@@ -389,7 +387,10 @@ def analyze_wheel_abi(
     )
 
 
-def update(d: dict[str, Any], u: Mapping[str, Any]) -> None:
+_T = TypeVar("_T", ExternalReference, Optional[Path])
+
+
+def update(d: dict[str, _T], u: Mapping[str, _T]) -> None:
     for k, v in u.items():
         if isinstance(v, ExternalReference):
             assert k in d
@@ -405,8 +406,8 @@ def update(d: dict[str, Any], u: Mapping[str, Any]) -> None:
                     )
             # libs
             update(d[k].libs, v.libs)
-        elif isinstance(v, (str, int, float, type(None))):
+        elif isinstance(v, (Path, type(None))):
             d[k] = u[k]
         else:
-            msg = f"can't update {d} {k}"
+            msg = f"can't update {d} with {k}:{v}"
             raise RuntimeError(msg)

@@ -45,7 +45,7 @@ class Policy:
 
 @dataclass()
 class ExternalReference:
-    libs: dict[str, str | None]
+    libs: dict[str, Path | None]
     blacklist: dict[str, list[str]]
     policy: Policy
 
@@ -177,7 +177,7 @@ class WheelPolicies:
         raise RuntimeError(msg)
 
     def lddtree_external_references(
-        self, lddtree: DynamicExecutable, wheel_path: str
+        self, lddtree: DynamicExecutable, wheel_path: Path
     ) -> dict[str, ExternalReference]:
         def filter_libs(
             libs: frozenset[str], whitelist: frozenset[str]
@@ -229,7 +229,7 @@ class WheelPolicies:
                     set(filter_libs(lddtree.needed, whitelist)), whitelist
                 )
 
-            pol_ext_deps = {}
+            pol_ext_deps: dict[str, Path | None] = {}
             for lib in needed_external_libs:
                 if is_subdir(lddtree.libraries[lib].realpath, wheel_path):
                     # we didn't filter libs that resolved via RPATH out

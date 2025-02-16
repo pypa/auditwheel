@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from pathlib import Path
 
 from auditwheel.policy import WheelPolicies
 
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 def configure_parser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
     help = "Audit a wheel for external shared library dependencies."
     p = sub_parsers.add_parser("show", help=help, description=help)
-    p.add_argument("WHEEL_FILE", help="Path to wheel file.")
+    p.add_argument("WHEEL_FILE", type=Path, help="Path to wheel file.")
     p.add_argument(
         "--disable-isa-ext-check",
         dest="DISABLE_ISA_EXT_CHECK",
@@ -30,21 +31,19 @@ def printp(text: str) -> None:
 
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    from os.path import basename, isfile
-
     from . import json
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
     wheel_policy = WheelPolicies()
+    wheel_file: Path = args.WHEEL_FILE
+    fn = wheel_file.name
 
-    fn = basename(args.WHEEL_FILE)
-
-    if not isfile(args.WHEEL_FILE):
-        parser.error(f"cannot access {args.WHEEL_FILE}. No such file")
+    if not wheel_file.is_file():
+        parser.error(f"cannot access {wheel_file}. No such file")
 
     try:
         winfo = analyze_wheel_abi(
-            wheel_policy, args.WHEEL_FILE, frozenset(), args.DISABLE_ISA_EXT_CHECK
+            wheel_policy, wheel_file, frozenset(), args.DISABLE_ISA_EXT_CHECK
         )
     except NonPlatformWheel as e:
         logger.info(e.message)

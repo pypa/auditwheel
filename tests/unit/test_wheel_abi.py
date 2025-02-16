@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 import pretend
 import pytest
@@ -15,21 +15,23 @@ class TestGetWheelElfdata:
         [
             (
                 # A single invalid file
-                [os.sep.join(["purelib", "foo"])],
+                [Path("purelib") / "foo"],
                 "Invalid binary wheel, found the following shared library/libraries in"
                 " purelib folder:\n\tfoo\nThe wheel has to be platlib compliant in "
                 "order to be repaired by auditwheel.",
             ),
             (
                 # Multiple invalid files
-                [os.sep.join(["purelib", "foo"]), os.sep.join(["purelib", "bar"])],
+                [Path("purelib") / "foo", Path("purelib") / "bar"],
                 "Invalid binary wheel, found the following shared library/libraries in"
                 " purelib folder:\n\tfoo\n\tbar\nThe wheel has to be platlib compliant"
                 " in order to be repaired by auditwheel.",
             ),
         ],
     )
-    def test_finds_shared_library_in_purelib(self, filenames, message, monkeypatch):
+    def test_finds_shared_library_in_purelib(
+        self, filenames: list[Path], message: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         entered_context = pretend.stub(iter_files=lambda: filenames)
         context = pretend.stub(
             __enter__=lambda: entered_context, __exit__=lambda *_: None
@@ -48,6 +50,6 @@ class TestGetWheelElfdata:
         wheel_policy = WheelPolicies()
 
         with pytest.raises(RuntimeError) as exec_info:
-            wheel_abi.get_wheel_elfdata(wheel_policy, "/fakepath", frozenset())
+            wheel_abi.get_wheel_elfdata(wheel_policy, Path("/fakepath"), frozenset())
 
         assert exec_info.value.args == (message,)
