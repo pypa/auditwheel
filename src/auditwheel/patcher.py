@@ -2,21 +2,22 @@ from __future__ import annotations
 
 import re
 from itertools import chain
+from pathlib import Path
 from shutil import which
 from subprocess import CalledProcessError, check_call, check_output
 
 
 class ElfPatcher:
-    def replace_needed(self, file_name: str, *old_new_pairs: tuple[str, str]) -> None:
+    def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
         raise NotImplementedError()
 
-    def set_soname(self, file_name: str, new_so_name: str) -> None:
+    def set_soname(self, file_name: Path, new_so_name: str) -> None:
         raise NotImplementedError()
 
-    def set_rpath(self, file_name: str, rpath: str) -> None:
+    def set_rpath(self, file_name: Path, rpath: str) -> None:
         raise NotImplementedError()
 
-    def get_rpath(self, file_name: str) -> str:
+    def get_rpath(self, file_name: Path) -> str:
         raise NotImplementedError()
 
 
@@ -45,7 +46,7 @@ class Patchelf(ElfPatcher):
     def __init__(self) -> None:
         _verify_patchelf()
 
-    def replace_needed(self, file_name: str, *old_new_pairs: tuple[str, str]) -> None:
+    def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
         check_call(
             [
                 "patchelf",
@@ -56,14 +57,14 @@ class Patchelf(ElfPatcher):
             ]
         )
 
-    def set_soname(self, file_name: str, new_so_name: str) -> None:
+    def set_soname(self, file_name: Path, new_so_name: str) -> None:
         check_call(["patchelf", "--set-soname", new_so_name, file_name])
 
-    def set_rpath(self, file_name: str, rpath: str) -> None:
+    def set_rpath(self, file_name: Path, rpath: str) -> None:
         check_call(["patchelf", "--remove-rpath", file_name])
         check_call(["patchelf", "--force-rpath", "--set-rpath", rpath, file_name])
 
-    def get_rpath(self, file_name: str) -> str:
+    def get_rpath(self, file_name: Path) -> str:
         return (
             check_output(["patchelf", "--print-rpath", file_name])
             .decode("utf-8")

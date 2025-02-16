@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from contextlib import nullcontext as does_not_raise
+from pathlib import Path
 
 import pytest
 
@@ -183,13 +184,13 @@ class TestLddTreeExternalReferences:
         lddtree = DynamicExecutable(
             interpreter=None,
             path="/path/to/lib",
-            realpath="/path/to/lib",
+            realpath=Path("/path/to/lib"),
             platform=Platform(
                 "", 64, True, "EM_X86_64", Architecture.x86_64, None, None
             ),
             needed=frozenset(libs),
             libraries={
-                lib: DynamicLibrary(lib, f"/path/to/{lib}", f"/path/to/{lib}")
+                lib: DynamicLibrary(lib, f"/path/to/{lib}", Path(f"/path/to/{lib}"))
                 for lib in libs
             },
             rpath=(),
@@ -197,7 +198,7 @@ class TestLddTreeExternalReferences:
         )
         wheel_policy = WheelPolicies()
         full_external_refs = wheel_policy.lddtree_external_references(
-            lddtree, "/path/to/wheel"
+            lddtree, Path("/path/to/wheel")
         )
 
         # Assert that each policy only has the unfiltered libs.

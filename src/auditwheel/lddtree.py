@@ -72,7 +72,7 @@ class Platform:
 class DynamicLibrary:
     soname: str
     path: str | None
-    realpath: str | None
+    realpath: Path | None
     platform: Platform | None = None
     needed: frozenset[str] = frozenset()
 
@@ -81,7 +81,7 @@ class DynamicLibrary:
 class DynamicExecutable:
     interpreter: str | None
     path: str
-    realpath: str
+    realpath: Path
     platform: Platform
     needed: frozenset[str]
     rpath: tuple[str, ...]
@@ -354,7 +354,7 @@ def load_ld_paths(root: str = "/", prefix: str = "") -> dict[str, list[str]]:
 
 def find_lib(
     platform: Platform, lib: str, ldpaths: list[str], root: str = "/"
-) -> tuple[str | None, str | None]:
+) -> tuple[Path | None, str | None]:
     """Try to locate a ``lib`` that is compatible to ``elf`` in the given
     ``ldpaths``
 
@@ -376,9 +376,9 @@ def find_lib(
 
     for ldpath in ldpaths:
         path = os.path.join(ldpath, lib)
-        target = readlink(path, root, prefixed=True)
+        target = Path(readlink(path, root, prefixed=True))
 
-        if os.path.exists(target):
+        if target.exists():
             with open(target, "rb") as f:
                 libelf = ELFFile(f)
                 if platform.is_compatible(_get_platform(libelf)):
@@ -388,7 +388,7 @@ def find_lib(
 
 
 def ldd(
-    path: str,
+    path: Path,
     root: str = "/",
     prefix: str = "",
     ldpaths: dict[str, list[str]] | None = None,
@@ -481,9 +481,9 @@ def ldd(
 
             for t in segment.iter_tags():
                 if t.entry.d_tag == "DT_RPATH":
-                    rpaths = parse_ld_paths(t.rpath, path=path, root=root)
+                    rpaths = parse_ld_paths(t.rpath, path=str(path), root=root)
                 elif t.entry.d_tag == "DT_RUNPATH":
-                    runpaths = parse_ld_paths(t.runpath, path=path, root=root)
+                    runpaths = parse_ld_paths(t.runpath, path=str(path), root=root)
                 elif t.entry.d_tag == "DT_NEEDED":
                     needed.add(t.needed)
             if runpaths:
@@ -525,7 +525,7 @@ def ldd(
             _excluded_libs.add(soname)
             continue
         realpath, fullpath = find_lib(platform, soname, all_ldpaths, root)
-        if realpath is not None and any(fnmatch(realpath, e) for e in exclude):
+        if realpath is not None and any(fnmatch(str(realpath), e) for e in exclude):
             log.info("Excluding %s", realpath)
             _excluded_libs.add(soname)
             continue
@@ -544,12 +544,15 @@ def ldd(
     if interpreter is not None:
         soname = os.path.basename(interpreter)
         _all_libs[soname] = DynamicLibrary(
-            soname, interpreter, readlink(interpreter, root, prefixed=True), platform
+            soname,
+            interpreter,
+            Path(readlink(interpreter, root, prefixed=True)),
+            platform,
         )
 
     return DynamicExecutable(
         interpreter,
-        path if display is None else display,
+        str(path) if display is None else display,
         path,
         platform,
         frozenset(needed - _excluded_libs),

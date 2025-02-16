@@ -6,6 +6,7 @@ import subprocess
 import zipfile
 from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, TypeVar
 
 _T = TypeVar("_T")
@@ -31,25 +32,26 @@ def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
     return uniques
 
 
-def walk(topdir: str) -> Generator[tuple[str, list[str], list[str]]]:
+def walk(topdir: Path) -> Generator[tuple[Path, list[str], list[str]]]:
     """Wrapper for `os.walk` with outputs in reproducible order
 
     Parameters
     ----------
-    topdir : str
+    topdir : Path
         Root of the directory tree
 
     Yields
     ------
-    dirpath : str
+    dirpath : Path
         Path to a directory
     dirnames : list[str]
         List of subdirectory names in `dirpath`
     filenames : list[str]
         List of non-directory file names in `dirpath`
     """
-    topdir = os.path.normpath(topdir)
-    for dirpath, dirnames, filenames in os.walk(topdir):
+    topdir = topdir.resolve(strict=True)
+    for dirpath_, dirnames, filenames in os.walk(topdir):
+        dirpath = Path(dirpath_)
         # sort list of dirnames in-place such that `os.walk`
         # will recurse into subdirectories in reproducible order
         dirnames.sort()
@@ -69,8 +71,8 @@ def walk(topdir: str) -> Generator[tuple[str, list[str], list[str]]]:
         filenames.sort()
         # list any dist-info/RECORD file last
         if (
-            dirpath.endswith(".dist-info")
-            and os.path.dirname(dirpath) == topdir
+            dirpath.name.endswith(".dist-info")
+            and dirpath.parent == topdir
             and "RECORD" in filenames
         ):
             filenames.remove("RECORD")
@@ -78,7 +80,7 @@ def walk(topdir: str) -> Generator[tuple[str, list[str], list[str]]]:
         yield dirpath, dirnames, filenames
 
 
-def zip2dir(zip_fname: str, out_dir: str) -> None:
+def zip2dir(zip_fname: Path, out_dir: Path) -> None:
     """Extract `zip_fname` into output directory `out_dir`
 
     Parameters
@@ -102,7 +104,7 @@ def zip2dir(zip_fname: str, out_dir: str) -> None:
                 os.chmod(extracted_path, attr)
 
 
-def dir2zip(in_dir: str, zip_fname: str, date_time: datetime | None = None) -> None:
+def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) -> None:
     """Make a zip file `zip_fname` with contents of directory `in_dir`
 
     The recorded filenames are relative to `in_dir`, so doing a standard zip
@@ -111,30 +113,29 @@ def dir2zip(in_dir: str, zip_fname: str, date_time: datetime | None = None) -> N
 
     Parameters
     ----------
-    in_dir : str
+    in_dir : Path
         Directory path containing files to go in the zip archive
-    zip_fname : str
+    zip_fname : Path
         Filename of zip archive to write
     date_time : Optional[datetime]
         Time stamp to set on each file in the archive
     """
-    in_dir = os.path.normpath(in_dir)
+    in_dir = in_dir.resolve(strict=True)
     if date_time is None:
-        st = os.stat(in_dir)
+        st = in_dir.stat()
         date_time = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
     date_time_args = date_time.timetuple()[:6]
     compression = zipfile.ZIP_DEFLATED
     with zipfile.ZipFile(zip_fname, "w", compression=compression) as z:
-        for root, _, files in walk(in_dir):
-            if root != in_dir:
-                dname = root
-                out_dname = os.path.relpath(dname, in_dir) + "/"
+        for dname, _, files in walk(in_dir):
+            if dname != in_dir:
+                out_dname = f"{dname.relative_to(in_dir)}/"
                 zinfo = zipfile.ZipInfo.from_file(dname, out_dname)
                 zinfo.date_time = date_time_args
                 z.writestr(zinfo, b"")
             for file in files:
-                fname = os.path.join(root, file)
-                out_fname = os.path.relpath(fname, in_dir)
+                fname = dname / file
+                out_fname = fname.relative_to(in_dir)
                 zinfo = zipfile.ZipInfo.from_file(fname, out_fname)
                 zinfo.date_time = date_time_args
                 zinfo.compress_type = compression
@@ -142,7 +143,7 @@ def dir2zip(in_dir: str, zip_fname: str, date_time: datetime | None = None) -> N
                     z.writestr(zinfo, fp.read())
 
 
-def tarbz2todir(tarbz2_fname: str, out_dir: str) -> None:
+def tarbz2todir(tarbz2_fname: Path, out_dir: Path) -> None:
     """Extract `tarbz2_fname` into output directory `out_dir`"""
     subprocess.check_output(["tar", "xjf", tarbz2_fname, "-C", out_dir])
 

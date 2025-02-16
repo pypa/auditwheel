@@ -9,8 +9,7 @@ import shutil
 import stat
 from collections.abc import Iterable
 from fnmatch import fnmatch
-from os.path import abspath, basename, dirname, exists, isabs
-from os.path import join as pjoin
+from os.path import isabs
 from pathlib import Path
 from subprocess import check_call
 
@@ -35,36 +34,36 @@ WHEEL_INFO_RE = re.compile(
 
 def repair_wheel(
     wheel_policy: WheelPolicies,
-    wheel_path: str,
+    wheel_path: Path,
     abis: list[str],
     lib_sdir: str,
-    out_dir: str,
+    out_dir: Path,
     update_tags: bool,
     patcher: ElfPatcher,
     exclude: frozenset[str],
     strip: bool = False,
-) -> str | None:
+) -> Path | None:
     elf_data = get_wheel_elfdata(wheel_policy, wheel_path, exclude)
     external_refs_by_fn = elf_data.full_external_refs
+
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:
         return None
 
-    soname_map: dict[str, tuple[str, str]] = {}
-    if not isabs(out_dir):
-        out_dir = abspath(out_dir)
+    soname_map: dict[str, tuple[str, Path]] = {}
 
-    wheel_fname = basename(wheel_path)
+    out_dir = out_dir.resolve(strict=True)
+    wheel_fname = wheel_path.name
 
     with InWheelCtx(wheel_path) as ctx:
-        ctx.out_wheel = pjoin(out_dir, wheel_fname)
+        ctx.out_wheel = out_dir / wheel_fname
 
         match = WHEEL_INFO_RE(wheel_fname)
         if not match:
             msg = f"Failed to parse wheel file name: {wheel_fname}"
             raise ValueError(msg)
 
-        dest_dir = match.group("name") + lib_sdir
+        dest_dir = Path(match.group("name") + lib_sdir)
 
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
@@ -81,8 +80,8 @@ def repair_wheel(
                     )
                     raise ValueError(msg)
 
-                if not exists(dest_dir):
-                    os.mkdir(dest_dir)
+                if not dest_dir.exists():
+                    dest_dir.mkdir()
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
@@ -94,7 +93,7 @@ def repair_wheel(
                 if _path_is_script(fn):
                     new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
 
-                new_rpath = os.path.relpath(dest_dir, os.path.dirname(new_fn))
+                new_rpath = os.path.relpath(dest_dir, new_fn.parent)
                 new_rpath = os.path.join("$ORIGIN", new_rpath)
                 append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
 
@@ -122,13 +121,13 @@ def repair_wheel(
     return ctx.out_wheel
 
 
-def strip_symbols(libraries: Iterable[str]) -> None:
+def strip_symbols(libraries: Iterable[Path]) -> None:
     for lib in libraries:
         logger.info("Stripping symbols from %s", lib)
         check_call(["strip", "-s", lib])
 
 
-def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str]:
+def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, Path]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
@@ -144,21 +143,21 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str
     with open(src_path, "rb") as f:
         shorthash = hashfile(f)[:8]
 
-    src_name = os.path.basename(src_path)
+    src_name = src_path.name
     base, ext = src_name.split(".", 1)
     if not base.endswith(f"-{shorthash}"):
         new_soname = f"{base}-{shorthash}.{ext}"
     else:
         new_soname = src_name
 
-    dest_path = os.path.join(dest_dir, new_soname)
-    if os.path.exists(dest_path):
+    dest_path = dest_dir / new_soname
+    if dest_path.exists():
         return new_soname, dest_path
 
     logger.debug("Grafting: %s -> %s", src_path, dest_path)
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
-    statinfo = os.stat(dest_path)
+    statinfo = dest_path.stat()
     if not statinfo.st_mode & stat.S_IWRITE:
         os.chmod(dest_path, statinfo.st_mode | stat.S_IWRITE)
 
@@ -171,7 +170,7 @@ def copylib(src_path: str, dest_dir: str, patcher: ElfPatcher) -> tuple[str, str
 
 
 def append_rpath_within_wheel(
-    lib_name: str, rpath: str, wheel_base_dir: str, patcher: ElfPatcher
+    lib_name: Path, rpath: str, wheel_base_dir: Path, patcher: ElfPatcher
 ) -> None:
     """Add a new rpath entry to a file while preserving as many existing
     rpath entries as possible.
@@ -181,11 +180,11 @@ def append_rpath_within_wheel(
     1) Point to a location within wheel_base_dir.
     2) Not be a duplicate of an already-existing rpath entry.
     """
-    if not isabs(lib_name):
-        lib_name = abspath(lib_name)
-    lib_dir = dirname(lib_name)
-    if not isabs(wheel_base_dir):
-        wheel_base_dir = abspath(wheel_base_dir)
+    if not lib_name.is_absolute():
+        lib_name = lib_name.absolute()
+    lib_dir = lib_name.parent
+    if not wheel_base_dir.is_absolute():
+        wheel_base_dir = wheel_base_dir.absolute()
 
     def is_valid_rpath(rpath: str) -> bool:
         return _is_valid_rpath(rpath, lib_dir, wheel_base_dir)
@@ -200,7 +199,7 @@ def append_rpath_within_wheel(
     patcher.set_rpath(lib_name, ":".join(rpath_set))
 
 
-def _is_valid_rpath(rpath: str, lib_dir: str, wheel_base_dir: str) -> bool:
+def _is_valid_rpath(rpath: str, lib_dir: Path, wheel_base_dir: Path) -> bool:
     full_rpath_entry = _resolve_rpath_tokens(rpath, lib_dir)
     if not isabs(full_rpath_entry):
         logger.debug(
@@ -215,12 +214,12 @@ def _is_valid_rpath(rpath: str, lib_dir: str, wheel_base_dir: str) -> bool:
     return True
 
 
-def _resolve_rpath_tokens(rpath: str, lib_base_dir: str) -> str:
+def _resolve_rpath_tokens(rpath: str, lib_base_dir: Path) -> str:
     # See https://www.man7.org/linux/man-pages/man8/ld.so.8.html#DESCRIPTION
     system_lib_dir = "lib64" if platform.architecture()[0] == "64bit" else "lib"
     system_processor_type = platform.machine()
     token_replacements = {
-        "ORIGIN": lib_base_dir,
+        "ORIGIN": str(lib_base_dir),
         "LIB": system_lib_dir,
         "PLATFORM": system_processor_type,
     }
@@ -230,9 +229,9 @@ def _resolve_rpath_tokens(rpath: str, lib_base_dir: str) -> str:
     return rpath
 
 
-def _path_is_script(path: str) -> bool:
+def _path_is_script(path: Path) -> bool:
     # Looks something like "uWSGI-2.0.21.data/scripts/uwsgi"
-    components = Path(path).parts
+    components = path.parts
     return (
         len(components) == 3
         and components[0].endswith(".data")
@@ -240,7 +239,7 @@ def _path_is_script(path: str) -> bool:
     )
 
 
-def _replace_elf_script_with_shim(package_name: str, orig_path: str) -> str:
+def _replace_elf_script_with_shim(package_name: str, orig_path: Path) -> Path:
     """Move an ELF script and replace it with a shim.
 
     We can't directly rewrite the RPATH of ELF executables in the "scripts"
@@ -254,10 +253,10 @@ def _replace_elf_script_with_shim(package_name: str, orig_path: str) -> str:
 
     Returns the new path of the moved executable.
     """
-    scripts_dir = f"{package_name}.scripts"
-    os.makedirs(scripts_dir, exist_ok=True)
+    scripts_dir = Path(f"{package_name}.scripts")
+    scripts_dir.mkdir(exist_ok=True)
 
-    new_path = os.path.join(scripts_dir, os.path.basename(orig_path))
+    new_path = scripts_dir / orig_path.name
     os.rename(orig_path, new_path)
 
     with open(orig_path, "w", newline="\n") as f:
@@ -267,7 +266,7 @@ def _replace_elf_script_with_shim(package_name: str, orig_path: str) -> str:
     return new_path
 
 
-def _script_shim(binary_path: str) -> str:
+def _script_shim(binary_path: Path) -> str:
     return f"""\
 #!python
 import os
@@ -277,7 +276,7 @@ import sysconfig
 
 if __name__ == "__main__":
     os.execv(
-        os.path.join(sysconfig.get_path("platlib"), {Path(binary_path).as_posix()!r}),
+        os.path.join(sysconfig.get_path("platlib"), {binary_path.as_posix()!r}),
         sys.argv,
     )
 """

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
-from os.path import abspath, basename, exists, isfile
+from pathlib import Path
 
 from auditwheel.patcher import Patchelf
 
@@ -39,7 +39,7 @@ wheel will abort processing of subsequent wheels.
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("WHEEL_FILE", help="Path to wheel file.", nargs="+")
+    parser.add_argument("WHEEL_FILE", type=Path, help="Path to wheel file.", nargs="+")
     parser.add_argument(
         "--plat",
         action=EnvironmentDefault,
@@ -62,7 +62,7 @@ wheel will abort processing of subsequent wheels.
         "-w",
         "--wheel-dir",
         dest="WHEEL_DIR",
-        type=abspath,
+        type=Path,
         help=('Directory to store delocated wheels (default: "wheelhouse/")'),
         default="wheelhouse/",
     )
@@ -112,22 +112,22 @@ wheel will abort processing of subsequent wheels.
 
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    import os
-
     from .repair import repair_wheel
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
-    exclude = frozenset(args.EXCLUDE)
+    exclude: frozenset[str] = frozenset(args.EXCLUDE)
+    wheel_dir: Path = args.WHEEL_DIR.absolute()
+    wheel_files: list[Path] = args.WHEEL_FILE
     wheel_policy = WheelPolicies()
 
-    for wheel_file in args.WHEEL_FILE:
-        if not isfile(wheel_file):
+    for wheel_file in wheel_files:
+        if not wheel_file.is_file():
             parser.error(f"cannot access {wheel_file}. No such file")
 
-        logger.info("Repairing %s", basename(wheel_file))
+        logger.info("Repairing %s", wheel_file.name)
 
-        if not exists(args.WHEEL_DIR):
-            os.makedirs(args.WHEEL_DIR)
+        if not wheel_dir.exists():
+            wheel_dir.mkdir(parents=True)
 
         try:
             wheel_abi = analyze_wheel_abi(
@@ -192,7 +192,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             wheel_file,
             abis=abis,
             lib_sdir=args.LIB_SDIR,
-            out_dir=args.WHEEL_DIR,
+            out_dir=wheel_dir,
             update_tags=args.UPDATE_TAGS,
             patcher=patcher,
             exclude=exclude,
