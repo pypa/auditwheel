@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -38,7 +39,7 @@ class TestElfReadDt:
         # THEN
         with pytest.raises(ValueError, match=r"^Could not find soname.*"):
             # WHEN
-            elf_read_dt_needed("/fake.so")
+            elf_read_dt_needed(Path("/fake.so"))
 
     def test_needed_libs(self, elffile_mock, open_mock):
         # GIVEN
@@ -52,7 +53,7 @@ class TestElfReadDt:
         elffile_mock.return_value.get_section_by_name.return_value = section_mock
 
         # WHEN
-        needed = elf_read_dt_needed("/fake.so")
+        needed = elf_read_dt_needed(Path("/fake.so"))
 
         # THEN
         assert len(needed) == 2
@@ -64,11 +65,11 @@ class TestElfReadDt:
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfFileFilter:
     def test_filter(self, elffile_mock, open_mock):  # noqa: ARG002
-        result = elf_file_filter(["file1.so", "file2.so"])
+        result = elf_file_filter([Path("file1.so"), Path("file2.so")])
         assert len(list(result)) == 2
 
     def test_some_py_files(self, elffile_mock, open_mock):  # noqa: ARG002
-        result = elf_file_filter(["file1.py", "file2.so", "file3.py"])
+        result = elf_file_filter([Path("file1.py"), Path("file2.so"), Path("file3.py")])
         assert len(list(result)) == 1
 
     def test_not_elf(self, elffile_mock, open_mock):  # noqa: ARG002
@@ -76,7 +77,7 @@ class TestElfFileFilter:
         elffile_mock.side_effect = ELFError
 
         # WHEN
-        result = elf_file_filter(["file1.notelf", "file2.notelf"])
+        result = elf_file_filter([Path("file1.notelf"), Path("file2.notelf")])
 
         # THEN
         assert len(list(result)) == 0

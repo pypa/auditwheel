@@ -817,7 +817,7 @@ class TestManylinux(Anylinux):
         #   available on policies pre-dating the policy matching the image being
         #   tested.
 
-        policy = anylinux.policy
+        policy_name = anylinux.policy
 
         test_path = "/auditwheel_src/tests/integration/testdependencies"
         orig_wheel = anylinux.build_wheel(
@@ -825,11 +825,11 @@ class TestManylinux(Anylinux):
         )
 
         wheel_policy = WheelPolicies()
-        policy_priority = wheel_policy.get_priority_by_name(policy)
+        policy = wheel_policy.get_policy_by_name(policy_name)
         older_policies = [
             f"{p}_{PLATFORM}"
             for p in MANYLINUX_IMAGES
-            if policy_priority < wheel_policy.get_priority_by_name(f"{p}_{PLATFORM}")
+            if policy < wheel_policy.get_policy_by_name(f"{p}_{PLATFORM}")
         ]
         for target_policy in older_policies:
             # we shall fail to repair the wheel when targeting an older policy than
@@ -842,11 +842,11 @@ class TestManylinux(Anylinux):
         # check all works properly when targeting the policy matching the image
         anylinux.repair(orig_wheel, only_plat=False, library_paths=[test_path])
         repaired_wheel = anylinux.check_wheel("testdependencies")
-        assert_show_output(anylinux, repaired_wheel, policy, True)
+        assert_show_output(anylinux, repaired_wheel, policy_name, True)
 
         # check the original wheel with a dependency was not compliant
         # and check the one without a dependency was already compliant
-        expected = f"linux_{PLATFORM}" if with_dependency == "1" else policy
+        expected = f"linux_{PLATFORM}" if with_dependency == "1" else policy_name
         assert_show_output(anylinux, orig_wheel, expected, True)
 
         python.install_wheel(repaired_wheel)

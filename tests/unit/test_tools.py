@@ -19,7 +19,12 @@ from auditwheel.tools import EnvironmentDefault, dir2zip, zip2dir
         ("manylinux2010", "linux", "linux"),
     ],
 )
-def test_environment_action(monkeypatch, environ, passed, expected):
+def test_environment_action(
+    monkeypatch: pytest.MonkeyPatch,
+    environ: str | None,
+    passed: str | None,
+    expected: str,
+) -> None:
     choices = ["linux", "manylinux1", "manylinux2010"]
     argv = []
     if passed:
@@ -39,7 +44,7 @@ def test_environment_action(monkeypatch, environ, passed, expected):
     assert expected == args.PLAT
 
 
-def test_environment_action_invalid_env(monkeypatch):
+def test_environment_action_invalid_env(monkeypatch: pytest.MonkeyPatch) -> None:
     choices = ["linux", "manylinux1", "manylinux2010"]
     monkeypatch.setenv("AUDITWHEEL_PLAT", "foo")
     p = argparse.ArgumentParser()
@@ -54,13 +59,13 @@ def test_environment_action_invalid_env(monkeypatch):
         )
 
 
-def _write_test_permissions_zip(path):
+def _write_test_permissions_zip(path: Path) -> None:
     source_zip_xz = Path(__file__).parent / "test-permissions.zip.xz"
     with lzma.open(source_zip_xz) as f:
         path.write_bytes(f.read())
 
 
-def _check_permissions(path):
+def _check_permissions(path: Path) -> None:
     for i in range(8):
         for j in range(8):
             for k in range(8):
@@ -74,36 +79,36 @@ def _check_permissions(path):
                 assert ((mode >> 0) & 7) == 5  # always read/execute
 
 
-def test_zip2dir_permissions(tmp_path):
+def test_zip2dir_permissions(tmp_path: Path) -> None:
     source_zip = tmp_path / "test-permissions.zip"
     _write_test_permissions_zip(source_zip)
     extract_path = tmp_path / "unzip"
-    zip2dir(str(source_zip), str(extract_path))
+    zip2dir(source_zip, extract_path)
     _check_permissions(extract_path)
 
 
-def test_zip2dir_round_trip_permissions(tmp_path):
+def test_zip2dir_round_trip_permissions(tmp_path: Path) -> None:
     source_zip = tmp_path / "test-permissions.zip"
     _write_test_permissions_zip(source_zip)
     extract_path = tmp_path / "unzip2"
-    zip2dir(str(source_zip), str(tmp_path / "unzip1"))
-    dir2zip(str(tmp_path / "unzip1"), str(tmp_path / "tmp.zip"))
-    zip2dir(str(tmp_path / "tmp.zip"), str(extract_path))
+    zip2dir(source_zip, tmp_path / "unzip1")
+    dir2zip(tmp_path / "unzip1", tmp_path / "tmp.zip")
+    zip2dir(tmp_path / "tmp.zip", extract_path)
     _check_permissions(extract_path)
 
 
-def test_dir2zip_deflate(tmp_path):
+def test_dir2zip_deflate(tmp_path: Path) -> None:
     buffer = b"\0" * 1024 * 1024
     input_dir = tmp_path / "input_dir"
     input_dir.mkdir()
     input_file = input_dir / "zeros.bin"
     input_file.write_bytes(buffer)
     output_file = tmp_path / "ouput.zip"
-    dir2zip(str(input_dir), str(output_file))
+    dir2zip(input_dir, output_file)
     assert output_file.stat().st_size < len(buffer) / 4
 
 
-def test_dir2zip_folders(tmp_path):
+def test_dir2zip_folders(tmp_path: Path) -> None:
     input_dir = tmp_path / "input_dir"
     input_dir.mkdir()
     dist_info_folder = input_dir / "dummy-1.0.dist-info"
@@ -112,7 +117,7 @@ def test_dir2zip_folders(tmp_path):
     empty_folder = input_dir / "dummy" / "empty"
     empty_folder.mkdir(parents=True)
     output_file = tmp_path / "output.zip"
-    dir2zip(str(input_dir), str(output_file))
+    dir2zip(input_dir, output_file)
     expected_dirs = {"dummy/", "dummy/empty/", "dummy-1.0.dist-info/"}
     with zipfile.ZipFile(output_file, "r") as z:
         assert len(z.filelist) == 4

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from unittest.mock import call, patch
 
 from auditwheel.patcher import Patchelf
@@ -16,9 +16,9 @@ class TestRepair:
         # When a library has an existing RPATH entry within wheel_dir
         existing_rpath = b"$ORIGIN/.existinglibdir"
         check_output.return_value = existing_rpath
-        wheel_dir = "."
-        lib_name = "test.so"
-        full_lib_name = os.path.abspath(lib_name)
+        wheel_dir = Path.cwd()
+        lib_name = Path("test.so")
+        full_lib_name = lib_name.absolute()
         append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
         check_output_expected_args = [
             call(["patchelf", "--print-rpath", full_lib_name])
@@ -45,9 +45,9 @@ class TestRepair:
         # When a library has an existing RPATH entry outside wheel_dir
         existing_rpath = b"/outside/wheel/dir"
         check_output.return_value = existing_rpath
-        wheel_dir = "/not/outside"
-        lib_name = "test.so"
-        full_lib_name = os.path.abspath(lib_name)
+        wheel_dir = Path("/not/outside")
+        lib_name = Path("test.so")
+        full_lib_name = lib_name.absolute()
         append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
         check_output_expected_args = [
             call(["patchelf", "--print-rpath", full_lib_name])
@@ -74,9 +74,9 @@ class TestRepair:
         # When a library has an existing RPATH entry and we try and append it again
         existing_rpath = b"$ORIGIN"
         check_output.return_value = existing_rpath
-        wheel_dir = "."
-        lib_name = "test.so"
-        full_lib_name = os.path.abspath(lib_name)
+        wheel_dir = Path.cwd()
+        lib_name = Path("test.so")
+        full_lib_name = lib_name.absolute()
         append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
         check_output_expected_args = [
             call(["patchelf", "--print-rpath", full_lib_name])
@@ -98,9 +98,9 @@ class TestRepair:
         # to an absolute path, it is eliminated
         existing_rpath = b"not/absolute"
         check_output.return_value = existing_rpath
-        wheel_dir = "."
-        lib_name = "test.so"
-        full_lib_name = os.path.abspath(lib_name)
+        wheel_dir = Path.cwd()
+        lib_name = Path("test.so")
+        full_lib_name = lib_name.absolute()
         append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
         check_output_expected_args = [
             call(["patchelf", "--print-rpath", full_lib_name])
