@@ -110,7 +110,9 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
                 attr &= 511  # only keep permission bits
                 attr |= 6 << 6  # at least read/write for current user
                 os.chmod(extracted_path, attr)
-    logger.info(f"zip2dir from {zip_fname} to {out_dir} takes {datetime.now() - start}")
+    logger.info(
+        "zip2dir from %s to %s takes %s", zip_fname, out_dir, datetime.now() - start
+    )
 
 
 def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) -> None:
@@ -151,7 +153,9 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
                 zinfo.compress_type = compression
                 with open(fname, "rb") as fp:
                     z.writestr(zinfo, fp.read(), compresslevel=_COMPRESS_LEVEL)
-    logger.info(f"dir2zip from {in_dir} to {zip_fname} takes {datetime.now() - start}")
+    logger.info(
+        "dir2zip from %s to %s takes %s", in_dir, zip_fname, datetime.now() - start
+    )
 
 
 def is_lib(fname: Path) -> bool:
