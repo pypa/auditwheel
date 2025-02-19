@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import ExitStack
 import itertools
 import logging
 import os
@@ -8,12 +7,11 @@ import platform
 import re
 import shutil
 import stat
-from collections.abc import Iterable
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from fnmatch import fnmatch
 from os.path import isabs
 from pathlib import Path
 from subprocess import check_call
-from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 
 from auditwheel.patcher import ElfPatcher
 
@@ -90,10 +88,12 @@ def repair_wheel(
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher, dry=True)
                 if not new_path.exists() and str(new_path) not in copy_works:
-                    copy_works[str(new_path)] = pool.submit(copylib, src_path, dest_dir, patcher)
+                    copy_works[str(new_path)] = pool.submit(
+                        copylib, src_path, dest_dir, patcher
+                    )
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
-            
+
             def _inner_replace():
                 if replacements:
                     patcher.replace_needed(fn, *replacements)
@@ -127,7 +127,9 @@ def repair_wheel(
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
         if strip:
-            for lib, future in itertools.chain(copy_works.items(), replace_works.items()):                
+            for lib, future in itertools.chain(
+                copy_works.items(), replace_works.items()
+            ):
                 logger.info("Stripping symbols from %s", lib)
                 then(future, check_call, ["strip", "-s", lib])
 
@@ -141,7 +143,9 @@ def then(pool: ThreadPoolExecutor, future: Future, *args, **kwargs):
     pool.submit(*args, **kwargs)
 
 
-def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher, dry: bool = False) -> tuple[str, Path]:
+def copylib(
+    src_path: Path, dest_dir: Path, patcher: ElfPatcher, dry: bool = False
+) -> tuple[str, Path]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
