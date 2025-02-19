@@ -14,6 +14,10 @@ _T = TypeVar("_T")
 
 logger = logging.getLogger(__name__)
 
+# 4 has similar compress rate with the default level 6
+# while have ~35% speedup
+_COMPRESS_LEVEL = 4
+
 
 def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
     """unique elements in `sequence` in the order in which they occur
@@ -141,15 +145,12 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
                 z.writestr(zinfo, b"")
             for file in files:
                 fname = dname / file
-                compress_level = None
-                if is_lib(fname):
-                    compress_level = 2
                 out_fname = fname.relative_to(in_dir)
                 zinfo = zipfile.ZipInfo.from_file(fname, out_fname)
                 zinfo.date_time = date_time_args
                 zinfo.compress_type = compression
                 with open(fname, "rb") as fp:
-                    z.writestr(zinfo, fp.read(), compresslevel=compress_level)
+                    z.writestr(zinfo, fp.read(), compresslevel=_COMPRESS_LEVEL)
     logger.info(f"dir2zip from {in_dir} to {zip_fname} takes {datetime.now() - start}")
 
 
