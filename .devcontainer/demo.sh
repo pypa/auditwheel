@@ -1,5 +1,7 @@
 #! /bin/bash
 
+rm -rf /tmp/wheelhouse
+
 auditwheel -v repair \
     --exclude libcuda.so.1 \
     --exclude libcusolver.so.11 \

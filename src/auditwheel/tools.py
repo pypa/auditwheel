@@ -141,13 +141,20 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
                 z.writestr(zinfo, b"")
             for file in files:
                 fname = dname / file
+                compress_level = None
+                if is_lib(fname):
+                    compress_level = 2
                 out_fname = fname.relative_to(in_dir)
                 zinfo = zipfile.ZipInfo.from_file(fname, out_fname)
                 zinfo.date_time = date_time_args
                 zinfo.compress_type = compression
                 with open(fname, "rb") as fp:
-                    z.writestr(zinfo, fp.read())
+                    z.writestr(zinfo, fp.read(), compresslevel=compress_level)
     logger.info(f"dir2zip from {in_dir} to {zip_fname} takes {datetime.now() - start}")
+
+
+def is_lib(fname: Path) -> bool:
+    return '.so' in fname.suffix
 
 
 def tarbz2todir(tarbz2_fname: Path, out_dir: Path) -> None:
