@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import ExitStack
 import itertools
 import logging
 import os
@@ -12,6 +13,7 @@ from fnmatch import fnmatch
 from os.path import isabs
 from pathlib import Path
 from subprocess import check_call
+from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 
 from auditwheel.patcher import ElfPatcher
 
@@ -64,6 +66,12 @@ def repair_wheel(
             raise ValueError(msg)
 
         dest_dir = Path(match.group("name") + lib_sdir)
+        if not dest_dir.exists():
+            dest_dir.mkdir()
+
+        pool = ThreadPoolExecutor()
+        copy_works: dict[str, Future] = {}
+        replace_works: dict[str, Future] = {}
 
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
@@ -80,27 +88,32 @@ def repair_wheel(
                     )
                     raise ValueError(msg)
 
-                if not dest_dir.exists():
-                    dest_dir.mkdir()
-                new_soname, new_path = copylib(src_path, dest_dir, patcher)
+                new_soname, new_path = copylib(src_path, dest_dir, patcher, dry=True)
+                if not new_path.exists() and str(new_path) not in copy_works:
+                    copy_works[str(new_path)] = pool.submit(copylib, src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
-            if replacements:
-                patcher.replace_needed(fn, *replacements)
+            
+            def _inner_replace():
+                if replacements:
+                    patcher.replace_needed(fn, *replacements)
 
-            if len(ext_libs) > 0:
-                new_fn = fn
-                if _path_is_script(fn):
-                    new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
+                if len(ext_libs) > 0:
+                    new_fn = fn
+                    if _path_is_script(fn):
+                        new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
 
-                new_rpath = os.path.relpath(dest_dir, new_fn.parent)
-                new_rpath = os.path.join("$ORIGIN", new_rpath)
-                append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
+                    new_rpath = os.path.relpath(dest_dir, new_fn.parent)
+                    new_rpath = os.path.join("$ORIGIN", new_rpath)
+                    append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
+
+            replace_works[fn] = pool.submit(_inner_replace)
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
         # we need to update those records so each now knows about the new
         # name of the other.
+        as_completed(copy_works.values())
         for _, path in soname_map.values():
             needed = elf_read_dt_needed(path)
             replacements = []
@@ -108,26 +121,27 @@ def repair_wheel(
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
-                patcher.replace_needed(path, *replacements)
+                pool.submit(patcher.replace_needed, path, *replacements)
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
         if strip:
-            libs_to_strip = [path for (_, path) in soname_map.values()]
-            extensions = external_refs_by_fn.keys()
-            strip_symbols(itertools.chain(libs_to_strip, extensions))
+            for lib, future in itertools.chain(copy_works.items(), replace_works.items()):                
+                logger.info("Stripping symbols from %s", lib)
+                then(future, check_call, ["strip", "-s", lib])
+
+        pool.shutdown()
 
     return ctx.out_wheel
 
 
-def strip_symbols(libraries: Iterable[Path]) -> None:
-    for lib in libraries:
-        logger.info("Stripping symbols from %s", lib)
-        check_call(["strip", "-s", lib])
+def then(pool: ThreadPoolExecutor, future: Future, *args, **kwargs):
+    future.result()
+    pool.submit(*args, **kwargs)
 
 
-def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, Path]:
+def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher, dry: bool = False) -> tuple[str, Path]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
@@ -151,7 +165,7 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
         new_soname = src_name
 
     dest_path = dest_dir / new_soname
-    if dest_path.exists():
+    if dry or dest_path.exists():
         return new_soname, dest_path
 
     logger.debug("Grafting: %s -> %s", src_path, dest_path)
