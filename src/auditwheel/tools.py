@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import subprocess
 import zipfile
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 _T = TypeVar("_T")
+
+logger = logging.getLogger(__name__)
 
 
 def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
@@ -90,6 +93,7 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
     out_dir : str
         Directory path containing files to go in the zip archive
     """
+    start = datetime.now()
     with zipfile.ZipFile(zip_fname, "r") as z:
         for name in z.namelist():
             member = z.getinfo(name)
@@ -102,6 +106,7 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
                 attr &= 511  # only keep permission bits
                 attr |= 6 << 6  # at least read/write for current user
                 os.chmod(extracted_path, attr)
+    logger.info(f"zip2dir from {zip_fname} to {out_dir} takes {datetime.now() - start}")
 
 
 def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) -> None:
@@ -120,6 +125,7 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
     date_time : Optional[datetime]
         Time stamp to set on each file in the archive
     """
+    start = datetime.now()
     in_dir = in_dir.resolve(strict=True)
     if date_time is None:
         st = in_dir.stat()
@@ -141,6 +147,7 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
                 zinfo.compress_type = compression
                 with open(fname, "rb") as fp:
                     z.writestr(zinfo, fp.read())
+    logger.info(f"dir2zip from {in_dir} to {zip_fname} takes {datetime.now() - start}")
 
 
 def tarbz2todir(tarbz2_fname: Path, out_dir: Path) -> None:
