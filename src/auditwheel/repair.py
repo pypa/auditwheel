@@ -65,8 +65,6 @@ def repair_wheel(
             raise ValueError(msg)
 
         dest_dir = Path(match.group("name") + lib_sdir)
-        if not dest_dir.exists():
-            dest_dir.mkdir()
 
         pool = ThreadPoolExecutor()
         copy_works: dict[Path, Future[t.Any]] = {}
@@ -87,6 +85,8 @@ def repair_wheel(
                     )
                     raise ValueError(msg)
 
+                if not dest_dir.exists():
+                    dest_dir.mkdir()
                 new_soname, new_path = copylib(src_path, dest_dir, patcher, dry=True)
                 if new_path not in copy_works:
                     copy_works[new_path] = pool.submit(
