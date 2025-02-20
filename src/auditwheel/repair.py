@@ -133,7 +133,9 @@ def repair_wheel(
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
-                replace_works[path] = pool.submit(patcher.replace_needed, path, *replacements)
+                replace_works[path] = pool.submit(
+                    patcher.replace_needed, path, *replacements
+                )
 
         assert all(f.exception() is None for f in as_completed(replace_works.values()))
         if update_tags:
