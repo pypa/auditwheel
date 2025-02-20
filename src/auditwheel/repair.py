@@ -93,9 +93,8 @@ def repair_wheel(
                         copylib, src_path, dest_dir, patcher
                     )
                 else:
-                    if copy_works[new_path].running() or copy_works[new_path].done():
+                    if copy_works[new_path].done():
                         assert new_path.exists()
-                soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
 
             # Replace rpath do not need copy to be done
