@@ -127,6 +127,7 @@ def repair_wheel(
                 itertools.chain(copy_works.values(), replace_works.values())
             )
         )
+        replace_works.clear()
         for _, path in soname_map.values():
             needed = elf_read_dt_needed(path)
             replacements = []
@@ -134,8 +135,9 @@ def repair_wheel(
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
-                pool.submit(patcher.replace_needed, path, *replacements)
+                replace_works[path] = pool.submit(patcher.replace_needed, path, *replacements)
 
+        assert all(f.exception() is None for f in as_completed(replace_works.values()))
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
