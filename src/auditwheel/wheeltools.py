@@ -122,12 +122,11 @@ class InWheel(InTemporaryDirectory):
         self.out_wheel = None if out_wheel is None else out_wheel.absolute()
         self.read_only = out_wheel is None
         self.use_cache = self.in_wheel in self._whl_cache
-        if self.use_cache and Path(self._whl_cache[self.in_wheel].name).exists():
-            del self._whl_cache[self.in_wheel]
+        if self.use_cache and not Path(self._whl_cache[self.in_wheel].name).exists():
             self.use_cache = False
             logger.debug(
                 "Wheel ctx %s for %s is no longer valid",
-                self._whl_cache[self.in_wheel],
+                self._whl_cache.pop(self.in_wheel),
                 self.in_wheel,
             )
 
@@ -173,7 +172,7 @@ class InWheel(InTemporaryDirectory):
                 self.in_wheel,
             )
             os.chdir(self._pwd)
-            if not self.use_cache:
+            if not self.read_only:
                 super().__exit__(exc, value, tb)
             return None
         return super().__exit__(exc, value, tb)
