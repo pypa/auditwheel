@@ -12,6 +12,7 @@ from fnmatch import fnmatch
 from os.path import isabs
 from pathlib import Path
 from subprocess import check_call
+from threading import Lock
 
 from auditwheel.patcher import ElfPatcher
 
@@ -87,13 +88,17 @@ def repair_wheel(
                     raise ValueError(msg)
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher, dry=True)
-                if not new_path.exists() and str(new_path) not in copy_works:
-                    copy_works[str(new_path)] = pool.submit(
+                if (new_path_key := str(new_path)) not in copy_works:
+                    copy_works[new_path_key] = pool.submit(
                         copylib, src_path, dest_dir, patcher
                     )
+                else:
+                    if copy_works[new_path_key].running() or copy_works[new_path_key].done():
+                        assert new_path.exists()
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
 
+            # Replace rpath do not need copy to be done
             def _inner_replace():
                 if replacements:
                     patcher.replace_needed(fn, *replacements)
@@ -113,7 +118,9 @@ def repair_wheel(
         # they may have internal dependencies (DT_NEEDED) on one another, so
         # we need to update those records so each now knows about the new
         # name of the other.
-        as_completed(copy_works.values())
+        assert all(f.exception() is None for f in as_completed(itertools.chain(
+                copy_works.values(), replace_works.values()
+            )))
         for _, path in soname_map.values():
             needed = elf_read_dt_needed(path)
             replacements = []
@@ -128,10 +135,10 @@ def repair_wheel(
 
         if strip:
             for lib, future in itertools.chain(
-                copy_works.items(), replace_works.items()
+                [path for (_, path) in soname_map.values()], external_refs_by_fn.keys()
             ):
                 logger.info("Stripping symbols from %s", lib)
-                then(future, check_call, ["strip", "-s", lib])
+                pool.submit(check_call, ["strip", "-s", lib])
 
         pool.shutdown()
 
@@ -172,7 +179,7 @@ def copylib(
     if dry or dest_path.exists():
         return new_soname, dest_path
 
-    logger.debug("Grafting: %s -> %s", src_path, dest_path)
+    logger.debug("Start grafting: %s -> %s", src_path, dest_path)
     rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
     statinfo = dest_path.stat()
@@ -183,6 +190,8 @@ def copylib(
 
     if any(itertools.chain(rpaths["rpaths"], rpaths["runpaths"])):
         patcher.set_rpath(dest_path, "$ORIGIN")
+
+    logger.debug("Done grafting to: %s", src_path)
 
     return new_soname, dest_path
 
