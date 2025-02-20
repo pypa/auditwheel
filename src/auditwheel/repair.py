@@ -92,9 +92,6 @@ def repair_wheel(
                     copy_works[new_path] = pool.submit(
                         copylib, src_path, dest_dir, patcher
                     )
-                else:
-                    if copy_works[new_path].done():
-                        assert new_path.exists()
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
 
