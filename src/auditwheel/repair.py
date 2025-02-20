@@ -7,12 +7,12 @@ import platform
 import re
 import shutil
 import stat
+import typing as t
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from fnmatch import fnmatch
 from os.path import isabs
 from pathlib import Path
 from subprocess import check_call
-from threading import Lock
 
 from auditwheel.patcher import ElfPatcher
 
@@ -69,8 +69,8 @@ def repair_wheel(
             dest_dir.mkdir()
 
         pool = ThreadPoolExecutor()
-        copy_works: dict[str, Future] = {}
-        replace_works: dict[str, Future] = {}
+        copy_works: dict[Path, Future[t.Any]] = {}
+        replace_works: dict[Path, Future[t.Any]] = {}
 
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
@@ -88,22 +88,24 @@ def repair_wheel(
                     raise ValueError(msg)
 
                 new_soname, new_path = copylib(src_path, dest_dir, patcher, dry=True)
-                if (new_path_key := str(new_path)) not in copy_works:
-                    copy_works[new_path_key] = pool.submit(
+                if new_path not in copy_works:
+                    copy_works[new_path] = pool.submit(
                         copylib, src_path, dest_dir, patcher
                     )
                 else:
-                    if copy_works[new_path_key].running() or copy_works[new_path_key].done():
+                    if copy_works[new_path].running() or copy_works[new_path].done():
                         assert new_path.exists()
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
 
             # Replace rpath do not need copy to be done
-            def _inner_replace():
+            def _inner_replace(
+                fn: Path, replacements: list[tuple[str, str]], append_rpath: bool
+            ) -> None:
                 if replacements:
                     patcher.replace_needed(fn, *replacements)
 
-                if len(ext_libs) > 0:
+                if append_rpath:
                     new_fn = fn
                     if _path_is_script(fn):
                         new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
@@ -112,15 +114,20 @@ def repair_wheel(
                     new_rpath = os.path.join("$ORIGIN", new_rpath)
                     append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
 
-            replace_works[fn] = pool.submit(_inner_replace)
+            replace_works[fn] = pool.submit(
+                _inner_replace, fn, replacements, len(ext_libs) > 0
+            )
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
         # we need to update those records so each now knows about the new
         # name of the other.
-        assert all(f.exception() is None for f in as_completed(itertools.chain(
-                copy_works.values(), replace_works.values()
-            )))
+        assert all(
+            f.exception() is None
+            for f in as_completed(
+                itertools.chain(copy_works.values(), replace_works.values())
+            )
+        )
         for _, path in soname_map.values():
             needed = elf_read_dt_needed(path)
             replacements = []
@@ -134,7 +141,7 @@ def repair_wheel(
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
         if strip:
-            for lib, future in itertools.chain(
+            for lib in itertools.chain(
                 [path for (_, path) in soname_map.values()], external_refs_by_fn.keys()
             ):
                 logger.info("Stripping symbols from %s", lib)
@@ -143,11 +150,6 @@ def repair_wheel(
         pool.shutdown()
 
     return ctx.out_wheel
-
-
-def then(pool: ThreadPoolExecutor, future: Future, *args, **kwargs):
-    future.result()
-    pool.submit(*args, **kwargs)
 
 
 def copylib(

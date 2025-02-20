@@ -5,7 +5,7 @@ RUN --mount=type=cache,target=/home/vscode/.cache/pip \
     apt-get update; \
     apt-get install -y moreutils; \
     pip wheel --no-deps torch; \
-    pip install patchelf ipdb torch-*.whl; \
+    pip install patchelf pre-commit ipdb torch-*.whl; \
     mkdir -p /usr/local/lib/nv; \
     ln -s /usr/local/lib/python3.12/site-packages/nvidia/*/lib/*.so* /usr/local/lib/nv/; \
     echo "/usr/local/lib/nv" > /etc/ld.so.conf.d/nv.conf; \
