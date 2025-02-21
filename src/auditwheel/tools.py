@@ -158,10 +158,6 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
     )
 
 
-def is_lib(fname: Path) -> bool:
-    return ".so" in fname.suffix
-
-
 def tarbz2todir(tarbz2_fname: Path, out_dir: Path) -> None:
     """Extract `tarbz2_fname` into output directory `out_dir`"""
     subprocess.check_output(["tar", "xjf", tarbz2_fname, "-C", out_dir])
