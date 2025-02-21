@@ -99,6 +99,7 @@ def repair_wheel(
             def _inner_replace(
                 fn: Path, replacements: list[tuple[str, str]], append_rpath: bool
             ) -> None:
+                logger.info("Start replace for %s", fn)
                 if replacements:
                     patcher.replace_needed(fn, *replacements)
 
@@ -110,6 +111,8 @@ def repair_wheel(
                     new_rpath = os.path.relpath(dest_dir, new_fn.parent)
                     new_rpath = os.path.join("$ORIGIN", new_rpath)
                     append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
+
+                logger.info("Done replace for %s", fn)
 
             replace_works[fn] = pool.submit(
                 _inner_replace, fn, replacements, len(ext_libs) > 0
