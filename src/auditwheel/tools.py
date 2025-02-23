@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import subprocess
 import zipfile
+import zlib
 from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypeVar
 
 _T = TypeVar("_T")
+
+logger = logging.getLogger(__name__)
+
+# Default: zlib.Z_DEFAULT_COMPRESSION (-1 aka. level 6) balances speed and size.
+# Maintained for typical builds where iteration speed outweighs distribution savings.
+# Override via AUDITWHEEL_ZIP_LEVEL/--zip-level for:
+# - some test builds that needs no compression at all (0)
+# - bandwidth-constrained or large amount of downloads (9)
+_COMPRESS_LEVEL = zlib.Z_DEFAULT_COMPRESSION
 
 
 def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
@@ -90,6 +101,7 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
     out_dir : str
         Directory path containing files to go in the zip archive
     """
+    start = datetime.now()
     with zipfile.ZipFile(zip_fname, "r") as z:
         for name in z.namelist():
             member = z.getinfo(name)
@@ -102,6 +114,9 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
                 attr &= 511  # only keep permission bits
                 attr |= 6 << 6  # at least read/write for current user
                 os.chmod(extracted_path, attr)
+    logger.info(
+        "zip2dir from %s to %s takes %s", zip_fname, out_dir, datetime.now() - start
+    )
 
 
 def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) -> None:
@@ -120,6 +135,7 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
     date_time : Optional[datetime]
         Time stamp to set on each file in the archive
     """
+    start = datetime.now()
     in_dir = in_dir.resolve(strict=True)
     if date_time is None:
         st = in_dir.stat()
@@ -140,7 +156,10 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
                 zinfo.date_time = date_time_args
                 zinfo.compress_type = compression
                 with open(fname, "rb") as fp:
-                    z.writestr(zinfo, fp.read())
+                    z.writestr(zinfo, fp.read(), compresslevel=_COMPRESS_LEVEL)
+    logger.info(
+        "dir2zip from %s to %s takes %s", in_dir, zip_fname, datetime.now() - start
+    )
 
 
 def tarbz2todir(tarbz2_fname: Path, out_dir: Path) -> None:
@@ -157,15 +176,16 @@ class EnvironmentDefault(argparse.Action):
         required: bool = True,
         default: str | None = None,
         choices: Iterable[str] | None = None,
+        type: type | None = None,
         **kwargs: Any,
     ) -> None:
         self.env_default = os.environ.get(env)
         self.env = env
         if self.env_default:
-            default = self.env_default
+            default = self.env_default if type is None else type(self.env_default)
         if default:
             required = False
-        if self.env_default and choices is not None and self.env_default not in choices:
+        if default and choices is not None and default not in choices:
             self.option_strings = kwargs["option_strings"]
             args = {
                 "value": self.env_default,

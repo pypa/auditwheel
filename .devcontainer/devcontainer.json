@@ -1,0 +1,9 @@
+{
+	"build": { "dockerfile": "Dockerfile" },
+	"mounts": [
+    	"type=bind,source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh/id_rsa,target=/home/vscode/.ssh/id_rsa,readonly",
+    	"type=bind,source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh/known_hosts,target=/home/vscode/.ssh/known_hosts",
+		"type=tmpfs,target=/tmp"
+	],
+	"postStartCommand": "pip install -e /workspaces/auditwheel"
+}

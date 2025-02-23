@@ -370,7 +370,7 @@ def assert_show_output(
         assert expected_match, f"No match for tag {expected_tag}"
         expected_glibc = (int(expected_match["major"]), int(expected_match["minor"]))
         actual_match = TAG_RE.match(match["tag"])
-        assert actual_match, f"No match for tag {match['tag']}"
+        assert actual_match, f"No match for tag {match['tag']}, output={output}"
         actual_glibc = (int(actual_match["major"]), int(actual_match["minor"]))
         assert expected_match["arch"] == actual_match["arch"]
         assert actual_glibc <= expected_glibc
