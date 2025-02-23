@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import zlib
 from pathlib import Path
 
 from auditwheel.patcher import Patchelf
@@ -40,6 +41,18 @@ wheel will abort processing of subsequent wheels.
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("WHEEL_FILE", type=Path, help="Path to wheel file.", nargs="+")
+    parser.add_argument(
+        "-z",
+        "--zip-level",
+        action=EnvironmentDefault,
+        metavar="zip",
+        env="AUDITWHEEL_ZIP_LEVEL",
+        dest="zip",
+        type=int,
+        help="Compress level to be used to create zip file.",
+        choices=list(range(zlib.Z_NO_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1)),
+        default=zlib.Z_DEFAULT_COMPRESSION,
+    )
     parser.add_argument(
         "--plat",
         action=EnvironmentDefault,
@@ -112,6 +125,8 @@ wheel will abort processing of subsequent wheels.
 
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    print(args)
+    exit()
     from .repair import repair_wheel
     from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
 

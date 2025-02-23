@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import zipfile
+import zlib
 from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,9 +15,12 @@ _T = TypeVar("_T")
 
 logger = logging.getLogger(__name__)
 
-# 4 has similar compress rate with the default level 6
-# while have ~35% speedup
-_COMPRESS_LEVEL = 4
+# Default: zlib.Z_DEFAULT_COMPRESSION (-1 aka. level 6) balances speed and size.
+# Maintained for typical builds where iteration speed outweighs distribution savings.
+# Override via AUDITWHEEL_ZIP_LEVEL/--zip-level for: 
+# - some test builds that needs no compression at all (0)
+# - bandwidth-constrained or large amount of downloads (9)
+_COMPRESS_LEVEL = zlib.Z_DEFAULT_COMPRESSION
 
 
 def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
@@ -172,15 +176,16 @@ class EnvironmentDefault(argparse.Action):
         required: bool = True,
         default: str | None = None,
         choices: Iterable[str] | None = None,
+        type: type | None = None,
         **kwargs: Any,
     ) -> None:
         self.env_default = os.environ.get(env)
         self.env = env
         if self.env_default:
-            default = self.env_default
+            default = self.env_default if type is None else type(self.env_default)
         if default:
             required = False
-        if self.env_default and choices is not None and self.env_default not in choices:
+        if default and choices is not None and default not in choices:
             self.option_strings = kwargs["option_strings"]
             args = {
                 "value": self.env_default,
