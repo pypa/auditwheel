@@ -841,8 +841,12 @@ class TestManylinux(Anylinux):
                 )
 
         # check all works properly when targeting the policy matching the image
-        anylinux.repair(orig_wheel, only_plat=False, library_paths=[test_path])
+        # use "auto" platform
+        anylinux.repair(
+            orig_wheel, only_plat=False, plat="auto", library_paths=[test_path]
+        )
         repaired_wheel = anylinux.check_wheel("testdependencies")
+        # we shall only get the current policy tag with "auto" platform
         assert_show_output(anylinux, repaired_wheel, policy_name, True)
 
         # check the original wheel with a dependency was not compliant

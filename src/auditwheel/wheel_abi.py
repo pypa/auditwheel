@@ -323,6 +323,7 @@ def analyze_wheel_abi(
     wheel_fn: Path,
     exclude: frozenset[str],
     disable_isa_ext_check: bool,
+    allow_graft: bool,
 ) -> WheelAbIInfo:
     data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude)
     policies = data.policies
@@ -375,12 +376,13 @@ def analyze_wheel_abi(
 
     overall_policy = min(
         symbol_policy,
-        ref_policy,
         ucs_policy,
         pyfpe_policy,
         blacklist_policy,
         machine_policy,
     )
+    if not allow_graft:
+        overall_policy = min(overall_policy, ref_policy)
 
     return WheelAbIInfo(
         policies,

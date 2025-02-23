@@ -68,7 +68,7 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
             importlib.reload(lddtree)
 
         winfo = analyze_wheel_abi(
-            Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False
+            Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False, True
         )
         assert set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs, (
             f"{HERE}, {exclude}, {os.environ}"
@@ -85,6 +85,7 @@ def test_analyze_wheel_abi_pyfpe():
         HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
         frozenset(),
         False,
+        True,
     )
     # for external symbols, it could get manylinux1
     assert winfo.sym_policy.name == "manylinux_2_5_x86_64"
@@ -101,6 +102,7 @@ def test_analyze_wheel_abi_bad_architecture():
             HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
             frozenset(),
             False,
+            True,
         )
 
 
