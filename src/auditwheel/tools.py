@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Default: zlib.Z_DEFAULT_COMPRESSION (-1 aka. level 6) balances speed and size.
 # Maintained for typical builds where iteration speed outweighs distribution savings.
-# Override via AUDITWHEEL_ZIP_LEVEL/--zip-level for: 
+# Override via AUDITWHEEL_ZIP_LEVEL/--zip-level for:
 # - some test builds that needs no compression at all (0)
 # - bandwidth-constrained or large amount of downloads (9)
 _COMPRESS_LEVEL = zlib.Z_DEFAULT_COMPRESSION
