@@ -244,12 +244,10 @@ class TestLddTreeExternalReferences:
 def test_wheel_policies_args(libc, musl_policy, arch, exception):
     with exception:
         policies = WheelPolicies(libc=libc, musl_policy=musl_policy, arch=arch)
-        if libc is not None:
-            assert policies._libc_variant == libc
+        assert policies.libc == libc
+        assert policies.architecture == arch
         if musl_policy is not None:
             assert policies._musl_policy == musl_policy
-        if arch is not None:
-            assert policies.architecture == arch
 
 
 def test_policy_checks_glibc():
