@@ -22,7 +22,7 @@ from auditwheel.architecture import Architecture
 def test_32bits_arch_name(sys_platform, reported_arch, expected_arch, monkeypatch):
     monkeypatch.setattr(sys, "platform", sys_platform)
     monkeypatch.setattr(platform, "machine", lambda: reported_arch)
-    machine = Architecture.get_native_architecture(bits=32)
+    machine = Architecture.detect(bits=32)
     assert machine == expected_arch
 
 
@@ -43,7 +43,7 @@ def test_32bits_arch_name(sys_platform, reported_arch, expected_arch, monkeypatc
 def test_64bits_arch_name(sys_platform, reported_arch, expected_arch, monkeypatch):
     monkeypatch.setattr(sys, "platform", sys_platform)
     monkeypatch.setattr(platform, "machine", lambda: reported_arch)
-    machine = Architecture.get_native_architecture(bits=64)
+    machine = Architecture.detect(bits=64)
     assert machine == expected_arch
 
 
@@ -66,7 +66,7 @@ def test_arch_name_bits(maxsize, sizeof_voidp, expected, monkeypatch):
     monkeypatch.setattr(platform, "machine", lambda: "x86_64")
     monkeypatch.setattr(sys, "maxsize", maxsize)
     monkeypatch.setattr(struct, "calcsize", _calcsize)
-    machine = Architecture.get_native_architecture()
+    machine = Architecture.detect()
     assert machine == expected
 
 
