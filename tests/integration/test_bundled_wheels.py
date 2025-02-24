@@ -117,6 +117,27 @@ def test_analyze_wheel_abi_bad_architecture():
         )
 
 
+def test_analyze_wheel_abi_static_exe(caplog):
+    result = analyze_wheel_abi(
+        None,
+        None,
+        HERE
+        / "patchelf-0.17.2.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl",
+        frozenset(),
+        False,
+        False,
+    )
+    assert "setting architecture to x86_64" in caplog.text
+    assert "couldn't detect wheel libc, defaulting to" in caplog.text
+    assert result.policies.architecture == Architecture.x86_64
+    if Libc.detect() == Libc.MUSL:
+        assert result.policies.libc == Libc.MUSL
+        assert result.overall_policy.name.startswith("musllinux_1_")
+    else:
+        assert result.policies.libc == Libc.GLIBC
+        assert result.overall_policy.name == "manylinux_2_5_x86_64"
+
+
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="only checked on x86_64")
 def test_wheel_source_date_epoch(tmp_path, monkeypatch):
     wheel_build_path = tmp_path / "wheel"
