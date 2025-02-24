@@ -18,6 +18,7 @@ import pytest
 from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
+from auditwheel.main import main
 from auditwheel.wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
@@ -92,6 +93,16 @@ def test_analyze_wheel_abi_pyfpe():
     # but for having the pyfpe reference, it gets just linux
     assert winfo.pyfpe_policy.name == "linux_x86_64"
     assert winfo.overall_policy.name == "linux_x86_64"
+
+
+def test_show_wheel_abi_pyfpe(monkeypatch, capsys):
+    wheel = str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl")
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(sys, "argv", ["auditwheel", "show", wheel])
+    assert main() == 0
+    captured = capsys.readouterr()
+    assert "This wheel uses the PyFPE_jbuf function" in captured.out
 
 
 def test_analyze_wheel_abi_bad_architecture():
