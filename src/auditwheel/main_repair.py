@@ -158,13 +158,13 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             if libc is None:
                 libc = Libc.GLIBC
             if libc != Libc.GLIBC:
-                msg = f"can't repair wheel {wheel_filename} with {libc} libc to a wheel targeting GLIBC"
+                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting GLIBC"
                 parser.error(msg)
         elif plat_base.startswith("musllinux"):
             if libc is None:
                 libc = Libc.MUSL
             if libc != Libc.MUSL:
-                msg = f"can't repair wheel {wheel_filename} with {libc} libc to a wheel targeting MUSL"
+                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting MUSL"
                 parser.error(msg)
 
         logger.info("Repairing %s", wheel_filename)
