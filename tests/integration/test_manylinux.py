@@ -405,14 +405,16 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
             # https://github.com/numpy/numpy/issues/27932
             fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
             container.exec(f'sh -c "{fix_hwcap}"')
-    elif container.policy.startswith("manylinux_2_31_"):
-        container.exec("apt-get install -y libopenblas-dev")
-    elif container.policy.startswith(("manylinux_2_28_", "manylinux_2_34_")):
-        container.exec("dnf install -y openblas-devel")
-    else:
+    elif container.policy.startswith(
+        ("manylinux_2_5_", "manylinux_2_12_", "manylinux_2_17_")
+    ):
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
             pytest.skip("numpy>=1.26 requires openblas")
         container.exec("yum install -y atlas atlas-devel")
+    elif container.policy.startswith("manylinux_2_31_"):
+        container.exec("apt-get install -y libopenblas-dev")
+    else:
+        container.exec("dnf install -y openblas-devel")
 
     cached_wheel = container.cache_dir / ORIGINAL_NUMPY_WHEEL
     orig_wheel = output_dir / ORIGINAL_NUMPY_WHEEL
