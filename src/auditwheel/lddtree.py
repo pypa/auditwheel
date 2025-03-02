@@ -510,13 +510,13 @@ def ldd(
     if _first:
         # get the libc based on dependencies
         for soname in needed:
-            if soname.startswith("libc.musl-"):
+            if soname.startswith(("libc.musl-", "ld-musl-")):
                 if libc is None:
                     libc = Libc.MUSL
                 if libc != Libc.MUSL:
                     msg = f"found a dependency on MUSL but the libc is already set to {libc}"
                     raise InvalidLibc(msg)
-            elif soname == "libc.so.6":
+            elif soname == "libc.so.6" or soname.startswith(("ld-linux-", "ld64.so.")):
                 if libc is None:
                     libc = Libc.GLIBC
                 if libc != Libc.GLIBC:
