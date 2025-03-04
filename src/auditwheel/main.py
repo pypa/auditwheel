@@ -9,7 +9,7 @@ from importlib import metadata
 
 import auditwheel
 
-from . import main_lddtree, main_repair, main_show
+from . import main_lddtree, main_repair, main_show, tools
 
 
 def main() -> int | None:
@@ -46,6 +46,7 @@ def main() -> int | None:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+    tools._COMPRESS_LEVEL = args.zip
 
     if not hasattr(args, "func"):
         p.print_help()
