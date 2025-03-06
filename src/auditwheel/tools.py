@@ -198,9 +198,11 @@ class EnvironmentDefault(argparse.Action):
                     )
                     raise argparse.ArgumentError(self, msg % args) from None
             default = self.env_default
-        if default:
-            required = False
-        if self.env_default and choices is not None and self.env_default not in choices:
+        if (
+            self.env_default is not None
+            and choices is not None
+            and self.env_default not in choices
+        ):
             self.option_strings = kwargs["option_strings"]
             args = {
                 "value": self.env_default,
@@ -213,7 +215,12 @@ class EnvironmentDefault(argparse.Action):
             )
             raise argparse.ArgumentError(self, msg % args)
 
-        super().__init__(default=default, required=required, choices=choices, **kwargs)
+        if default is not None:
+            required = False
+
+        super().__init__(
+            default=default, required=required, choices=choices, type=type, **kwargs
+        )
 
     def __call__(
         self,

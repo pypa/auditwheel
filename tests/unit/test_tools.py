@@ -20,7 +20,7 @@ from auditwheel.tools import EnvironmentDefault, dir2zip, zip2dir
         ("manylinux2010", "linux", "linux"),
     ],
 )
-def test_environment_action(
+def test_plat_environment_action(
     monkeypatch: pytest.MonkeyPatch,
     environ: str | None,
     passed: str | None,
@@ -45,6 +45,49 @@ def test_environment_action(
     assert expected == args.PLAT
 
 
+_all_zip_level: list[int] = list(
+    range(zlib.Z_NO_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1)
+)
+
+
+@pytest.mark.parametrize(
+    ("environ", "passed", "expected"),
+    [
+        (None, None, -1),
+        (0, None, 0),
+        (0, 1, 1),
+        (6, 1, 1),
+    ],
+)
+def test_zip_environment_action(
+    monkeypatch: pytest.MonkeyPatch,
+    environ: int | None,
+    passed: int | None,
+    expected: int,
+) -> None:
+    choices = _all_zip_level
+    argv = []
+    if passed is not None:
+        argv = ["--zip-level", str(passed)]
+    if environ is not None:
+        monkeypatch.setenv("AUDITWHEEL_ZIP_LEVEL", str(environ))
+    p = argparse.ArgumentParser()
+    p.add_argument(
+        "-z",
+        "--zip-level",
+        action=EnvironmentDefault,
+        metavar="zip",
+        env="AUDITWHEEL_ZIP_LEVEL",
+        dest="zip",
+        type=int,
+        help="Compress level to be used to create zip file.",
+        choices=choices,
+        default=zlib.Z_DEFAULT_COMPRESSION,
+    )
+    args = p.parse_args(argv)
+    assert expected == args.zip
+
+
 def test_environment_action_invalid_plat_env(monkeypatch: pytest.MonkeyPatch) -> None:
     choices = ["linux", "manylinux1", "manylinux2010"]
     monkeypatch.setenv("AUDITWHEEL_PLAT", "foo")
@@ -61,7 +104,7 @@ def test_environment_action_invalid_plat_env(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_environment_action_invalid_zip_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    choices = list(range(zlib.Z_NO_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1))
+    choices = _all_zip_level
     monkeypatch.setenv("AUDITWHEEL_ZIP_LEVEL", "foo")
     p = argparse.ArgumentParser()
     with pytest.raises(argparse.ArgumentError):
