@@ -183,7 +183,20 @@ class EnvironmentDefault(argparse.Action):
         self.env = env
         if self.env_default:
             if type:
-                self.env_default = type(self.env_default)
+                try:
+                    self.env_default = type(self.env_default)
+                except Exception:
+                    self.option_strings = kwargs["option_strings"]
+                    args = {
+                        "value": self.env_default,
+                        "type": type,
+                        "env": self.env,
+                    }
+                    msg = (
+                        "invalid type: %(value)r from environment variable "
+                        "%(env)r cannot be converted to %(type)r"
+                    )
+                    raise argparse.ArgumentError(self, msg % args) from None
             default = self.env_default
         if default:
             required = False

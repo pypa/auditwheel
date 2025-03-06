@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import lzma
 import zipfile
+import zlib
 from pathlib import Path
 
 import pytest
@@ -44,7 +45,7 @@ def test_environment_action(
     assert expected == args.PLAT
 
 
-def test_environment_action_invalid_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_environment_action_invalid_plat_env(monkeypatch: pytest.MonkeyPatch) -> None:
     choices = ["linux", "manylinux1", "manylinux2010"]
     monkeypatch.setenv("AUDITWHEEL_PLAT", "foo")
     p = argparse.ArgumentParser()
@@ -56,6 +57,39 @@ def test_environment_action_invalid_env(monkeypatch: pytest.MonkeyPatch) -> None
             dest="PLAT",
             choices=choices,
             default="manylinux1",
+        )
+
+
+def test_environment_action_invalid_zip_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    choices = list(range(zlib.Z_NO_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1))
+    monkeypatch.setenv("AUDITWHEEL_ZIP_LEVEL", "foo")
+    p = argparse.ArgumentParser()
+    with pytest.raises(argparse.ArgumentError):
+        p.add_argument(
+            "-z",
+            "--zip-level",
+            action=EnvironmentDefault,
+            metavar="zip",
+            env="AUDITWHEEL_ZIP_LEVEL",
+            dest="zip",
+            type=int,
+            help="Compress level to be used to create zip file.",
+            choices=choices,
+            default=zlib.Z_DEFAULT_COMPRESSION,
+        )
+    monkeypatch.setenv("AUDITWHEEL_ZIP_LEVEL", "10")
+    with pytest.raises(argparse.ArgumentError):
+        p.add_argument(
+            "-z",
+            "--zip-level",
+            action=EnvironmentDefault,
+            metavar="zip",
+            env="AUDITWHEEL_ZIP_LEVEL",
+            dest="zip",
+            type=int,
+            help="Compress level to be used to create zip file.",
+            choices=choices,
+            default=zlib.Z_DEFAULT_COMPRESSION,
         )
 
 
