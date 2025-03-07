@@ -145,19 +145,19 @@ class WheelPolicies:
         def policy_is_satisfied(
             policy_name: str, policy_sym_vers: dict[str, set[str]]
         ) -> bool:
-            policy_satisfied = True
             for name in set(required_vers) & set(policy_sym_vers):
                 if not required_vers[name].issubset(policy_sym_vers[name]):
-                    for symbol in required_vers[name] - policy_sym_vers[name]:
-                        logger.debug(
-                            "Package requires %s, incompatible with "
-                            "policy %s which requires %s",
-                            symbol,
-                            policy_name,
-                            policy_sym_vers[name],
-                        )
-                    policy_satisfied = False
-            return policy_satisfied
+                    symbols = required_vers[name] - policy_sym_vers[name]
+                    logger.debug(
+                        "%s requires any of %s, incompatible with "
+                        "policy %s which requires %s",
+                        name,
+                        symbols,
+                        policy_name,
+                        policy_sym_vers[name],
+                    )
+                    return False
+            return True
 
         required_vers: dict[str, set[str]] = {}
         for symbols in versioned_symbols.values():

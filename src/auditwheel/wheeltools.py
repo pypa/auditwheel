@@ -15,7 +15,9 @@ from datetime import datetime, timezone
 from itertools import product
 from os.path import splitext
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import TracebackType
+from typing import Any, ClassVar
 
 from packaging.utils import parse_wheel_filename
 
@@ -98,7 +100,12 @@ class InWheel(InTemporaryDirectory):
     On entering, you'll find yourself in the root tree of the wheel.  If you've
     asked for an output wheel, then on exit we'll rewrite the wheel record and
     pack stuff up for you.
+
+    If `out_wheel` is None, we assume the wheel won't be modified and we can
+    cache the unpacked wheel for future use.
     """
+
+    _whl_cache: ClassVar[dict[Path, TemporaryDirectory[Any]]] = {}
 
     def __init__(self, in_wheel: Path, out_wheel: Path | None = None) -> None:
         """Initialize in-wheel context manager
@@ -113,9 +120,35 @@ class InWheel(InTemporaryDirectory):
         """
         self.in_wheel = in_wheel.absolute()
         self.out_wheel = None if out_wheel is None else out_wheel.absolute()
-        super().__init__()
+        self.read_only = out_wheel is None
+        self.use_cache = self.in_wheel in self._whl_cache
+        if self.use_cache and not Path(self._whl_cache[self.in_wheel].name).exists():
+            self.use_cache = False
+            logger.debug(
+                "Wheel ctx %s for %s is no longer valid",
+                self._whl_cache.pop(self.in_wheel),
+                self.in_wheel,
+            )
+
+        if self.use_cache:
+            logger.debug(
+                "Reuse %s for %s", self._whl_cache[self.in_wheel], self.in_wheel
+            )
+            self._tmpdir = self._whl_cache[self.in_wheel]
+            if not self.read_only:
+                self._whl_cache.pop(self.in_wheel)
+        else:
+            super().__init__()
+            if self.read_only:
+                self._whl_cache[self.in_wheel] = self._tmpdir
 
     def __enter__(self) -> Path:
+        if self.use_cache or self.read_only:
+            if not self.use_cache:
+                zip2dir(self.in_wheel, self.name)
+            self._pwd = Path.cwd()
+            os.chdir(self.name)
+            return Path(self.name)
         zip2dir(self.in_wheel, self.name)
         return super().__enter__()
 
@@ -132,6 +165,16 @@ class InWheel(InTemporaryDirectory):
             if timestamp:
                 date_time = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
             dir2zip(self.name, self.out_wheel, date_time)
+        if self.use_cache or self.read_only:
+            logger.debug(
+                "Exiting reused %s for %s",
+                self._whl_cache[self.in_wheel],
+                self.in_wheel,
+            )
+            os.chdir(self._pwd)
+            if not self.read_only:
+                super().__exit__(exc, value, tb)
+            return None
         return super().__exit__(exc, value, tb)
 
 
