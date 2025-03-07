@@ -14,6 +14,7 @@ from pathlib import Path
 from subprocess import check_call
 
 from auditwheel.patcher import ElfPatcher
+from auditwheel.pool import POOL
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths, is_subdir
 from .hashfile import hashfile
@@ -82,9 +83,14 @@ def repair_wheel(
 
                 if not dest_dir.exists():
                     dest_dir.mkdir()
-                new_soname, new_path = copylib(src_path, dest_dir, patcher)
+                new_soname, new_path = copylib(src_path, dest_dir, patcher, dry=True)
+                if new_path not in POOL:
+                    POOL.submit(new_path, copylib, src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
+
+            POOL.wait()
+
             if replacements:
                 patcher.replace_needed(fn, *replacements)
 
@@ -127,7 +133,9 @@ def strip_symbols(libraries: Iterable[Path]) -> None:
         check_call(["strip", "-s", lib])
 
 
-def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, Path]:
+def copylib(
+    src_path: Path, dest_dir: Path, patcher: ElfPatcher, dry: bool = False
+) -> tuple[str, Path]:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
@@ -151,7 +159,7 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
         new_soname = src_name
 
     dest_path = dest_dir / new_soname
-    if dest_path.exists():
+    if dry or dest_path.exists():
         return new_soname, dest_path
 
     logger.debug("Grafting: %s -> %s", src_path, dest_path)

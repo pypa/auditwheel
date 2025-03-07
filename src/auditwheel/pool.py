@@ -62,5 +62,8 @@ class FileTaskExecutor:
         elif path in self.working_map:
             self.working_map.pop(path).result()
 
+    def __contains__(self, fn: Path) -> bool:
+        return self.executor is not None and fn in self.working_map
+
 
 POOL = FileTaskExecutor(2)
