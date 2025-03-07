@@ -39,15 +39,12 @@ class FileTaskExecutor:
         if self.executor is None:
             future = Future()
             future.set_result(fn(*args, **kwargs))
-            return
+            return None
 
-        if path not in self.working_map:
-            future = self.executor.submit(fn, *args, **kwargs)
-            self.working_map[path] = future
-        else:
-            future = self.working_map[path]
-            future.add_done_callback(lambda _: self.working_map.pop(path, None))
-            future.add_done_callback(lambda _: self.submit(path, fn, *args, **kwargs))
+        assert path not in self.working_map, "path already in working_map"
+        future = self.executor.submit(fn, *args, **kwargs)
+        self.working_map[path] = future
+        return future
 
     def wait(self, path: Optional[Path] = None) -> None:
         """Wait for tasks to complete.
@@ -61,17 +58,12 @@ class FileTaskExecutor:
         """
         if self.executor is None:
             return
-        if path is not None and path in self.working_map:
-            self.working_map.pop(path, None).result()
-            # may have chained callback, so we need to wait again
-            self.wait(path)
-
-        while self.working_map:
-            # Process one task for each for-loop
-            # for map might be changed during the loop
-            for path in self.working_map:
-                self.wait(path)
-                break
+        if path is None:
+            for future in self.working_map.values():
+                future.result()
+            self.working_map.clear()
+        elif future := self.working_map.pop(path, None):
+            future.result()
 
 
 def fake_job(i: int) -> int:
@@ -82,18 +74,6 @@ def fake_job(i: int) -> int:
 
 if __name__ == "__main__":
     executor = FileTaskExecutor(concurrent=0)
-    for i in range(10):
-        executor.submit(Path(f"test{i}.txt"), fake_job, i)
-    for i in range(10):
-        executor.submit(Path(f"test{i}.txt"), fake_job, i)
-    for i in range(10):
-        executor.submit(Path(f"test{i}.txt"), fake_job, i)
-    for i in range(10):
-        executor.submit(Path(f"test{i}.txt"), fake_job, i)
-    for i in range(10):
-        executor.submit(Path(f"test{i}.txt"), fake_job, i)
-    for i in range(10):
-        executor.submit(Path(f"test{i}.txt"), fake_job, i)
     for i in range(10):
         executor.submit(Path(f"test{i}.txt"), fake_job, i)
     executor.wait()
