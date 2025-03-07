@@ -1,4 +1,3 @@
-import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -21,30 +20,28 @@ class FileTaskExecutor:
         >>> executor.wait()  # Wait for all tasks to complete
     """
 
-    def __init__(self, concurrent: int = 1):
+    def __init__(self, concurrent: int = 0):
         self.executor = (
             None
             if concurrent == 1
             else ThreadPoolExecutor(concurrent if concurrent > 1 else None)
         )
-        self.working_map: dict[Path, Future[tuple[str, str]]] = {}
+        self.working_map: dict[Path, Future[Any]] = {}
 
     def submit(
-        self, path: Path, fn: Callable[[Any], Any], /, *args: Any, **kwargs: Any
+        self, path: Path, fn: Callable[..., Any], /, *args: Any, **kwargs: Any
     ) -> None:
         if not path.is_absolute():
             path = path.absolute()
 
         future: Future[Any]
         if self.executor is None:
-            future = Future()
-            future.set_result(fn(*args, **kwargs))
-            return None
+            fn(*args, **kwargs)
+            return
 
         assert path not in self.working_map, "path already in working_map"
         future = self.executor.submit(fn, *args, **kwargs)
         self.working_map[path] = future
-        return future
 
     def wait(self, path: Optional[Path] = None) -> None:
         """Wait for tasks to complete.
@@ -62,18 +59,8 @@ class FileTaskExecutor:
             for future in self.working_map.values():
                 future.result()
             self.working_map.clear()
-        elif future := self.working_map.pop(path, None):
-            future.result()
+        elif path in self.working_map:
+            self.working_map.pop(path).result()
 
 
-def fake_job(i: int) -> int:
-    print(f"start {i}")
-    time.sleep(i)
-    print(f"end {i}")
-
-
-if __name__ == "__main__":
-    executor = FileTaskExecutor(concurrent=0)
-    for i in range(10):
-        executor.submit(Path(f"test{i}.txt"), fake_job, i)
-    executor.wait()
+POOL = FileTaskExecutor(2)
