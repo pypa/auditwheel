@@ -1,11 +1,14 @@
 #ifdef WITH_DEPENDENCY
 #include "dependency.h"
 #else
+#include <errno.h>
 #include <malloc.h>
-#include <stdlib.h>
-#include <stdint.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 #if defined(__GLIBC_PREREQ)
 #if __GLIBC_PREREQ(2, 28)
 #include <threads.h>
@@ -27,7 +30,6 @@ run(PyObject *self, PyObject *args)
 #ifdef WITH_DEPENDENCY
     res = dep_run();
 #elif defined(__GLIBC_PREREQ)
-
 #if __GLIBC_PREREQ(2, 34)
     // pthread_mutexattr_init was moved to libc.so.6 in manylinux_2_34+
     pthread_mutexattr_t attr;
@@ -35,6 +37,8 @@ run(PyObject *self, PyObject *args)
     if (res == 0) {
         pthread_mutexattr_destroy(&attr);
     }
+#elif __GLIBC_PREREQ(2, 30)
+    res = gettid() == getpid() ? 0 : 1;
 #elif __GLIBC_PREREQ(2, 28)
     res = thrd_equal(thrd_current(), thrd_current()) ? 0 : 1;
 #elif __GLIBC_PREREQ(2, 24)
@@ -46,8 +50,7 @@ run(PyObject *self, PyObject *args)
 #else
     res = 0;
 #endif
-
-#else
+#else  // !defined(__GLIBC_PREREQ)
     res = 0;
 #endif
     return PyLong_FromLong(res + tres);
