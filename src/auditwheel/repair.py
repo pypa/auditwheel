@@ -108,7 +108,7 @@ def repair_wheel(
 
                     append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
 
-                POOL.submit_chain(fn, _patch_fn)
+                POOL.submit_chain(fn, _patch_fn, fn)
 
         POOL.wait()
 
