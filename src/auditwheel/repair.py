@@ -121,7 +121,7 @@ def repair_wheel(
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
-                patcher.replace_needed(path, *replacements)
+                POOL.submit(path, patcher.replace_needed, path, *replacements)
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
@@ -131,13 +131,15 @@ def repair_wheel(
             extensions = external_refs_by_fn.keys()
             strip_symbols(itertools.chain(libs_to_strip, extensions))
 
+        POOL.wait()
     return ctx.out_wheel
 
 
 def strip_symbols(libraries: Iterable[Path]) -> None:
     for lib in libraries:
         logger.info("Stripping symbols from %s", lib)
-        check_call(["strip", "-s", lib])
+        POOL.submit_chain(lib, check_call, ["strip", "-s", lib])
+    POOL.wait()
 
 
 def get_new_soname(src_path: Path, dest_dir: Path) -> tuple[str, Path]:
