@@ -1,6 +1,12 @@
+import functools
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from time import sleep
 from typing import Any, Callable, Optional
+
+
+def yield_thread() -> None:
+    sleep(0)
 
 
 class FileTaskExecutor:
@@ -28,20 +34,56 @@ class FileTaskExecutor:
         )
         self.working_map: dict[Path, Future[Any]] = {}
 
+    def submit_chain(
+        self, path: Path, fn: Callable[..., Any], /, *args: Any, **kwargs: Any
+    ) -> Future[Any]:
+        return self._submit(path, fn, True, *args, **kwargs)
+
     def submit(
         self, path: Path, fn: Callable[..., Any], /, *args: Any, **kwargs: Any
-    ) -> None:
+    ) -> Future[Any]:
+        return self._submit(path, fn, False, *args, **kwargs)
+
+    def _submit(
+        self,
+        path: Path,
+        fn: Callable[..., Any],
+        chain: bool,
+        /,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Future[Any]:
         if not path.is_absolute():
             path = path.absolute()
 
         future: Future[Any]
         if self.executor is None:
-            fn(*args, **kwargs)
-            return
+            future = Future()
+            future.set_result(fn(*args, **kwargs))
+        elif not chain:
+            assert path not in self.working_map, "path already in working_map"
+            future = self.executor.submit(fn, *args, **kwargs)
+            self.working_map[path] = future
+        else:
+            current = self.working_map[path]
+            future = Future()
 
-        assert path not in self.working_map, "path already in working_map"
-        future = self.executor.submit(fn, *args, **kwargs)
-        self.working_map[path] = future
+            @functools.wraps(fn)
+            def new_fn(_current: Future[Any]) -> None:
+                nonlocal future, current
+
+                assert _current == current
+
+                self.working_map.pop(path)
+                self.working_map[path] = future
+                try:
+                    future.set_result(fn(*args, **kwargs))
+                except Exception as e:
+                    future.set_exception(e)
+
+            current.add_done_callback(new_fn)
+
+        return future
 
     def wait(self, path: Optional[Path] = None) -> None:
         """Wait for tasks to complete.
@@ -55,12 +97,16 @@ class FileTaskExecutor:
         """
         if self.executor is None:
             return
-        if path is None:
-            for future in self.working_map.values():
-                future.result()
-            self.working_map.clear()
-        elif path in self.working_map:
-            self.working_map.pop(path).result()
+        if path is not None:
+            while True:
+                yield_thread()
+                if path not in self.working_map:
+                    return
+                self.working_map.pop(path).result()
+        else:
+            while self.working_map:
+                path = next(iter(self.working_map))
+                self.wait(path)
 
     def __contains__(self, fn: Path) -> bool:
         return self.executor is not None and fn in self.working_map
