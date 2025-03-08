@@ -74,7 +74,7 @@ def test_zip_environment_action(
     p = argparse.ArgumentParser()
     p.add_argument(
         "-z",
-        "--zip-level",
+        "--zip-compression-level",
         action=EnvironmentDefault,
         metavar="zip",
         env="AUDITWHEEL_ZIP_COMPRESSION_LEVEL",
