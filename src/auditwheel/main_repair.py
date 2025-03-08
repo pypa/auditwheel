@@ -7,7 +7,6 @@ from pathlib import Path
 
 from auditwheel.patcher import Patchelf
 
-from . import tools
 from .policy import WheelPolicies
 from .tools import EnvironmentDefault
 
@@ -133,7 +132,6 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     wheel_dir: Path = args.WHEEL_DIR.absolute()
     wheel_files: list[Path] = args.WHEEL_FILE
     wheel_policy = WheelPolicies()
-    tools._ZIP_COMPRESSION_LEVEL = args.ZIP_COMPRESSION_LEVEL
 
     for wheel_file in wheel_files:
         if not wheel_file.is_file():
@@ -212,6 +210,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             patcher=patcher,
             exclude=exclude,
             strip=args.STRIP,
+            zip_compression_level=args.ZIP_COMPRESSION_LEVEL,
         )
 
         if out_wheel is not None:

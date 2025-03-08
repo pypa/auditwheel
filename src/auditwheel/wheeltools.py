@@ -9,6 +9,7 @@ import csv
 import hashlib
 import logging
 import os
+import zlib
 from base64 import urlsafe_b64encode
 from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
@@ -113,6 +114,7 @@ class InWheel(InTemporaryDirectory):
         """
         self.in_wheel = in_wheel.absolute()
         self.out_wheel = None if out_wheel is None else out_wheel.absolute()
+        self.zip_compression_level = zlib.Z_DEFAULT_COMPRESSION
         super().__init__()
 
     def __enter__(self) -> Path:
@@ -131,7 +133,7 @@ class InWheel(InTemporaryDirectory):
             timestamp = os.environ.get("SOURCE_DATE_EPOCH")
             if timestamp:
                 date_time = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
-            dir2zip(self.name, self.out_wheel, date_time)
+            dir2zip(self.name, self.out_wheel, self.zip_compression_level, date_time)
         return super().__exit__(exc, value, tb)
 
 

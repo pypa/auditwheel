@@ -169,7 +169,7 @@ def test_zip2dir_round_trip_permissions(tmp_path: Path) -> None:
     _write_test_permissions_zip(source_zip)
     extract_path = tmp_path / "unzip2"
     zip2dir(source_zip, tmp_path / "unzip1")
-    dir2zip(tmp_path / "unzip1", tmp_path / "tmp.zip")
+    dir2zip(tmp_path / "unzip1", tmp_path / "tmp.zip", zlib.Z_DEFAULT_COMPRESSION, None)
     zip2dir(tmp_path / "tmp.zip", extract_path)
     _check_permissions(extract_path)
 
@@ -181,7 +181,7 @@ def test_dir2zip_deflate(tmp_path: Path) -> None:
     input_file = input_dir / "zeros.bin"
     input_file.write_bytes(buffer)
     output_file = tmp_path / "ouput.zip"
-    dir2zip(input_dir, output_file)
+    dir2zip(input_dir, output_file, zlib.Z_DEFAULT_COMPRESSION, None)
     assert output_file.stat().st_size < len(buffer) / 4
 
 
@@ -194,7 +194,7 @@ def test_dir2zip_folders(tmp_path: Path) -> None:
     empty_folder = input_dir / "dummy" / "empty"
     empty_folder.mkdir(parents=True)
     output_file = tmp_path / "output.zip"
-    dir2zip(input_dir, output_file)
+    dir2zip(input_dir, output_file, zlib.Z_DEFAULT_COMPRESSION, None)
     expected_dirs = {"dummy/", "dummy/empty/", "dummy-1.0.dist-info/"}
     with zipfile.ZipFile(output_file, "r") as z:
         assert len(z.filelist) == 4

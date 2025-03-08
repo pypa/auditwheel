@@ -5,7 +5,6 @@ import logging
 import os
 import subprocess
 import zipfile
-import zlib
 from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,13 +13,6 @@ from typing import Any, TypeVar
 _T = TypeVar("_T")
 
 logger = logging.getLogger(__name__)
-
-# Default: zlib.Z_DEFAULT_COMPRESSION (-1 aka. level 6) balances speed and size.
-# Maintained for typical builds where iteration speed outweighs distribution savings.
-# Override via AUDITWHEEL_ZIP_LEVEL/--zip-level for:
-# - some test builds that needs no compression at all (0)
-# - bandwidth-constrained or large amount of downloads (9)
-_ZIP_COMPRESSION_LEVEL = zlib.Z_DEFAULT_COMPRESSION
 
 
 def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
@@ -119,7 +111,12 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
     )
 
 
-def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) -> None:
+def dir2zip(
+    in_dir: Path,
+    zip_fname: Path,
+    zip_compression_level: int,
+    date_time: datetime | None,
+) -> None:
     """Make a zip file `zip_fname` with contents of directory `in_dir`
 
     The recorded filenames are relative to `in_dir`, so doing a standard zip
@@ -132,6 +129,10 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
         Directory path containing files to go in the zip archive
     zip_fname : Path
         Filename of zip archive to write
+    zip_compression_level: int
+        zlib.Z_DEFAULT_COMPRESSION (-1 aka. level 6) balances speed and size.
+        zlib.Z_NO_COMPRESSION (O) for some test builds that needs no compression at all
+        zlib.Z_BEST_COMPRESSION (9) for bandwidth-constrained or large amount of downloads
     date_time : Optional[datetime]
         Time stamp to set on each file in the archive
     """
@@ -156,7 +157,7 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
                 zinfo.date_time = date_time_args
                 zinfo.compress_type = compression
                 with open(fname, "rb") as fp:
-                    z.writestr(zinfo, fp.read(), compresslevel=_ZIP_COMPRESSION_LEVEL)
+                    z.writestr(zinfo, fp.read(), compresslevel=zip_compression_level)
     logger.debug(
         "dir2zip from %s to %s takes %s", in_dir, zip_fname, datetime.now() - start
     )
