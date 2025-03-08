@@ -44,11 +44,11 @@ wheel will abort processing of subsequent wheels.
     parser.add_argument("WHEEL_FILE", type=Path, help="Path to wheel file.", nargs="+")
     parser.add_argument(
         "-z",
-        "--zip-level",
+        "--zip-compression-level",
         action=EnvironmentDefault,
-        metavar="zip",
-        env="AUDITWHEEL_ZIP_LEVEL",
-        dest="zip",
+        metavar="ZIP_COMPRESSION_LEVEL",
+        env="AUDITWHEEL_ZIP_COMPRESSION_LEVEL",
+        dest="ZIP_COMPRESSION_LEVEL",
         type=int,
         help="Compress level to be used to create zip file.",
         choices=list(range(zlib.Z_NO_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1)),
@@ -133,7 +133,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     wheel_dir: Path = args.WHEEL_DIR.absolute()
     wheel_files: list[Path] = args.WHEEL_FILE
     wheel_policy = WheelPolicies()
-    tools._COMPRESS_LEVEL = args.zip
+    tools._ZIP_COMPRESSION_LEVEL = args.ZIP_COMPRESSION_LEVEL
 
     for wheel_file in wheel_files:
         if not wheel_file.is_file():

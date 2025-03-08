@@ -134,11 +134,11 @@ def test_wheel_source_date_epoch(tmp_path, monkeypatch):
         WHEEL_FILE=[wheel_path],
         EXCLUDE=[],
         DISABLE_ISA_EXT_CHECK=False,
+        ZIP_COMPRESSION_LEVEL=6,
         cmd="repair",
         func=Mock(),
         prog="auditwheel",
         verbose=1,
-        zip=None,
     )
     monkeypatch.setenv("SOURCE_DATE_EPOCH", "650203200")
     # patchelf might not be available as we aren't running in a manylinux container

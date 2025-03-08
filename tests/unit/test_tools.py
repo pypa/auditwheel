@@ -68,16 +68,16 @@ def test_zip_environment_action(
     choices = _all_zip_level
     argv = []
     if passed is not None:
-        argv = ["--zip-level", str(passed)]
+        argv = ["--zip-compression-level", str(passed)]
     if environ is not None:
-        monkeypatch.setenv("AUDITWHEEL_ZIP_LEVEL", str(environ))
+        monkeypatch.setenv("AUDITWHEEL_ZIP_COMPRESSION_LEVEL", str(environ))
     p = argparse.ArgumentParser()
     p.add_argument(
         "-z",
         "--zip-level",
         action=EnvironmentDefault,
         metavar="zip",
-        env="AUDITWHEEL_ZIP_LEVEL",
+        env="AUDITWHEEL_ZIP_COMPRESSION_LEVEL",
         dest="zip",
         type=int,
         help="Compress level to be used to create zip file.",
@@ -105,29 +105,29 @@ def test_environment_action_invalid_plat_env(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_environment_action_invalid_zip_env(monkeypatch: pytest.MonkeyPatch) -> None:
     choices = _all_zip_level
-    monkeypatch.setenv("AUDITWHEEL_ZIP_LEVEL", "foo")
+    monkeypatch.setenv("AUDITWHEEL_ZIP_COMPRESSION_LEVEL", "foo")
     p = argparse.ArgumentParser()
     with pytest.raises(argparse.ArgumentError):
         p.add_argument(
             "-z",
-            "--zip-level",
+            "--zip-compression-level",
             action=EnvironmentDefault,
             metavar="zip",
-            env="AUDITWHEEL_ZIP_LEVEL",
+            env="AUDITWHEEL_ZIP_COMPRESSION_LEVEL",
             dest="zip",
             type=int,
             help="Compress level to be used to create zip file.",
             choices=choices,
             default=zlib.Z_DEFAULT_COMPRESSION,
         )
-    monkeypatch.setenv("AUDITWHEEL_ZIP_LEVEL", "10")
+    monkeypatch.setenv("AUDITWHEEL_ZIP_COMPRESSION_LEVEL", "10")
     with pytest.raises(argparse.ArgumentError):
         p.add_argument(
             "-z",
-            "--zip-level",
+            "--zip-compression-level",
             action=EnvironmentDefault,
             metavar="zip",
-            env="AUDITWHEEL_ZIP_LEVEL",
+            env="AUDITWHEEL_ZIP_COMPRESSION_LEVEL",
             dest="zip",
             type=int,
             help="Compress level to be used to create zip file.",

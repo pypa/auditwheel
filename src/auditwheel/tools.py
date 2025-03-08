@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Override via AUDITWHEEL_ZIP_LEVEL/--zip-level for:
 # - some test builds that needs no compression at all (0)
 # - bandwidth-constrained or large amount of downloads (9)
-_COMPRESS_LEVEL = zlib.Z_DEFAULT_COMPRESSION
+_ZIP_COMPRESSION_LEVEL = zlib.Z_DEFAULT_COMPRESSION
 
 
 def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
@@ -156,7 +156,7 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
                 zinfo.date_time = date_time_args
                 zinfo.compress_type = compression
                 with open(fname, "rb") as fp:
-                    z.writestr(zinfo, fp.read(), compresslevel=_COMPRESS_LEVEL)
+                    z.writestr(zinfo, fp.read(), compresslevel=_ZIP_COMPRESSION_LEVEL)
     logger.debug(
         "dir2zip from %s to %s takes %s", in_dir, zip_fname, datetime.now() - start
     )
