@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import itertools
 import logging
 import os
@@ -96,6 +97,7 @@ def repair_wheel(
             if len(ext_libs) > 0:
 
                 def _patch_fn(fn: Path) -> None:
+                    assert match is not None
                     new_fn = fn
                     if _path_is_script(fn):
                         POOL.wait(fn)
@@ -142,6 +144,7 @@ def strip_symbols(libraries: Iterable[Path]) -> None:
     POOL.wait()
 
 
+@functools.lru_cache(maxsize=1)
 def get_new_soname(src_path: Path, dest_dir: Path) -> tuple[str, Path]:
     with open(src_path, "rb") as f:
         shorthash = hashfile(f)[:8]
