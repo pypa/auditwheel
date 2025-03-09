@@ -10,6 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, TypeVar
 
+from elftools.elf.elffile import ELFFile
+
+from auditwheel.pool import POOL
+
 from . import json
 from .architecture import Architecture
 from .elfutils import (
@@ -94,19 +98,19 @@ def get_wheel_elfdata(
         shared_libraries_with_invalid_machine = []
 
         platform_wheel = False
-        for fn, elf in elf_file_filter(ctx.iter_files()):
-            # Check for invalid binary wheel format: no shared library should
-            # be found in purelib
-            so_name = fn.name
 
-            # If this is in purelib, add it to the list of shared libraries in
-            # purelib
-            if any(p.name == "purelib" for p in fn.parents):
-                shared_libraries_in_purelib.append(so_name)
+        def inner(fn: Path) -> None:
+            nonlocal \
+                platform_wheel, \
+                shared_libraries_in_purelib, \
+                uses_ucs2_symbols, \
+                uses_PyFPE_jbuf
 
-            # If at least one shared library exists in purelib, this is going
-            # to fail and there's no need to do further checks
-            if not shared_libraries_in_purelib:
+            with open(fn, "rb") as f:
+                elf = ELFFile(f)
+
+                so_name = fn.name
+
                 log.debug("processing: %s", fn)
                 elftree = ldd(fn, exclude=exclude)
 
@@ -115,11 +119,11 @@ def get_wheel_elfdata(
                     if arch != wheel_policy.architecture.baseline:
                         shared_libraries_with_invalid_machine.append(so_name)
                         log.warning("ignoring: %s with %s architecture", so_name, arch)
-                        continue
+                        return
                 except ValueError:
                     shared_libraries_with_invalid_machine.append(so_name)
                     log.warning("ignoring: %s with unknown architecture", so_name)
-                    continue
+                    return
 
                 platform_wheel = True
 
@@ -148,6 +152,20 @@ def get_wheel_elfdata(
                     # its internal references later.
                     nonpy_elftree[fn] = elftree
 
+        # Create new ELFFile object to avoid use-after-free
+        for fn, _elf in elf_file_filter(ctx.iter_files()):
+            # Check for invalid binary wheel format: no shared library should
+            # be found in purelib
+            so_name = fn.name
+
+            # If this is in purelib, add it to the list of shared libraries in
+            # purelib
+            if any(p.name == "purelib" for p in fn.parents):
+                shared_libraries_in_purelib.append(so_name)
+
+            if not shared_libraries_in_purelib:
+                POOL.submit(fn, inner, fn)
+
         # If at least one shared library exists in purelib, raise an error
         if shared_libraries_in_purelib:
             libraries = "\n\t".join(shared_libraries_in_purelib)
@@ -158,6 +176,8 @@ def get_wheel_elfdata(
                 "auditwheel."
             )
             raise RuntimeError(msg)
+
+        POOL.wait()
 
         if not platform_wheel:
             raise NonPlatformWheel(

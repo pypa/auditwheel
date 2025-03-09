@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import itertools
 import logging
 import os
@@ -18,6 +19,7 @@ from auditwheel.patcher import ElfPatcher
 from .elfutils import elf_read_dt_needed, elf_read_rpaths, is_subdir
 from .hashfile import hashfile
 from .policy import WheelPolicies, get_replace_platforms
+from .pool import POOL
 from .wheel_abi import get_wheel_elfdata
 from .wheeltools import InWheelCtx, add_platforms
 
@@ -84,20 +86,33 @@ def repair_wheel(
 
                 if not dest_dir.exists():
                     dest_dir.mkdir()
-                new_soname, new_path = copylib(src_path, dest_dir, patcher)
-                soname_map[soname] = (new_soname, new_path)
-                replacements.append((soname, new_soname))
+                new_soname, new_path = get_new_soname(src_path, dest_dir)
+                if soname not in soname_map:
+                    soname_map[soname] = (new_soname, new_path)
+                    replacements.append((soname, new_soname))
+
+                    POOL.submit(new_path, copylib, src_path, dest_dir, patcher)
+
             if replacements:
-                patcher.replace_needed(fn, *replacements)
+                POOL.submit(fn, patcher.replace_needed, fn, *replacements)
 
             if len(ext_libs) > 0:
-                new_fn = fn
-                if _path_is_script(fn):
-                    new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
 
-                new_rpath = os.path.relpath(dest_dir, new_fn.parent)
-                new_rpath = os.path.join("$ORIGIN", new_rpath)
-                append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
+                def _patch_fn(fn: Path) -> None:
+                    assert match is not None
+                    new_fn = fn
+                    if _path_is_script(fn):
+                        POOL.wait(fn)
+                        new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
+
+                    new_rpath = os.path.relpath(dest_dir, new_fn.parent)
+                    new_rpath = os.path.join("$ORIGIN", new_rpath)
+
+                    append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
+
+                POOL.submit_chain(fn, _patch_fn, fn)
+
+        POOL.wait()
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
@@ -110,7 +125,7 @@ def repair_wheel(
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
-                patcher.replace_needed(path, *replacements)
+                POOL.submit(path, patcher.replace_needed, path, *replacements)
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
@@ -120,16 +135,33 @@ def repair_wheel(
             extensions = external_refs_by_fn.keys()
             strip_symbols(itertools.chain(libs_to_strip, extensions))
 
+        POOL.wait()
     return ctx.out_wheel
 
 
 def strip_symbols(libraries: Iterable[Path]) -> None:
     for lib in libraries:
         logger.info("Stripping symbols from %s", lib)
-        check_call(["strip", "-s", lib])
+        POOL.submit_chain(lib, check_call, ["strip", "-s", lib])
+    POOL.wait()
 
 
-def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, Path]:
+@functools.lru_cache(maxsize=1)
+def get_new_soname(src_path: Path, dest_dir: Path) -> tuple[str, Path]:
+    with open(src_path, "rb") as f:
+        shorthash = hashfile(f)[:8]
+    src_name = src_path.name
+    base, ext = src_name.split(".", 1)
+    if not base.endswith(f"-{shorthash}"):
+        new_soname = f"{base}-{shorthash}.{ext}"
+    else:
+        new_soname = src_name
+
+    dest_path = dest_dir / new_soname
+    return new_soname, dest_path
+
+
+def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> None:
     """Graft a shared library from the system into the wheel and update the
     relevant links.
 
@@ -142,19 +174,10 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
     # if the library has a RUNPATH/RPATH we clear it and set RPATH to point to
     # its new location.
 
-    with open(src_path, "rb") as f:
-        shorthash = hashfile(f)[:8]
+    new_soname, dest_path = get_new_soname(src_path, dest_dir)
 
-    src_name = src_path.name
-    base, ext = src_name.split(".", 1)
-    if not base.endswith(f"-{shorthash}"):
-        new_soname = f"{base}-{shorthash}.{ext}"
-    else:
-        new_soname = src_name
-
-    dest_path = dest_dir / new_soname
     if dest_path.exists():
-        return new_soname, dest_path
+        return
 
     logger.debug("Grafting: %s -> %s", src_path, dest_path)
     rpaths = elf_read_rpaths(src_path)
@@ -167,8 +190,6 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
 
     if any(itertools.chain(rpaths["rpaths"], rpaths["runpaths"])):
         patcher.set_rpath(dest_path, "$ORIGIN")
-
-    return new_soname, dest_path
 
 
 def append_rpath_within_wheel(
