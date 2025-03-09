@@ -1,3 +1,4 @@
+import contextlib
 import functools
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
@@ -96,10 +97,11 @@ class FileTaskExecutor:
             path (Optional[Path]): The specific file path to wait for. If None,
                 waits for all tasks to complete.
         """
-        if self.executor is None:
+        if self.executor is None or (path is not None and path not in self.working_map):
             return
         if path is not None:
-            self.working_map.pop(path).result()
+            with contextlib.suppress(Exception):
+                self.working_map.pop(path).result()
         else:
             for path in list(self.working_map):
                 self.wait(path)
