@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from auditwheel.condatools import InCondaPkg, InCondaPkgCtx
@@ -7,14 +8,14 @@ from auditwheel.condatools import InCondaPkg, InCondaPkgCtx
 
 @patch("auditwheel.condatools.tarbz2todir")
 def test_in_condapkg(_):  # noqa: PT019
-    with InCondaPkg("/fakepath"):
+    with InCondaPkg(Path("/fakepath")):
         assert True
 
 
 @patch("auditwheel.condatools.tarbz2todir")
 @patch("auditwheel.condatools.open")
 def test_in_condapkg_context(open_mock, _):  # noqa: PT019
-    with InCondaPkgCtx("/fakepath") as conda_pkg:
+    with InCondaPkgCtx(Path("/fakepath")) as conda_pkg:
         file_mock = Mock()
         file_mock.readlines.return_value = ["file1\n", "file2\n", "\n"]
         open_mock.return_value.__enter__.return_value = file_mock

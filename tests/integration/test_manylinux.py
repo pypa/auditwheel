@@ -19,36 +19,47 @@ from docker.models.containers import Container
 from elftools.elf.elffile import ELFFile
 
 from auditwheel.architecture import Architecture
+from auditwheel.libc import Libc
 from auditwheel.policy import WheelPolicies
 
 logger = logging.getLogger(__name__)
 
-ENCODING = "utf-8"
-PLATFORM = Architecture.get_native_architecture().value
+NATIVE_PLATFORM = Architecture.get_native_architecture().value
+PLATFORM = os.environ.get("AUDITWHEEL_ARCH", NATIVE_PLATFORM)
 MANYLINUX1_IMAGE_ID = f"quay.io/pypa/manylinux1_{PLATFORM}:latest"
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
 MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
+MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:latest"
 MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:latest"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
         "manylinux_2_5": MANYLINUX1_IMAGE_ID,
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
-        "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
-        "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
     }
+    if PLATFORM == "x86_64":
+        MANYLINUX_IMAGES.update(
+            {
+                "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
+                "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
+            }
+        )
     POLICY_ALIASES = {
         "manylinux_2_5": ["manylinux1"],
         "manylinux_2_12": ["manylinux2010"],
         "manylinux_2_17": ["manylinux2014"],
     }
+elif PLATFORM == "armv7l":
+    MANYLINUX_IMAGES = {"manylinux_2_31": MANYLINUX_2_31_IMAGE_ID}
+    POLICY_ALIASES = {}
 else:
     MANYLINUX_IMAGES = {
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
         "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
-        "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
     }
+    if os.environ.get("AUDITWHEEL_QEMU", "") != "true":
+        MANYLINUX_IMAGES.update({"manylinux_2_34": MANYLINUX_2_34_IMAGE_ID})
     POLICY_ALIASES = {
         "manylinux_2_17": ["manylinux2014"],
     }
@@ -67,6 +78,7 @@ DEVTOOLSET = {
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
     "manylinux_2_28": "gcc-toolset-14",
+    "manylinux_2_31": "devtoolset-not-present",
     "manylinux_2_34": "gcc-toolset-14",
     "musllinux_1_2": "devtoolset-not-present",
 }
@@ -265,6 +277,12 @@ def docker_start(
     client = docker.from_env()
 
     dvolumes = {host: {"bind": ctr, "mode": "rw"} for (ctr, host) in volumes.items()}
+    goarch = {
+        "x86_64": "amd64",
+        "i686": "386",
+        "aarch64": "arm64",
+        "armv7l": "arm/v7",
+    }.get(PLATFORM, PLATFORM)
 
     logger.info("Starting container with image %r", image)
     con = client.containers.run(
@@ -273,6 +291,7 @@ def docker_start(
         detach=True,
         volumes=dvolumes,
         environment=env_variables,
+        platform=f"linux/{goarch}",
     )
     logger.info("Started container %s", con.id[:12])
     return con
@@ -316,7 +335,7 @@ def docker_exec(
 ) -> str:
     logger.info("docker exec %s: %r", container.id[:12], cmd)
     ec, output = container.exec_run(cmd, workdir=cwd, environment=env)
-    output = output.decode(ENCODING)
+    output = output.decode("utf-8")
     if ec != expected_retcode:
         print(output)
         raise CalledProcessError(ec, cmd, output=output)
@@ -370,7 +389,7 @@ def assert_show_output(
         assert expected_match, f"No match for tag {expected_tag}"
         expected_glibc = (int(expected_match["major"]), int(expected_match["minor"]))
         actual_match = TAG_RE.match(match["tag"])
-        assert actual_match, f"No match for tag {match['tag']}"
+        assert actual_match, f"No match for tag {match['tag']}, output={output}"
         actual_glibc = (int(actual_match["major"]), int(actual_match["minor"]))
         assert expected_match["arch"] == actual_match["arch"]
         assert actual_glibc <= expected_glibc
@@ -386,12 +405,16 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
             # https://github.com/numpy/numpy/issues/27932
             fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
             container.exec(f'sh -c "{fix_hwcap}"')
-    elif container.policy.startswith(("manylinux_2_28_", "manylinux_2_34_")):
-        container.exec("dnf install -y openblas-devel")
-    else:
+    elif container.policy.startswith(
+        ("manylinux_2_5_", "manylinux_2_12_", "manylinux_2_17_")
+    ):
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
             pytest.skip("numpy>=1.26 requires openblas")
         container.exec("yum install -y atlas atlas-devel")
+    elif container.policy.startswith("manylinux_2_31_"):
+        container.exec("apt-get install -y libopenblas-dev")
+    else:
+        container.exec("dnf install -y openblas-devel")
 
     cached_wheel = container.cache_dir / ORIGINAL_NUMPY_WHEEL
     orig_wheel = output_dir / ORIGINAL_NUMPY_WHEEL
@@ -466,7 +489,6 @@ class Anylinux:
         if policy.startswith("musllinux_"):
             python.exec("apk add musl-dev gfortran")
         else:
-            python.exec("apt-get update -yqq")
             python.exec("apt-get install -y gfortran")
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
             python.pip_install("meson ninja")
@@ -498,6 +520,8 @@ class Anylinux:
         policy = anylinux.policy
         if policy.startswith("musllinux_"):
             anylinux.exec("apk add gsl-dev")
+        elif policy.startswith("manylinux_2_31_"):
+            anylinux.exec("apt-get install -y libgsl-dev")
         else:
             anylinux.exec("yum install -y gsl-devel")
 
@@ -768,9 +792,8 @@ class TestManylinux(Anylinux):
     @pytest.fixture(scope="session")
     def docker_python_img(self):
         """The glibc Python base image with up-to-date pip"""
-        with tmp_docker_image(
-            MANYLINUX_PYTHON_IMAGE_ID, ["pip install -U pip"]
-        ) as img_id:
+        commnds = ["pip install -U pip", "apt-get update -yqq"]
+        with tmp_docker_image(MANYLINUX_PYTHON_IMAGE_ID, commnds) as img_id:
             yield img_id
 
     @pytest.fixture(scope="session", params=MANYLINUX_IMAGES.keys())
@@ -780,25 +803,23 @@ class TestManylinux(Anylinux):
         Plus up-to-date pip, setuptools and pytest-cov
         """
         policy = request.param
-        support_check_map = {
+        check_set = {
             "manylinux_2_5": {"38", "39"},
             "manylinux_2_12": {"38", "39", "310"},
-        }
-        check_set = support_check_map.get(policy)
+        }.get(policy)
         if check_set and PYTHON_ABI_MAJ_MIN not in check_set:
             pytest.skip(f"{policy} images do not support cp{PYTHON_ABI_MAJ_MIN}")
 
         base = MANYLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
-        with tmp_docker_image(
-            base,
-            [
-                'git config --global --add safe.directory "/auditwheel_src"',
-                "pip install -U pip setuptools pytest-cov",
-                "pip install -U -e /auditwheel_src",
-            ],
-            env,
-        ) as img_id:
+        commands = [
+            'git config --global --add safe.directory "/auditwheel_src"',
+            "pip install -U pip setuptools pytest-cov",
+            "pip install -U -e /auditwheel_src",
+        ]
+        if policy == "manylinux_2_31":
+            commands.append("apt-get update -yqq")
+        with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id
 
     @pytest.mark.parametrize("with_dependency", ["0", "1"])
@@ -817,19 +838,19 @@ class TestManylinux(Anylinux):
         #   available on policies pre-dating the policy matching the image being
         #   tested.
 
-        policy = anylinux.policy
+        policy_name = anylinux.policy
 
         test_path = "/auditwheel_src/tests/integration/testdependencies"
         orig_wheel = anylinux.build_wheel(
             test_path, env={"WITH_DEPENDENCY": with_dependency}
         )
 
-        wheel_policy = WheelPolicies()
-        policy_priority = wheel_policy.get_priority_by_name(policy)
+        wheel_policy = WheelPolicies(libc=Libc.GLIBC, arch=Architecture(PLATFORM))
+        policy = wheel_policy.get_policy_by_name(policy_name)
         older_policies = [
             f"{p}_{PLATFORM}"
             for p in MANYLINUX_IMAGES
-            if policy_priority < wheel_policy.get_priority_by_name(f"{p}_{PLATFORM}")
+            if policy < wheel_policy.get_policy_by_name(f"{p}_{PLATFORM}")
         ]
         for target_policy in older_policies:
             # we shall fail to repair the wheel when targeting an older policy than
@@ -842,11 +863,11 @@ class TestManylinux(Anylinux):
         # check all works properly when targeting the policy matching the image
         anylinux.repair(orig_wheel, only_plat=False, library_paths=[test_path])
         repaired_wheel = anylinux.check_wheel("testdependencies")
-        assert_show_output(anylinux, repaired_wheel, policy, True)
+        assert_show_output(anylinux, repaired_wheel, policy_name, True)
 
         # check the original wheel with a dependency was not compliant
         # and check the one without a dependency was already compliant
-        expected = f"linux_{PLATFORM}" if with_dependency == "1" else policy
+        expected = f"linux_{PLATFORM}" if with_dependency == "1" else policy_name
         assert_show_output(anylinux, orig_wheel, expected, True)
 
         python.install_wheel(repaired_wheel)
@@ -905,7 +926,9 @@ class TestManylinux(Anylinux):
 
     def test_zlib_blacklist(self, anylinux: AnyLinuxContainer) -> None:
         policy = anylinux.policy
-        if policy.startswith(("manylinux_2_17_", "manylinux_2_28_", "manylinux_2_34_")):
+        if policy.startswith(
+            ("manylinux_2_17_", "manylinux_2_28_", "manylinux_2_31_", "manylinux_2_34_")
+        ):
             pytest.skip(f"{policy} image has no blacklist symbols in libz.so.1")
 
         test_path = "/auditwheel_src/tests/integration/testzlib"
@@ -925,9 +948,8 @@ class TestMusllinux(Anylinux):
     @pytest.fixture(scope="session")
     def docker_python_img(self):
         """The alpine Python base image with up-to-date pip"""
-        with tmp_docker_image(
-            MUSLLINUX_PYTHON_IMAGE_ID, ["pip install -U pip"]
-        ) as img_id:
+        commands = ["pip install -U pip"]
+        with tmp_docker_image(MUSLLINUX_PYTHON_IMAGE_ID, commands) as img_id:
             yield img_id
 
     @pytest.fixture(scope="session", params=MUSLLINUX_IMAGES.keys())
@@ -939,13 +961,10 @@ class TestMusllinux(Anylinux):
         policy = request.param
         base = MUSLLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
-        with tmp_docker_image(
-            base,
-            [
-                'git config --global --add safe.directory "/auditwheel_src"',
-                "pip install -U pip setuptools pytest-cov",
-                "pip install -U -e /auditwheel_src",
-            ],
-            env,
-        ) as img_id:
+        commands = [
+            'git config --global --add safe.directory "/auditwheel_src"',
+            "pip install -U pip setuptools pytest-cov",
+            "pip install -U -e /auditwheel_src",
+        ]
+        with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id

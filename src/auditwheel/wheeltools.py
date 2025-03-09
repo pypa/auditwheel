@@ -6,7 +6,6 @@ Tools that aren't specific to delocation
 from __future__ import annotations
 
 import csv
-import glob
 import hashlib
 import logging
 import os
@@ -14,10 +13,11 @@ from base64 import urlsafe_b64encode
 from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from itertools import product
-from os.path import abspath, basename, dirname, exists, relpath, splitext
-from os.path import join as pjoin
-from os.path import sep as psep
+from os.path import splitext
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import TracebackType
+from typing import Any, ClassVar
 
 from packaging.utils import parse_wheel_filename
 
@@ -32,23 +32,23 @@ class WheelToolsError(Exception):
     pass
 
 
-def _dist_info_dir(bdist_dir: str) -> str:
+def _dist_info_dir(bdist_dir: Path) -> Path:
     """Get the .dist-info directory from an unpacked wheel
 
     Parameters
     ----------
-    bdist_dir : str
+    bdist_dir : Path
         Path of unpacked wheel file
     """
 
-    info_dirs = glob.glob(pjoin(bdist_dir, "*.dist-info"))
+    info_dirs = list(bdist_dir.glob("*.dist-info"))
     if len(info_dirs) != 1:
         msg = "Should be exactly one `*.dist_info` directory"
         raise WheelToolsError(msg)
     return info_dirs[0]
 
 
-def rewrite_record(bdist_dir: str) -> bool:
+def rewrite_record(bdist_dir: Path) -> None:
     """Rewrite RECORD file with hashes for all files in `wheel_sdir`
 
     Copied from :method:`wheel.bdist_wheel.bdist_wheel.write_record`
@@ -57,7 +57,7 @@ def rewrite_record(bdist_dir: str) -> bool:
 
     Parameters
     ----------
-    bdist_dir : str
+    bdist_dir : Path
         Path of unpacked wheel file
 
     Returns
@@ -65,19 +65,19 @@ def rewrite_record(bdist_dir: str) -> bool:
         if wheel is unchanged
     """
     info_dir = _dist_info_dir(bdist_dir)
-    record_path = pjoin(info_dir, "RECORD")
-    record_relpath = relpath(record_path, bdist_dir)
+    record_path = info_dir / "RECORD"
+    record_relpath = record_path.relative_to(bdist_dir)
     # Unsign wheel - because we're invalidating the record hash
-    sig_path = pjoin(info_dir, "RECORD.jws")
-    if exists(sig_path):
-        os.unlink(sig_path)
+    sig_path = info_dir / "RECORD.jws"
+    if sig_path.exists():
+        sig_path.unlink()
 
-    def files() -> Generator[str]:
+    def files() -> Generator[Path]:
         for dir_, _, files in walk(bdist_dir):
             for file in files:
-                yield pjoin(dir_, file)
+                yield dir_ / file
 
-    def skip(path: str) -> bool:
+    def skip(path: Path) -> bool:
         """Wheel hashes every possible file."""
         return path == record_relpath
 
@@ -85,21 +85,19 @@ def rewrite_record(bdist_dir: str) -> bool:
         writer = csv.writer(record_file)
         skip_all = True
         for path in files():
-            relative_path = relpath(path, bdist_dir)
+            relative_path = path.relative_to(bdist_dir)
             if skip(relative_path):
                 hash_ = ""
                 size = ""
             else:
                 skip_all = False
-                with open(path, "rb") as f:
-                    data = f.read()
+                data = path.read_bytes()
                 digest = hashlib.sha256(data).digest()
                 sha256 = urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
                 hash_ = f"sha256={sha256}"
                 size = f"{len(data)}"
-            record_path = relpath(path, bdist_dir).replace(psep, "/")
-            writer.writerow((record_path, hash_, size))
-        return False
+            record_path_ = path.relative_to(bdist_dir).as_posix()
+            writer.writerow((record_path_, hash_, size))
 
 
 class InWheel(InTemporaryDirectory):
@@ -108,24 +106,55 @@ class InWheel(InTemporaryDirectory):
     On entering, you'll find yourself in the root tree of the wheel.  If you've
     asked for an output wheel, then on exit we'll rewrite the wheel record and
     pack stuff up for you.
+
+    If `out_wheel` is None, we assume the wheel won't be modified and we can
+    cache the unpacked wheel for future use.
     """
 
-    def __init__(self, in_wheel: str, out_wheel: str | None = None) -> None:
+    _whl_cache: ClassVar[dict[Path, TemporaryDirectory[Any]]] = {}
+
+    def __init__(self, in_wheel: Path, out_wheel: Path | None = None) -> None:
         """Initialize in-wheel context manager
 
         Parameters
         ----------
-        in_wheel : str
+        in_wheel : Path
             filename of wheel to unpack and work inside
-        out_wheel : None or str:
+        out_wheel : None or Path:
             filename of wheel to write after exiting.  If None, don't write and
             discard
         """
-        self.in_wheel = abspath(in_wheel)
-        self.out_wheel = None if out_wheel is None else abspath(out_wheel)
-        super().__init__()
+        self.in_wheel = in_wheel.absolute()
+        self.out_wheel = None if out_wheel is None else out_wheel.absolute()
+        self.read_only = out_wheel is None
+        self.use_cache = self.in_wheel in self._whl_cache
+        if self.use_cache and not Path(self._whl_cache[self.in_wheel].name).exists():
+            self.use_cache = False
+            logger.debug(
+                "Wheel ctx %s for %s is no longer valid",
+                self._whl_cache.pop(self.in_wheel),
+                self.in_wheel,
+            )
 
-    def __enter__(self) -> str:
+        if self.use_cache:
+            logger.debug(
+                "Reuse %s for %s", self._whl_cache[self.in_wheel], self.in_wheel
+            )
+            self._tmpdir = self._whl_cache[self.in_wheel]
+            if not self.read_only:
+                self._whl_cache.pop(self.in_wheel)
+        else:
+            super().__init__()
+            if self.read_only:
+                self._whl_cache[self.in_wheel] = self._tmpdir
+
+    def __enter__(self) -> Path:
+        if self.use_cache or self.read_only:
+            if not self.use_cache:
+                zip2dir(self.in_wheel, self.name)
+            self._pwd = Path.cwd()
+            os.chdir(self.name)
+            return Path(self.name)
         zip2dir(self.in_wheel, self.name)
         return super().__enter__()
 
@@ -142,6 +171,16 @@ class InWheel(InTemporaryDirectory):
             if timestamp:
                 date_time = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
             dir2zip(self.name, self.out_wheel, date_time)
+        if self.use_cache or self.read_only:
+            logger.debug(
+                "Exiting reused %s for %s",
+                self._whl_cache[self.in_wheel],
+                self.in_wheel,
+            )
+            os.chdir(self._pwd)
+            if not self.read_only:
+                super().__exit__(exc, value, tb)
+            return None
         return super().__exit__(exc, value, tb)
 
 
@@ -161,44 +200,43 @@ class InWheelCtx(InWheel):
     ``wheel_path``.
     """
 
-    def __init__(self, in_wheel: str, out_wheel: str | None = None) -> None:
+    def __init__(self, in_wheel: Path, out_wheel: Path | None = None) -> None:
         """Init in-wheel context manager returning self from enter
 
         Parameters
         ----------
-        in_wheel : str
+        in_wheel : Path
             filename of wheel to unpack and work inside
-        out_wheel : None or str:
+        out_wheel : None or Path:
             filename of wheel to write after exiting.  If None, don't write and
             discard
         """
         super().__init__(in_wheel, out_wheel)
-        self.path: str | None = None
+        self.path: Path | None = None
 
     def __enter__(self):  # type: ignore[no-untyped-def]
         self.path = super().__enter__()
         return self
 
-    def iter_files(self) -> Generator[str]:
+    def iter_files(self) -> Generator[Path]:
         if self.path is None:
             msg = "This function should be called from context manager"
             raise ValueError(msg)
-        record_names = glob.glob(os.path.join(self.path, "*.dist-info/RECORD"))
+        record_names = list(self.path.glob("*.dist-info/RECORD"))
         if len(record_names) != 1:
             msg = "Should be exactly one `*.dist_info` directory"
             raise ValueError(msg)
 
-        with open(record_names[0]) as f:
-            record = f.read()
+        record = record_names[0].read_text()
         reader = csv.reader(r for r in record.splitlines())
         for row in reader:
             filename = row[0]
-            yield filename
+            yield Path(filename)
 
 
 def add_platforms(
     wheel_ctx: InWheelCtx, platforms: list[str], remove_platforms: Iterable[str] = ()
-) -> str:
+) -> Path:
     """Add platform tags `platforms` to a wheel
 
     Add any platform tags in `platforms` that are missing
@@ -222,15 +260,15 @@ def add_platforms(
     to_remove = list(remove_platforms)  # we might want to modify this, make a copy
     definitely_not_purelib = False
 
-    info_fname = pjoin(_dist_info_dir(wheel_ctx.path), "WHEEL")
+    info_fname = _dist_info_dir(wheel_ctx.path) / "WHEEL"
     info = read_pkg_info(info_fname)
     # Check what tags we have
     if wheel_ctx.out_wheel is not None:
-        out_dir = dirname(wheel_ctx.out_wheel)
-        wheel_fname = basename(wheel_ctx.out_wheel)
+        out_dir = wheel_ctx.out_wheel.parent
+        wheel_fname = wheel_ctx.out_wheel.name
     else:
-        out_dir = "."
-        wheel_fname = basename(wheel_ctx.in_wheel)
+        out_dir = Path.cwd()
+        wheel_fname = wheel_ctx.in_wheel.name
 
     _, _, _, in_tags = parse_wheel_filename(wheel_fname)
     original_fname_tags = sorted({tag.platform for tag in in_tags})
@@ -255,7 +293,7 @@ def add_platforms(
         "ext": splitext(wheel_fname)[1],
     }
     out_wheel_fname = "{prefix}-{plat}{ext}".format(**fparts)
-    out_wheel = pjoin(out_dir, out_wheel_fname)
+    out_wheel = out_dir / out_wheel_fname
 
     in_info_tags = [tag for name, tag in info.items() if name == "Tag"]
     logger.info("Previous WHEEL info tags: %s", ", ".join(in_info_tags))

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from os.path import basename
 from pathlib import Path
 
 from elftools.common.exceptions import ELFError
@@ -10,7 +9,7 @@ from elftools.elf.elffile import ELFFile
 from .lddtree import parse_ld_paths
 
 
-def elf_read_dt_needed(fn: str) -> list[str]:
+def elf_read_dt_needed(fn: Path) -> list[str]:
     needed = []
     with open(fn, "rb") as f:
         elf = ELFFile(f)
@@ -26,13 +25,13 @@ def elf_read_dt_needed(fn: str) -> list[str]:
     return needed
 
 
-def elf_file_filter(paths: Iterable[str]) -> Iterator[tuple[str, ELFFile]]:
+def elf_file_filter(paths: Iterable[Path]) -> Iterator[tuple[Path, ELFFile]]:
     """Filter through an iterator of filenames and load up only ELF
     files
     """
 
     for path in paths:
-        if path.endswith(".py"):
+        if path.name.endswith(".py"):
             continue
         else:
             try:
@@ -86,8 +85,8 @@ def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
     return False
 
 
-def elf_is_python_extension(fn: str, elf: ELFFile) -> tuple[bool, int | None]:
-    modname = basename(fn).split(".", 1)[0]
+def elf_is_python_extension(fn: Path, elf: ELFFile) -> tuple[bool, int | None]:
+    modname = fn.name.split(".", 1)[0]
     module_init_f = {
         "init" + modname: 2,
         "PyInit_" + modname: 3,
@@ -109,7 +108,7 @@ def elf_is_python_extension(fn: str, elf: ELFFile) -> tuple[bool, int | None]:
     return False, None
 
 
-def elf_read_rpaths(fn: str) -> dict[str, list[str]]:
+def elf_read_rpaths(fn: Path) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {"rpaths": [], "runpaths": []}
 
     with open(fn, "rb") as f:
@@ -120,9 +119,9 @@ def elf_read_rpaths(fn: str) -> dict[str, list[str]]:
 
         for t in section.iter_tags():
             if t.entry.d_tag == "DT_RPATH":
-                result["rpaths"] = parse_ld_paths(t.rpath, root="/", path=fn)
+                result["rpaths"] = parse_ld_paths(t.rpath, root="/", path=str(fn))
             elif t.entry.d_tag == "DT_RUNPATH":
-                result["runpaths"] = parse_ld_paths(t.runpath, root="/", path=fn)
+                result["runpaths"] = parse_ld_paths(t.runpath, root="/", path=str(fn))
 
     return result
 
@@ -137,7 +136,7 @@ def is_subdir(path: str | Path | None, directory: str | Path) -> bool:
     return directory in path.parents
 
 
-def get_undefined_symbols(path: str) -> set[str]:
+def get_undefined_symbols(path: Path) -> set[str]:
     undef_symbols = set()
     with open(path, "rb") as f:
         elf = ELFFile(f)
@@ -151,14 +150,14 @@ def get_undefined_symbols(path: str) -> set[str]:
 
 
 def filter_undefined_symbols(
-    path: str, symbols: dict[str, list[str]]
+    path: Path, symbols: dict[str, frozenset[str]]
 ) -> dict[str, list[str]]:
     if not symbols:
         return {}
     undef_symbols = set("*") | get_undefined_symbols(path)
     result = {}
     for lib, sym_list in symbols.items():
-        intersection = set(sym_list) & undef_symbols
+        intersection = sym_list & undef_symbols
         if intersection:
             result[lib] = sorted(intersection)
     return result

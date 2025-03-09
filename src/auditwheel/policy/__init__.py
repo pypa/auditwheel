@@ -5,7 +5,7 @@ import logging
 import re
 from collections import defaultdict
 from collections.abc import Generator
-from os.path import abspath, dirname, join
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +26,28 @@ _POLICY_JSON_MAP = {
     Libc.GLIBC: _HERE / "manylinux-policy.json",
     Libc.MUSL: _HERE / "musllinux-policy.json",
 }
+
+
+@dataclass(frozen=True)
+class Policy:
+    name: str
+    aliases: tuple[str, ...]
+    priority: int
+    symbol_versions: dict[str, frozenset[str]]
+    whitelist: frozenset[str]
+    blacklist: dict[str, frozenset[str]]
+
+    def __lt__(self, other: Any) -> bool:
+        if not isinstance(other, Policy):
+            raise NotImplementedError()
+        return self.priority < other.priority
+
+
+@dataclass()
+class ExternalReference:
+    libs: dict[str, Path | None]
+    blacklist: dict[str, list[str]]
+    policy: Policy
 
 
 class WheelPolicies:
@@ -51,7 +73,7 @@ class WheelPolicies:
         if arch is None:
             arch = Architecture.get_native_architecture()
         policies = json.loads(_POLICY_JSON_MAP[libc].read_text())
-        self._policies: list[dict[str, Any]] = []
+        self._policies: list[Policy] = []
         self._architecture = arch
         self._libc_variant = libc
         self._musl_policy = musl_policy
@@ -65,16 +87,28 @@ class WheelPolicies:
             }:
                 continue
             if arch.value in policy["symbol_versions"] or policy["name"] == "linux":
+                name = f"{policy['name']}_{base_arch}"
                 if policy["name"] != "linux":
-                    policy["symbol_versions"] = policy["symbol_versions"][base_arch]
-                policy["name"] = policy["name"] + "_" + base_arch
-                policy["aliases"] = [
-                    alias + "_" + base_arch for alias in policy["aliases"]
-                ]
-                policy["lib_whitelist"] = _fixup_musl_libc_soname(
-                    libc, arch, policy["lib_whitelist"]
+                    symbol_versions = {
+                        k: frozenset(v)
+                        for k, v in policy["symbol_versions"][base_arch].items()
+                    }
+                else:
+                    symbol_versions = {}
+                aliases = tuple(f"{alias}_{base_arch}" for alias in policy["aliases"])
+                whitelist = _fixup_musl_libc_soname(libc, arch, policy["lib_whitelist"])
+                blacklist = {k: frozenset(v) for k, v in policy["blacklist"].items()}
+                policy_ = Policy(
+                    name=name,
+                    aliases=aliases,
+                    priority=policy["priority"],
+                    symbol_versions=symbol_versions,
+                    whitelist=whitelist,
+                    blacklist=blacklist,
                 )
-                self._policies.append(policy)
+                self._policies.append(policy_)
+
+        self._policies.sort()
 
         if self._libc_variant == Libc.MUSL:
             assert len(self._policies) == 2, self._policies
@@ -84,21 +118,19 @@ class WheelPolicies:
         return self._architecture
 
     @property
-    def policies(self):  # type: ignore[no-untyped-def]
+    def policies(self) -> list[Policy]:
         return self._policies
 
     @property
-    def priority_highest(self) -> int:
-        return max(int(p["priority"]) for p in self._policies)
+    def highest(self) -> Policy:
+        return self._policies[-1]
 
     @property
-    def priority_lowest(self) -> int:
-        return min(int(p["priority"]) for p in self._policies)
+    def lowest(self) -> Policy:
+        return self._policies[0]
 
-    def get_policy_by_name(self, name: str) -> dict[str, Any]:
-        matches = [
-            p for p in self._policies if p["name"] == name or name in p["aliases"]
-        ]
+    def get_policy_by_name(self, name: str) -> Policy:
+        matches = [p for p in self._policies if p.name == name or name in p.aliases]
         if len(matches) == 0:
             msg = f"no policy named {name!r} found"
             raise LookupError(msg)
@@ -107,62 +139,49 @@ class WheelPolicies:
             raise RuntimeError(msg)
         return matches[0]
 
-    def get_policy_name(self, priority: int) -> str:
-        matches = [str(p["name"]) for p in self._policies if p["priority"] == priority]
-        if len(matches) == 0:
-            msg = f"no policy with priority {priority} found"
-            raise LookupError(msg)
-        if len(matches) > 1:
-            msg = "Internal error. priorities should be unique"
-            raise RuntimeError(msg)
-        return matches[0]
-
-    def get_priority_by_name(self, name: str) -> int:
-        return int(self.get_policy_by_name(name)["priority"])
-
-    def versioned_symbols_policy(self, versioned_symbols: dict[str, set[str]]) -> int:
+    def versioned_symbols_policy(
+        self, versioned_symbols: dict[str, set[str]]
+    ) -> Policy:
         def policy_is_satisfied(
             policy_name: str, policy_sym_vers: dict[str, set[str]]
         ) -> bool:
-            policy_satisfied = True
             for name in set(required_vers) & set(policy_sym_vers):
                 if not required_vers[name].issubset(policy_sym_vers[name]):
-                    for symbol in required_vers[name] - policy_sym_vers[name]:
-                        logger.debug(
-                            "Package requires %s, incompatible with "
-                            "policy %s which requires %s",
-                            symbol,
-                            policy_name,
-                            policy_sym_vers[name],
-                        )
-                    policy_satisfied = False
-            return policy_satisfied
+                    symbols = required_vers[name] - policy_sym_vers[name]
+                    logger.debug(
+                        "%s requires any of %s, incompatible with "
+                        "policy %s which requires %s",
+                        name,
+                        symbols,
+                        policy_name,
+                        policy_sym_vers[name],
+                    )
+                    return False
+            return True
 
         required_vers: dict[str, set[str]] = {}
         for symbols in versioned_symbols.values():
             for symbol in symbols:
                 sym_name, _, _ = symbol.partition("_")
                 required_vers.setdefault(sym_name, set()).add(symbol)
-        matching_policies: list[int] = []
-        for p in self.policies:
+        for p in self._policies[::-1]:
             policy_sym_vers = {
                 sym_name: {sym_name + "_" + version for version in versions}
-                for sym_name, versions in p["symbol_versions"].items()
+                for sym_name, versions in p.symbol_versions.items()
             }
-            if policy_is_satisfied(p["name"], policy_sym_vers):
-                matching_policies.append(p["priority"])
+            if policy_is_satisfied(p.name, policy_sym_vers):
+                return p
 
-        if len(matching_policies) == 0:
-            # the base policy (generic linux) should always match
-            msg = "Internal error"
-            raise RuntimeError(msg)
-
-        return max(matching_policies)
+        # the base policy (generic linux) should always match
+        msg = "Internal error"
+        raise RuntimeError(msg)
 
     def lddtree_external_references(
-        self, lddtree: DynamicExecutable, wheel_path: str
-    ) -> dict[str, dict[str, Any]]:
-        def filter_libs(libs: frozenset[str], whitelist: set[str]) -> Generator[str]:
+        self, lddtree: DynamicExecutable, wheel_path: Path
+    ) -> dict[str, ExternalReference]:
+        def filter_libs(
+            libs: frozenset[str], whitelist: frozenset[str]
+        ) -> Generator[str]:
             for lib in libs:
                 if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
                     # always exclude ELF dynamic linker/loader
@@ -178,7 +197,7 @@ class WheelPolicies:
                     continue
                 yield lib
 
-        def get_req_external(libs: set[str], whitelist: set[str]) -> set[str]:
+        def get_req_external(libs: set[str], whitelist: frozenset[str]) -> set[str]:
             # get all the required external libraries
             libs = libs.copy()
             reqs = set()
@@ -190,25 +209,27 @@ class WheelPolicies:
                         libs.add(dep)
             return reqs
 
-        ret: dict[str, dict[str, Any]] = {}
+        ret: dict[str, ExternalReference] = {}
         for p in self.policies:
             needed_external_libs: set[str] = set()
             blacklist = {}
 
-            if not (p["name"] == "linux" and p["priority"] == 0):
+            if not (p.name == "linux" and p.priority == 0):
                 # special-case the generic linux platform here, because it
                 # doesn't have a whitelist. or, you could say its
                 # whitelist is the complete set of all libraries. so nothing
                 # is considered "external" that needs to be copied in.
-                whitelist = set(p["lib_whitelist"])
-                blacklist_libs = set(p["blacklist"].keys()) & lddtree.needed
-                blacklist = {k: p["blacklist"][k] for k in blacklist_libs}
-                blacklist = filter_undefined_symbols(lddtree.realpath, blacklist)
+                whitelist = p.whitelist
+                blacklist_libs = set(p.blacklist.keys()) & lddtree.needed
+                blacklist_reduced = {k: p.blacklist[k] for k in blacklist_libs}
+                blacklist = filter_undefined_symbols(
+                    lddtree.realpath, blacklist_reduced
+                )
                 needed_external_libs = get_req_external(
                     set(filter_libs(lddtree.needed, whitelist)), whitelist
                 )
 
-            pol_ext_deps = {}
+            pol_ext_deps: dict[str, Path | None] = {}
             for lib in needed_external_libs:
                 if is_subdir(lddtree.libraries[lib].realpath, wheel_path):
                     # we didn't filter libs that resolved via RPATH out
@@ -218,11 +239,7 @@ class WheelPolicies:
                     logger.debug("RPATH FTW: %s", lib)
                     continue
                 pol_ext_deps[lib] = lddtree.libraries[lib].realpath
-            ret[p["name"]] = {
-                "libs": pol_ext_deps,
-                "priority": p["priority"],
-                "blacklist": blacklist,
-            }
+            ret[p.name] = ExternalReference(pol_ext_deps, blacklist, p)
         return ret
 
 
@@ -260,9 +277,9 @@ def _validate_pep600_compliance(policies) -> None:  # type: ignore[no-untyped-de
 
 def _fixup_musl_libc_soname(
     libc: Libc, arch: Architecture, whitelist: list[str]
-) -> list[str]:
+) -> frozenset[str]:
     if libc != Libc.MUSL:
-        return whitelist
+        return frozenset(whitelist)
     soname_map = {
         "libc.so": {
             Architecture.x86_64: "libc.musl-x86_64.so.1",
@@ -283,7 +300,7 @@ def _fixup_musl_libc_soname(
             new_whitelist.append(new_soname)
         else:
             new_whitelist.append(soname)
-    return new_whitelist
+    return frozenset(new_whitelist)
 
 
 def get_replace_platforms(name: str) -> list[str]:
@@ -306,11 +323,6 @@ def get_replace_platforms(name: str) -> list[str]:
     if name.startswith("musllinux_"):
         return ["linux_" + "_".join(name.split("_")[3:])]
     return ["linux_" + "_".join(name.split("_")[1:])]
-
-
-def _load_policy_schema():  # type: ignore[no-untyped-def]
-    with open(join(dirname(abspath(__file__)), "policy-schema.json")) as f_:
-        return json.load(f_)
 
 
 __all__ = [
