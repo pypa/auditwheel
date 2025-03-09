@@ -48,7 +48,7 @@ def _dist_info_dir(bdist_dir: str) -> str:
     return info_dirs[0]
 
 
-def rewrite_record(bdist_dir: str) -> None:
+def rewrite_record(bdist_dir: str) -> bool:
     """Rewrite RECORD file with hashes for all files in `wheel_sdir`
 
     Copied from :method:`wheel.bdist_wheel.bdist_wheel.write_record`
@@ -59,6 +59,10 @@ def rewrite_record(bdist_dir: str) -> None:
     ----------
     bdist_dir : str
         Path of unpacked wheel file
+
+    Returns
+    -------
+        if wheel is unchanged
     """
     info_dir = _dist_info_dir(bdist_dir)
     record_path = pjoin(info_dir, "RECORD")
@@ -79,12 +83,14 @@ def rewrite_record(bdist_dir: str) -> None:
 
     with open(record_path, "w+", newline="", encoding="utf-8") as record_file:
         writer = csv.writer(record_file)
+        skip_all = True
         for path in files():
             relative_path = relpath(path, bdist_dir)
             if skip(relative_path):
                 hash_ = ""
                 size = ""
             else:
+                skip_all = False
                 with open(path, "rb") as f:
                     data = f.read()
                 digest = hashlib.sha256(data).digest()
@@ -93,6 +99,7 @@ def rewrite_record(bdist_dir: str) -> None:
                 size = f"{len(data)}"
             record_path = relpath(path, bdist_dir).replace(psep, "/")
             writer.writerow((record_path, hash_, size))
+        return False
 
 
 class InWheel(InTemporaryDirectory):
