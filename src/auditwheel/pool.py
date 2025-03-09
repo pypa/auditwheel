@@ -65,7 +65,7 @@ class FileTaskExecutor:
             future = self.executor.submit(fn, *args, **kwargs)
             self.working_map[path] = future
         else:
-            current = self.working_map[path]
+            current = self.working_map.pop(path)
             future = Future()
 
             @functools.wraps(fn)
@@ -74,14 +74,13 @@ class FileTaskExecutor:
 
                 assert _current == current
 
-                self.working_map.pop(path)
-                self.working_map[path] = future
                 try:
                     future.set_result(fn(*args, **kwargs))
                 except Exception as e:
                     future.set_exception(e)
 
             current.add_done_callback(new_fn)
+            self.working_map[path] = future
 
         return future
 
@@ -98,11 +97,7 @@ class FileTaskExecutor:
         if self.executor is None:
             return
         if path is not None:
-            while True:
-                yield_thread()
-                if path not in self.working_map:
-                    return
-                self.working_map.pop(path).result()
+            self.working_map.pop(path).result()
         else:
             while self.working_map:
                 path = next(iter(self.working_map))
