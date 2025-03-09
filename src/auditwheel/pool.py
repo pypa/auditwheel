@@ -66,6 +66,8 @@ class FileTaskExecutor:
             self.working_map[path] = future
         else:
             current = self.working_map.pop(path)
+            if not current.done():
+                pass
             future = Future()
 
             @functools.wraps(fn)
