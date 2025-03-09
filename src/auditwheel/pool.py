@@ -60,11 +60,7 @@ class FileTaskExecutor:
         if self.executor is None:
             future = Future()
             future.set_result(fn(*args, **kwargs))
-        elif not chain:
-            assert path not in self.working_map, "path already in working_map"
-            future = self.executor.submit(fn, *args, **kwargs)
-            self.working_map[path] = future
-        else:
+        elif chain and path in self.working_map:
             current = self.working_map[path]
             future = self.working_map[path] = Future()
 
@@ -80,6 +76,13 @@ class FileTaskExecutor:
                     future.set_exception(e)
 
             current.add_done_callback(new_fn)
+        else:
+            if not chain:
+                assert path not in self.working_map, (
+                    "task assiciated with path is already running"
+                )
+            future = self.executor.submit(fn, *args, **kwargs)
+            self.working_map[path] = future
 
         return future
 
