@@ -85,11 +85,10 @@ def repair_wheel(
                 if not dest_dir.exists():
                     dest_dir.mkdir()
                 new_soname, new_path = get_new_soname(src_path, dest_dir)
+                replacements.append((soname, new_soname))
                 if soname not in soname_map:
-                    soname_map[soname] = (new_soname, new_path)
-                    replacements.append((soname, new_soname))
-
                     POOL.submit(new_path, copylib, src_path, dest_dir, patcher)
+                    soname_map[soname] = (new_soname, new_path)
 
             if replacements:
                 POOL.submit(fn, patcher.replace_needed, fn, *replacements)
