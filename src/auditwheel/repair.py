@@ -99,7 +99,6 @@ def repair_wheel(
                     assert match is not None
                     new_fn = fn
                     if _path_is_script(fn):
-                        POOL.wait(fn)
                         new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
 
                     new_rpath = os.path.relpath(dest_dir, new_fn.parent)
