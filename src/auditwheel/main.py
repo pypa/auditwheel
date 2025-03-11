@@ -10,6 +10,7 @@ from importlib import metadata
 import auditwheel
 
 from . import main_lddtree, main_repair, main_show
+from .tools import EnvironmentDefault
 
 
 def main() -> int | None:
@@ -32,6 +33,16 @@ def main() -> int | None:
         dest="verbose",
         default=0,
         help="Give more output. Option is additive",
+    )
+    p.add_argument(
+        "-j",
+        "--max-jobs",
+        dest="max_jobs",
+        action=EnvironmentDefault,
+        env="AUDITWHEEL_MAX_JOBS",
+        type=int,
+        default=1,
+        help="Maximum number of jobs to run in parallel",
     )
     sub_parsers = p.add_subparsers(metavar="command", dest="cmd")
 

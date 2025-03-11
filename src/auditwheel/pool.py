@@ -119,8 +119,5 @@ class FileTaskExecutor:
             for path in list(self.working_map):
                 self.wait(path)
 
-    def __contains__(self, fn: Path) -> bool:
-        return self.executor is not None and fn in self.working_map
 
-
-POOL = FileTaskExecutor(2)
+DEFAULT_POOL = FileTaskExecutor(1)

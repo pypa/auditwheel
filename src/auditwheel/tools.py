@@ -182,37 +182,35 @@ class EnvironmentDefault(argparse.Action):
     ) -> None:
         self.env_default = os.environ.get(env)
         self.env = env
-        if self.env_default:
-            if type:
-                try:
-                    self.env_default = type(self.env_default)
-                except Exception:
-                    self.option_strings = kwargs["option_strings"]
-                    args = {
-                        "value": self.env_default,
-                        "type": type,
-                        "env": self.env,
-                    }
-                    msg = (
-                        "invalid type: %(value)r from environment variable "
-                        "%(env)r cannot be converted to %(type)r"
-                    )
-                    raise argparse.ArgumentError(self, msg % args) from None
+        error_msg_value_meta = "%(value)r"
+        if self.env_default is not None:
             default = self.env_default
-        if (
-            self.env_default is not None
-            and choices is not None
-            and self.env_default not in choices
-        ):
+            error_msg_value_meta = "%(value)r from environment variable %(env)r"
+        if type:
+            try:
+                default = type(default)
+            except Exception:
+                self.option_strings = kwargs["option_strings"]
+                args = {
+                    "value": self.env_default,
+                    "type": type,
+                    "env": self.env,
+                }
+                msg = (
+                    "invalid type: "
+                    + error_msg_value_meta
+                    + " cannot be converted to %(type)r"
+                )
+                raise argparse.ArgumentError(self, msg % args) from None
+        if default is not None and choices is not None and default not in choices:
             self.option_strings = kwargs["option_strings"]
             args = {
-                "value": self.env_default,
+                "value": default,
                 "choices": ", ".join(map(repr, choices)),
                 "env": self.env,
             }
             msg = (
-                "invalid choice: %(value)r from environment variable "
-                "%(env)r (choose from %(choices)s)"
+                "invalid choice: " + error_msg_value_meta + " (choose from %(choices)s)"
             )
             raise argparse.ArgumentError(self, msg % args)
 

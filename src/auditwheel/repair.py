@@ -8,7 +8,6 @@ import platform
 import re
 import shutil
 import stat
-from collections.abc import Iterable
 from fnmatch import fnmatch
 from os.path import isabs
 from pathlib import Path
@@ -19,7 +18,7 @@ from auditwheel.patcher import ElfPatcher
 from .elfutils import elf_read_dt_needed, elf_read_rpaths, is_subdir
 from .hashfile import hashfile
 from .policy import WheelPolicies, get_replace_platforms
-from .pool import POOL
+from .pool import DEFAULT_POOL, FileTaskExecutor
 from .wheel_abi import get_wheel_elfdata
 from .wheeltools import InWheelCtx, add_platforms
 
@@ -45,8 +44,9 @@ def repair_wheel(
     exclude: frozenset[str],
     strip: bool,
     zip_compression_level: int,
+    pool: FileTaskExecutor = DEFAULT_POOL,
 ) -> Path | None:
-    elf_data = get_wheel_elfdata(wheel_policy, wheel_path, exclude)
+    elf_data = get_wheel_elfdata(wheel_policy, wheel_path, exclude, pool)
     external_refs_by_fn = elf_data.full_external_refs
 
     # Do not repair a pure wheel, i.e. has no external refs
@@ -89,11 +89,11 @@ def repair_wheel(
                 new_soname, new_path = get_new_soname(src_path, dest_dir)
                 replacements.append((soname, new_soname))
                 if soname not in soname_map:
-                    POOL.submit(new_path, copylib, src_path, dest_dir, patcher)
+                    pool.submit(new_path, copylib, src_path, dest_dir, patcher)
                     soname_map[soname] = (new_soname, new_path)
 
             if replacements:
-                POOL.submit(fn, patcher.replace_needed, fn, *replacements)
+                pool.submit(fn, patcher.replace_needed, fn, *replacements)
 
             if len(ext_libs) > 0:
 
@@ -108,9 +108,9 @@ def repair_wheel(
 
                     append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
 
-                POOL.submit_chain(fn, _patch_fn, fn)
+                pool.submit_chain(fn, _patch_fn, fn)
 
-        POOL.wait()
+        pool.wait()
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
@@ -123,7 +123,7 @@ def repair_wheel(
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
-                POOL.submit(path, patcher.replace_needed, path, *replacements)
+                pool.submit(path, patcher.replace_needed, path, *replacements)
 
         if update_tags:
             ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
@@ -131,17 +131,16 @@ def repair_wheel(
         if strip:
             libs_to_strip = [path for (_, path) in soname_map.values()]
             extensions = external_refs_by_fn.keys()
-            strip_symbols(itertools.chain(libs_to_strip, extensions))
+            for lib in itertools.chain(libs_to_strip, extensions):
+                pool.submit(lib, strip_symbols, lib)
 
-        POOL.wait()
+        pool.wait()
     return ctx.out_wheel
 
 
-def strip_symbols(libraries: Iterable[Path]) -> None:
-    for lib in libraries:
-        logger.info("Stripping symbols from %s", lib)
-        POOL.submit_chain(lib, check_call, ["strip", "-s", lib])
-    POOL.wait()
+def strip_symbols(lib: Path) -> None:
+    logger.info("Stripping symbols from %s", lib)
+    check_call(["strip", "-s", lib])
 
 
 @functools.lru_cache(maxsize=1)

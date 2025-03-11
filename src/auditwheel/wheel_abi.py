@@ -12,8 +12,6 @@ from typing import Optional, TypeVar
 
 from elftools.elf.elffile import ELFFile
 
-from auditwheel.pool import POOL
-
 from . import json
 from .architecture import Architecture
 from .elfutils import (
@@ -26,6 +24,7 @@ from .elfutils import (
 from .genericpkgctx import InGenericPkgCtx
 from .lddtree import DynamicExecutable, ldd
 from .policy import ExternalReference, Policy, WheelPolicies
+from .pool import DEFAULT_POOL, FileTaskExecutor
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +83,10 @@ class NonPlatformWheel(WheelAbiError):
 
 @functools.lru_cache
 def get_wheel_elfdata(
-    wheel_policy: WheelPolicies, wheel_fn: Path, exclude: frozenset[str]
+    wheel_policy: WheelPolicies,
+    wheel_fn: Path,
+    exclude: frozenset[str],
+    pool: FileTaskExecutor = DEFAULT_POOL,
 ) -> WheelElfData:
     full_elftree = {}
     nonpy_elftree = {}
@@ -164,7 +166,7 @@ def get_wheel_elfdata(
                 shared_libraries_in_purelib.append(so_name)
 
             if not shared_libraries_in_purelib:
-                POOL.submit(fn, inner, fn)
+                pool.submit(fn, inner, fn)
 
         # If at least one shared library exists in purelib, raise an error
         if shared_libraries_in_purelib:
@@ -177,7 +179,7 @@ def get_wheel_elfdata(
             )
             raise RuntimeError(msg)
 
-        POOL.wait()
+        pool.wait()
 
         if not platform_wheel:
             raise NonPlatformWheel(

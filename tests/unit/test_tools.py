@@ -46,7 +46,7 @@ def test_plat_environment_action(
 
 
 _all_zip_level: list[int] = list(
-    range(zlib.Z_NO_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1)
+    range(zlib.Z_DEFAULT_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1)
 )
 
 
