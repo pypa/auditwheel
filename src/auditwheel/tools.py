@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import subprocess
 import zipfile
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 _T = TypeVar("_T")
+
+logger = logging.getLogger(__name__)
 
 
 def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
@@ -90,6 +93,7 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
     out_dir : str
         Directory path containing files to go in the zip archive
     """
+    start = datetime.now()
     with zipfile.ZipFile(zip_fname, "r") as z:
         for name in z.namelist():
             member = z.getinfo(name)
@@ -102,9 +106,17 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
                 attr &= 511  # only keep permission bits
                 attr |= 6 << 6  # at least read/write for current user
                 os.chmod(extracted_path, attr)
+    logger.debug(
+        "zip2dir from %s to %s takes %s", zip_fname, out_dir, datetime.now() - start
+    )
 
 
-def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) -> None:
+def dir2zip(
+    in_dir: Path,
+    zip_fname: Path,
+    zip_compression_level: int,
+    date_time: datetime | None,
+) -> None:
     """Make a zip file `zip_fname` with contents of directory `in_dir`
 
     The recorded filenames are relative to `in_dir`, so doing a standard zip
@@ -117,9 +129,14 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
         Directory path containing files to go in the zip archive
     zip_fname : Path
         Filename of zip archive to write
+    zip_compression_level: int
+        zlib.Z_DEFAULT_COMPRESSION (-1 aka. level 6) balances speed and size.
+        zlib.Z_NO_COMPRESSION (O) for some test builds that needs no compression at all
+        zlib.Z_BEST_COMPRESSION (9) for bandwidth-constrained or large amount of downloads
     date_time : Optional[datetime]
         Time stamp to set on each file in the archive
     """
+    start = datetime.now()
     in_dir = in_dir.resolve(strict=True)
     if date_time is None:
         st = in_dir.stat()
@@ -140,7 +157,10 @@ def dir2zip(in_dir: Path, zip_fname: Path, date_time: datetime | None = None) ->
                 zinfo.date_time = date_time_args
                 zinfo.compress_type = compression
                 with open(fname, "rb") as fp:
-                    z.writestr(zinfo, fp.read())
+                    z.writestr(zinfo, fp.read(), compresslevel=zip_compression_level)
+    logger.debug(
+        "dir2zip from %s to %s takes %s", in_dir, zip_fname, datetime.now() - start
+    )
 
 
 def tarbz2todir(tarbz2_fname: Path, out_dir: Path) -> None:
@@ -157,15 +177,33 @@ class EnvironmentDefault(argparse.Action):
         required: bool = True,
         default: str | None = None,
         choices: Iterable[str] | None = None,
+        type: type | None = None,
         **kwargs: Any,
     ) -> None:
         self.env_default = os.environ.get(env)
         self.env = env
         if self.env_default:
+            if type:
+                try:
+                    self.env_default = type(self.env_default)
+                except Exception:
+                    self.option_strings = kwargs["option_strings"]
+                    args = {
+                        "value": self.env_default,
+                        "type": type,
+                        "env": self.env,
+                    }
+                    msg = (
+                        "invalid type: %(value)r from environment variable "
+                        "%(env)r cannot be converted to %(type)r"
+                    )
+                    raise argparse.ArgumentError(self, msg % args) from None
             default = self.env_default
-        if default:
-            required = False
-        if self.env_default and choices is not None and self.env_default not in choices:
+        if (
+            self.env_default is not None
+            and choices is not None
+            and self.env_default not in choices
+        ):
             self.option_strings = kwargs["option_strings"]
             args = {
                 "value": self.env_default,
@@ -178,7 +216,12 @@ class EnvironmentDefault(argparse.Action):
             )
             raise argparse.ArgumentError(self, msg % args)
 
-        super().__init__(default=default, required=required, choices=choices, **kwargs)
+        if default is not None:
+            required = False
+
+        super().__init__(
+            default=default, required=required, choices=choices, type=type, **kwargs
+        )
 
     def __call__(
         self,

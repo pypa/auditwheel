@@ -43,7 +43,8 @@ def repair_wheel(
     update_tags: bool,
     patcher: ElfPatcher,
     exclude: frozenset[str],
-    strip: bool = False,
+    strip: bool,
+    zip_compression_level: int,
 ) -> Path | None:
     elf_data = get_wheel_elfdata(wheel_policy, wheel_path, exclude)
     external_refs_by_fn = elf_data.full_external_refs
@@ -59,6 +60,7 @@ def repair_wheel(
 
     with InWheelCtx(wheel_path) as ctx:
         ctx.out_wheel = out_dir / wheel_fname
+        ctx.zip_compression_level = zip_compression_level
 
         match = WHEEL_INFO_RE(wheel_fname)
         if not match:
