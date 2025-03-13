@@ -33,4 +33,4 @@ def test_help(monkeypatch, capsys):
     # THEN
     assert retval is None
     captured = capsys.readouterr()
-    assert "usage: auditwheel [-h] [-V] [-v] command ..." in captured.out
+    assert "usage: auditwheel [-h] [-V] [-v] [-j MAX_JOBS] command ..." in captured.out

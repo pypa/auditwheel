@@ -47,6 +47,10 @@ class Patchelf(ElfPatcher):
         _verify_patchelf()
 
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
+        """
+        Patching one elf do not need its dependencies to be ready,
+        so this function can be parallelized.
+        """
         check_call(
             [
                 "patchelf",

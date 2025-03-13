@@ -135,6 +135,7 @@ def test_wheel_source_date_epoch(tmp_path, monkeypatch):
         EXCLUDE=[],
         DISABLE_ISA_EXT_CHECK=False,
         ZIP_COMPRESSION_LEVEL=6,
+        max_jobs=1,
         cmd="repair",
         func=Mock(),
         prog="auditwheel",

@@ -8,6 +8,7 @@ from pathlib import Path
 from auditwheel.patcher import Patchelf
 
 from .policy import WheelPolicies
+from .pool import FileTaskExecutor
 from .tools import EnvironmentDefault
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ wheel will abort processing of subsequent wheels.
         dest="ZIP_COMPRESSION_LEVEL",
         type=int,
         help="Compress level to be used to create zip file.",
-        choices=list(range(zlib.Z_NO_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1)),
+        choices=list(range(zlib.Z_DEFAULT_COMPRESSION, zlib.Z_BEST_COMPRESSION + 1)),
         default=zlib.Z_DEFAULT_COMPRESSION,
     )
     parser.add_argument(
@@ -211,6 +212,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             exclude=exclude,
             strip=args.STRIP,
             zip_compression_level=args.ZIP_COMPRESSION_LEVEL,
+            pool=FileTaskExecutor(args.max_jobs),
         )
 
         if out_wheel is not None:
