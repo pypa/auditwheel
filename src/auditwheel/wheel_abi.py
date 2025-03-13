@@ -101,7 +101,11 @@ def get_wheel_elfdata(
 
         platform_wheel = False
 
-        def inner(fn: Path) -> None:
+        def _get_fn_data_inner(fn: Path) -> None:
+            """
+            This function reads one elf file per call,
+            so can be safely parallelized.
+            """
             nonlocal \
                 platform_wheel, \
                 shared_libraries_in_purelib, \
@@ -166,7 +170,7 @@ def get_wheel_elfdata(
                 shared_libraries_in_purelib.append(so_name)
 
             if not shared_libraries_in_purelib:
-                pool.submit(fn, inner, fn)
+                pool.submit(fn, _get_fn_data_inner, fn)
 
         # If at least one shared library exists in purelib, raise an error
         if shared_libraries_in_purelib:

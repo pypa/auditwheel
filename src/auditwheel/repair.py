@@ -93,6 +93,8 @@ def repair_wheel(
                     soname_map[soname] = (new_soname, new_path)
 
             if replacements:
+                # patching one elf do not need its dependencies to be ready
+                # so we can submit this task without waiting for dependencies
                 pool.submit(fn, patcher.replace_needed, fn, *replacements)
 
             if len(ext_libs) > 0:
