@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from auditwheel.tools import EnvironmentDefault, dir2zip, zip2dir, is_subdir
+from auditwheel.tools import EnvironmentDefault, dir2zip, is_subdir, zip2dir
 
 
 @pytest.mark.parametrize(
