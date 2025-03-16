@@ -231,3 +231,13 @@ class EnvironmentDefault(argparse.Action):
         option_string: str | None = None,  # noqa: ARG002
     ) -> None:
         setattr(namespace, self.dest, values)
+
+
+def is_subdir(path: str | Path | None, root: str | Path) -> bool:
+    if path is None:
+        return False
+
+    path = Path(path).resolve()
+    root = Path(root).resolve()
+
+    return root == path or root in path.parents

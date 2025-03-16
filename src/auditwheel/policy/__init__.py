@@ -9,12 +9,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from auditwheel.elfutils import filter_undefined_symbols, is_subdir
-
 from ..architecture import Architecture
+from ..elfutils import filter_undefined_symbols
 from ..lddtree import DynamicExecutable
 from ..libc import Libc, get_libc
 from ..musllinux import find_musl_libc, get_musl_version
+from ..tools import is_subdir
 
 _HERE = Path(__file__).parent
 LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
