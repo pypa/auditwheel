@@ -1,3 +1,7 @@
+# /// script
+# dependencies = ["nox>=2025.2.9"]
+# ///
+
 from __future__ import annotations
 
 import os
@@ -6,10 +10,13 @@ from pathlib import Path
 
 import nox
 
-nox.options.sessions = ["lint", "test-dist"]
+nox.needs_version = ">=2025.2.9"
 
 PYTHON_ALL_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
 RUNNING_CI = "TRAVIS" in os.environ or "GITHUB_ACTIONS" in os.environ
+
+wheel = ""
+sdist = ""
 
 
 @nox.session(python=["3.9"], reuse_venv=True)
@@ -21,12 +28,14 @@ def lint(session: nox.Session) -> None:
     session.run("pre-commit", "run", "--all-files")
 
 
-@nox.session()
+@nox.session(default=False)
 def coverage(session: nox.Session) -> None:
     """
     Run coverage using unit tests.
     """
-    session.install(".[coverage]")
+    pyproject = nox.project.load_toml("pyproject.toml")
+    deps = nox.project.dependency_groups(pyproject, "coverage")
+    session.install("-e", ".", *deps)
     session.run(
         "python",
         "-m",
@@ -55,14 +64,16 @@ Path(r"{images_file}").write_text(images)
     return images_file.read_text().splitlines()
 
 
-@nox.session(python=PYTHON_ALL_VERSIONS)
+@nox.session(python=PYTHON_ALL_VERSIONS, default=False)
 def tests(session: nox.Session) -> None:
     """
     Run tests.
     """
     posargs = session.posargs
-    extras = "coverage" if RUNNING_CI else "test"
-    session.install("-e", f".[{extras}]")
+    dep_group = "coverage" if RUNNING_CI else "test"
+    pyproject = nox.project.load_toml("pyproject.toml")
+    deps = nox.project.dependency_groups(pyproject, dep_group)
+    session.install("-e", ".", *deps)
     if RUNNING_CI:
         posargs.extend(["--cov", "auditwheel", "--cov-branch"])
         # pull manylinux images that will be used.
@@ -76,62 +87,53 @@ def tests(session: nox.Session) -> None:
         session.run("coverage", "xml", "-ocoverage.xml")
 
 
-def _build(session: nox.Session, dist: Path) -> None:
+@nox.session(python=["3.9"], default=False)
+def build(session: nox.Session) -> None:
     session.install("build")
     tmp_dir = Path(session.create_tmp()) / "build-output"
     session.run("python", "-m", "build", "--outdir", str(tmp_dir))
     (wheel_path,) = tmp_dir.glob("*.whl")
     (sdist_path,) = tmp_dir.glob("*.tar.gz")
-    dist.mkdir(exist_ok=True)
-    wheel_path.rename(dist / wheel_path.name)
-    sdist_path.rename(dist / sdist_path.name)
+    Path("dist").mkdir(exist_ok=True)
+    wheel_path.rename(f"dist/{wheel_path.name}")
+    sdist_path.rename(f"dist/{sdist_path.name}")
+
+    global sdist  # noqa: PLW0603
+    sdist = f"dist/{sdist_path.name}"
+    global wheel  # noqa: PLW0603
+    wheel = f"dist/{wheel_path.name}"
 
 
-@nox.session(name="test-dist")
-def test_dist(session: nox.Session) -> None:
-    """
-    Builds SDist & Wheels then run unit tests on those.
-    """
-    tmp_dir = Path(session.create_tmp())
-    dist = tmp_dir / "dist"
-    _build(session, dist)
-    python_versions = session.posargs or PYTHON_ALL_VERSIONS
-    for version in python_versions:
-        session.notify(f"_test_sdist-{version}", [str(dist)])
-        session.notify(f"_test_wheel-{version}", [str(dist)])
-
-
-def _test_dist(session: nox.Session, path: str, pattern: str) -> None:
-    (dist_path,) = Path(path).glob(pattern)
-    session.install(f"{dist_path!s}[test]")
+def _test_dist(session: nox.Session, path: str) -> None:
+    pyproject = nox.project.load_toml("pyproject.toml")
+    deps = nox.project.dependency_groups(pyproject, "test")
+    session.install(path, *deps)
     session.run("pytest", "tests/unit")
 
 
-@nox.session(python=PYTHON_ALL_VERSIONS)
-def _test_sdist(session: nox.Session) -> None:
+@nox.session(name="test-sdist", python=PYTHON_ALL_VERSIONS, requires=["build"])
+def test_sdist(session: nox.Session) -> None:
     """
     Do not run explicitly.
     """
-    _test_dist(session, session.posargs[0], "*.tar.gz")
+    _test_dist(session, sdist)
 
 
-@nox.session(python=PYTHON_ALL_VERSIONS)
-def _test_wheel(session: nox.Session) -> None:
+@nox.session(name="test-wheel", python=PYTHON_ALL_VERSIONS, requires=["build"])
+def test_wheel(session: nox.Session) -> None:
     """
     Do not run explicitly.
     """
-    _test_dist(session, session.posargs[0], "*.whl")
+    _test_dist(session, wheel)
 
 
-@nox.session
-def build(session: nox.Session) -> None:
-    """
-    Make an SDist and a wheel.
-    """
-    _build(session, Path("dist"))
-
-
-@nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True)
+@nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, default=False)
 def develop(session: nox.Session) -> None:
-    session.run("python", "-m", "pip", "install", "--upgrade", "pip", "setuptools")
-    session.install("-e", ".[develop]")
+    session.run("python", "-m", "pip", "install", "--upgrade", "pip")
+    pyproject = nox.project.load_toml("pyproject.toml")
+    deps = nox.project.dependency_groups(pyproject, "dev")
+    session.install("-e", ".", *deps)
+
+
+if __name__ == "__main__":
+    nox.main()
