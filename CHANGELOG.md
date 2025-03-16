@@ -2,6 +2,17 @@
 
 ## HEAD
 
+## 6.3.0
+
+Released March 16, 2025
+
+### User-facing changes
+- [FEATURE] Add GNU_PROPERTY_X86_ISA_1_NEEDED detection ([#535](https://github.com/pypa/auditwheel/pull/535))
+- [FEATURE] Add option to set zip compression level ([#547](https://github.com/pypa/auditwheel/pull/547))
+- [FEATURE] Support to wildcard a path with --exclude ([#528](https://github.com/pypa/auditwheel/pull/528))
+- [FEATURE] Add loongarch64 platform support ([#522](https://github.com/pypa/auditwheel/pull/522))
+- [BUGFIX] Removal of valid additional RPATH for internal dependency ([#557](https://github.com/pypa/auditwheel/issues/557))
+
 ## 6.2.0
 
 Released January 4, 2025
