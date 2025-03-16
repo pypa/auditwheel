@@ -15,9 +15,10 @@ from subprocess import check_call
 
 from auditwheel.patcher import ElfPatcher
 
-from .elfutils import elf_read_dt_needed, elf_read_rpaths, is_subdir
+from .elfutils import elf_read_dt_needed, elf_read_rpaths
 from .hashfile import hashfile
 from .policy import WheelPolicies, get_replace_platforms
+from .tools import is_subdir
 from .wheel_abi import get_wheel_elfdata
 from .wheeltools import InWheelCtx, add_platforms
 

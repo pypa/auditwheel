@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from auditwheel.tools import EnvironmentDefault, dir2zip, zip2dir
+from auditwheel.tools import EnvironmentDefault, dir2zip, is_subdir, zip2dir
 
 
 @pytest.mark.parametrize(
@@ -205,3 +205,13 @@ def test_dir2zip_folders(tmp_path: Path) -> None:
             else:
                 assert info.filename == "dummy-1.0.dist-info/METADATA"
     assert len(expected_dirs) == 0
+
+
+def test_is_subdir(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    subdir = root / "subdir"
+    subdir.mkdir(parents=True)
+    assert is_subdir(subdir, root)
+    assert is_subdir(root, root)
+    assert not is_subdir(None, root)
+    assert not is_subdir(tmp_path, root)
