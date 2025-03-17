@@ -196,7 +196,7 @@ def append_rpath_within_wheel(
     rpaths = filter(is_valid_rpath, old_rpaths.split(":"))
     # Remove duplicates while preserving ordering
     # Fake an OrderedSet using a dict (ordered in python 3.7+)
-    rpath_set = {old_rpath: "" for old_rpath in rpaths}
+    rpath_set = dict.fromkeys(rpaths, "")
     rpath_set[rpath] = ""
 
     patcher.set_rpath(lib_name, ":".join(rpath_set))
