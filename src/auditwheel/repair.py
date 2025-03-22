@@ -18,7 +18,7 @@ from auditwheel.patcher import ElfPatcher
 from .elfutils import elf_read_dt_needed, elf_read_rpaths
 from .hashfile import hashfile
 from .policy import WheelPolicies, get_replace_platforms
-from .tools import is_subdir
+from .tools import is_subdir, unique_by_index
 from .wheel_abi import get_wheel_elfdata
 from .wheeltools import InWheelCtx, add_platforms
 
@@ -193,13 +193,9 @@ def append_rpath_within_wheel(
         return _is_valid_rpath(rpath, lib_dir, wheel_base_dir)
 
     old_rpaths = patcher.get_rpath(lib_name)
-    rpaths = filter(is_valid_rpath, old_rpaths.split(":"))
-    # Remove duplicates while preserving ordering
-    # Fake an OrderedSet using a dict (ordered in python 3.7+)
-    rpath_set = {old_rpath: "" for old_rpath in rpaths}
-    rpath_set[rpath] = ""
-
-    patcher.set_rpath(lib_name, ":".join(rpath_set))
+    rpaths = list(filter(is_valid_rpath, old_rpaths.split(":")))
+    rpaths = unique_by_index([*rpaths, rpath])
+    patcher.set_rpath(lib_name, ":".join(rpaths))
 
 
 def _is_valid_rpath(rpath: str, lib_dir: Path, wheel_base_dir: Path) -> bool:
