@@ -2,6 +2,60 @@
 requires = ["setuptools>=61", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "auditwheel"
+dynamic = ["version"]
+description = "Cross-distribution Linux wheels"
+readme = "README.rst"
+license = {text = "MIT" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Robert T. McGibbon", email = "rmcgibbo@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "packaging>=20.9",
+    "pyelftools>=0.24",
+]
+
+[project.scripts]
+auditwheel = "auditwheel.main:main"
+
+[project.urls]
+Homepage = "https://github.com/pypa/auditwheel"
+
+[dependency-groups]
+test = ["pytest>=3.4", "jsonschema", "patchelf", "pretend", "docker"]
+coverage = ["pytest-cov", {include-group = "test"}]
+dev = [{include-group = "test"}, {include-group = "coverage"}]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+auditwheel = ["*.json"]
+
 [tool.setuptools_scm]
 # enable version inference
 

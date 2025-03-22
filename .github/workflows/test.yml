@@ -34,7 +34,7 @@ jobs:
           python-version: 3.9
           architecture: x64
       - name: Run tests
-        run: pipx run nox -s test-dist -- 3.9
+        run: pipx run nox -s test-sdist-3.9 test-wheel-3.9
 
   test:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}

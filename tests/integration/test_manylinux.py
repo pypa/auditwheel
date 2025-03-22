@@ -255,7 +255,7 @@ class PythonContainer:
 def find_src_folder() -> Path | None:
     candidate = HERE.parent.parent.resolve(strict=True)
     contents = os.listdir(candidate)
-    if "setup.py" in contents and "src" in contents:
+    if "pyproject.toml" in contents and "src" in contents:
         return candidate
     return None
 
