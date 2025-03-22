@@ -24,8 +24,7 @@ from auditwheel.policy import WheelPolicies
 
 logger = logging.getLogger(__name__)
 
-NATIVE_PLATFORM = Architecture.get_native_architecture().value
-PLATFORM = os.environ.get("AUDITWHEEL_ARCH", NATIVE_PLATFORM)
+PLATFORM = os.environ.get("AUDITWHEEL_ARCH", Architecture.detect().value)
 MANYLINUX1_IMAGE_ID = f"quay.io/pypa/manylinux1_{PLATFORM}:latest"
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
@@ -845,12 +844,12 @@ class TestManylinux(Anylinux):
             test_path, env={"WITH_DEPENDENCY": with_dependency}
         )
 
-        wheel_policy = WheelPolicies(libc=Libc.GLIBC, arch=Architecture(PLATFORM))
-        policy = wheel_policy.get_policy_by_name(policy_name)
+        policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture(PLATFORM))
+        policy = policies.get_policy_by_name(policy_name)
         older_policies = [
             f"{p}_{PLATFORM}"
             for p in MANYLINUX_IMAGES
-            if policy < wheel_policy.get_policy_by_name(f"{p}_{PLATFORM}")
+            if policy < policies.get_policy_by_name(f"{p}_{PLATFORM}")
         ]
         for target_policy in older_policies:
             # we shall fail to repair the wheel when targeting an older policy than
@@ -861,8 +860,12 @@ class TestManylinux(Anylinux):
                 )
 
         # check all works properly when targeting the policy matching the image
-        anylinux.repair(orig_wheel, only_plat=False, library_paths=[test_path])
+        # use "auto" platform
+        anylinux.repair(
+            orig_wheel, only_plat=False, plat="auto", library_paths=[test_path]
+        )
         repaired_wheel = anylinux.check_wheel("testdependencies")
+        # we shall only get the current policy tag with "auto" platform
         assert_show_output(anylinux, repaired_wheel, policy_name, True)
 
         # check the original wheel with a dependency was not compliant

@@ -5,7 +5,11 @@ import logging
 import zlib
 from pathlib import Path
 
+from auditwheel.architecture import Architecture
+from auditwheel.error import NonPlatformWheel, WheelToolsError
+from auditwheel.libc import Libc
 from auditwheel.patcher import Patchelf
+from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
 
 from .policy import WheelPolicies
 from .tools import EnvironmentDefault
@@ -14,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 def configure_parser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
-    wheel_policy = WheelPolicies()
-    policies = wheel_policy.policies
-    policy_names = [p.name for p in policies]
+    policies = WheelPolicies(libc=Libc.detect(), arch=Architecture.detect())
+    policy_names = [p.name for p in policies if p != policies.linux]
     policy_names += [alias for p in policies for alias in p.aliases]
+    policy_names += ["auto"]
     epilog = """PLATFORMS:
 These are the possible target platform tags, as specified by PEP 600.
 Note that old, pre-PEP 600 tags are still usable and are listed as aliases
@@ -28,7 +32,6 @@ below.
         if len(p.aliases) > 0:
             epilog += f" (aliased by {', '.join(p.aliases)})"
         epilog += "\n"
-    highest_policy = wheel_policy.highest.name
     help = """Vendor in external shared library dependencies of a wheel.
 If multiple wheels are specified, an error processing one
 wheel will abort processing of subsequent wheels.
@@ -60,9 +63,9 @@ wheel will abort processing of subsequent wheels.
         env="AUDITWHEEL_PLAT",
         dest="PLAT",
         help="Desired target platform. See the available platforms under the "
-        f'PLATFORMS section below. (default: "{highest_policy}")',
+        'PLATFORMS section below. (default: "auto")',
         choices=policy_names,
-        default=highest_policy,
+        default="auto",
     )
     parser.add_argument(
         "-L",
@@ -126,35 +129,84 @@ wheel will abort processing of subsequent wheels.
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     from .repair import repair_wheel
-    from .wheel_abi import NonPlatformWheel, analyze_wheel_abi
+    from .wheel_abi import analyze_wheel_abi
 
     exclude: frozenset[str] = frozenset(args.EXCLUDE)
     wheel_dir: Path = args.WHEEL_DIR.absolute()
     wheel_files: list[Path] = args.WHEEL_FILE
-    wheel_policy = WheelPolicies()
+
+    requested_architecture: Architecture | None = None
+
+    plat_base: str = args.PLAT
+    for a in Architecture:
+        suffix = f"_{a.value}"
+        if plat_base.endswith(suffix):
+            plat_base = plat_base[: -len(suffix)]
+            requested_architecture = a
+            break
 
     for wheel_file in wheel_files:
         if not wheel_file.is_file():
             parser.error(f"cannot access {wheel_file}. No such file")
 
-        logger.info("Repairing %s", wheel_file.name)
+        wheel_filename = wheel_file.name
+        arch = requested_architecture
+        try:
+            arch = get_wheel_architecture(wheel_filename)
+            if requested_architecture is not None and requested_architecture != arch:
+                msg = f"can't repair wheel {wheel_filename} with {arch.value} architecture to a wheel targeting {requested_architecture.value}"
+                parser.error(msg)
+        except (WheelToolsError, NonPlatformWheel):
+            logger.warning(
+                "The architecture could not be deduced from the wheel filename"
+            )
+
+        try:
+            libc = get_wheel_libc(wheel_filename)
+        except WheelToolsError:
+            logger.debug("The libc could not be deduced from the wheel filename")
+            libc = None
+
+        if plat_base.startswith("manylinux"):
+            if libc is None:
+                libc = Libc.GLIBC
+            if libc != Libc.GLIBC:
+                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting GLIBC"
+                parser.error(msg)
+        elif plat_base.startswith("musllinux"):
+            if libc is None:
+                libc = Libc.MUSL
+            if libc != Libc.MUSL:
+                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting MUSL"
+                parser.error(msg)
+
+        logger.info("Repairing %s", wheel_filename)
 
         if not wheel_dir.exists():
             wheel_dir.mkdir(parents=True)
 
         try:
             wheel_abi = analyze_wheel_abi(
-                wheel_policy, wheel_file, exclude, args.DISABLE_ISA_EXT_CHECK
+                libc, arch, wheel_file, exclude, args.DISABLE_ISA_EXT_CHECK, True
             )
         except NonPlatformWheel as e:
             logger.info(e.message)
             return 1
 
-        requested_policy = wheel_policy.get_policy_by_name(args.PLAT)
+        policies = wheel_abi.policies
+        if plat_base == "auto":
+            if wheel_abi.overall_policy == policies.linux:
+                # we're getting 'linux', override
+                plat = policies.lowest.name
+            else:
+                plat = wheel_abi.overall_policy.name
+        else:
+            plat = f"{plat_base}_{policies.architecture.value}"
+        requested_policy = policies.get_policy_by_name(plat)
 
         if requested_policy > wheel_abi.sym_policy:
             msg = (
-                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because of the '
+                f'cannot repair "{wheel_file}" to "{plat}" ABI because of the '
                 "presence of too-recent versioned symbols. You'll need to compile "
                 "the wheel on an older toolchain."
             )
@@ -162,7 +214,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
         if requested_policy > wheel_abi.ucs_policy:
             msg = (
-                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because it was '
+                f'cannot repair "{wheel_file}" to "{plat}" ABI because it was '
                 "compiled against a UCS2 build of Python. You'll need to compile "
                 "the wheel against a wide-unicode build of Python."
             )
@@ -170,14 +222,14 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
         if requested_policy > wheel_abi.blacklist_policy:
             msg = (
-                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because it '
+                f'cannot repair "{wheel_file}" to "{plat}" ABI because it '
                 "depends on black-listed symbols."
             )
             parser.error(msg)
 
         if requested_policy > wheel_abi.machine_policy:
             msg = (
-                f'cannot repair "{wheel_file}" to "{args.PLAT}" ABI because it '
+                f'cannot repair "{wheel_file}" to "{plat}" ABI because it '
                 "depends on unsupported ISA extensions."
             )
             parser.error(msg)
@@ -190,7 +242,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                     "You requested %s but I have found this wheel is "
                     "eligible for %s."
                 ),
-                args.PLAT,
+                plat,
                 wheel_abi.overall_policy.name,
             )
             abis = [
@@ -201,14 +253,13 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
         patcher = Patchelf()
         out_wheel = repair_wheel(
-            wheel_policy,
+            wheel_abi,
             wheel_file,
             abis=abis,
             lib_sdir=args.LIB_SDIR,
             out_dir=wheel_dir,
             update_tags=args.UPDATE_TAGS,
             patcher=patcher,
-            exclude=exclude,
             strip=args.STRIP,
             zip_compression_level=args.ZIP_COMPRESSION_LEVEL,
         )

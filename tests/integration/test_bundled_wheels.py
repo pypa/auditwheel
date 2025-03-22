@@ -18,7 +18,7 @@ import pytest
 from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
-from auditwheel.policy import WheelPolicies
+from auditwheel.main import main
 from auditwheel.wheel_abi import NonPlatformWheel, analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
@@ -68,8 +68,9 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
             cp.setenv("LD_LIBRARY_PATH", f"{HERE}")
             importlib.reload(lddtree)
 
-        wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
-        winfo = analyze_wheel_abi(wheel_policies, HERE / file, exclude, False)
+        winfo = analyze_wheel_abi(
+            Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False, True
+        )
         assert set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs, (
             f"{HERE}, {exclude}, {os.environ}"
         )
@@ -79,30 +80,62 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
 
 
 def test_analyze_wheel_abi_pyfpe():
-    wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
     winfo = analyze_wheel_abi(
-        wheel_policies,
+        Libc.GLIBC,
+        Architecture.x86_64,
         HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
         frozenset(),
         False,
+        True,
     )
-    assert (
-        winfo.sym_policy.name == "manylinux_2_5_x86_64"
-    )  # for external symbols, it could get manylinux1
-    assert (
-        winfo.pyfpe_policy.name == "linux_x86_64"
-    )  # but for having the pyfpe reference, it gets just linux
+    # for external symbols, it could get manylinux1
+    assert winfo.sym_policy.name == "manylinux_2_5_x86_64"
+    # but for having the pyfpe reference, it gets just linux
+    assert winfo.pyfpe_policy.name == "linux_x86_64"
+    assert winfo.overall_policy.name == "linux_x86_64"
+
+
+def test_show_wheel_abi_pyfpe(monkeypatch, capsys):
+    wheel = str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl")
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(sys, "argv", ["auditwheel", "show", wheel])
+    assert main() == 0
+    captured = capsys.readouterr()
+    assert "This wheel uses the PyFPE_jbuf function" in captured.out
 
 
 def test_analyze_wheel_abi_bad_architecture():
-    wheel_policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.aarch64)
     with pytest.raises(NonPlatformWheel):
         analyze_wheel_abi(
-            wheel_policies,
+            Libc.GLIBC,
+            Architecture.aarch64,
             HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
             frozenset(),
             False,
+            True,
         )
+
+
+def test_analyze_wheel_abi_static_exe(caplog):
+    result = analyze_wheel_abi(
+        None,
+        None,
+        HERE
+        / "patchelf-0.17.2.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl",
+        frozenset(),
+        False,
+        False,
+    )
+    assert "setting architecture to x86_64" in caplog.text
+    assert "couldn't detect wheel libc, defaulting to" in caplog.text
+    assert result.policies.architecture == Architecture.x86_64
+    if Libc.detect() == Libc.MUSL:
+        assert result.policies.libc == Libc.MUSL
+        assert result.overall_policy.name.startswith("musllinux_1_")
+    else:
+        assert result.policies.libc == Libc.GLIBC
+        assert result.overall_policy.name == "manylinux_2_5_x86_64"
 
 
 @pytest.mark.skipif(platform.machine() != "x86_64", reason="only checked on x86_64")

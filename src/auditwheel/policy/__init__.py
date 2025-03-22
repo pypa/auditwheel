@@ -12,8 +12,7 @@ from typing import Any
 from ..architecture import Architecture
 from ..elfutils import filter_undefined_symbols
 from ..lddtree import DynamicExecutable
-from ..libc import Libc, get_libc
-from ..musllinux import find_musl_libc, get_musl_version
+from ..libc import Libc
 from ..tools import is_subdir
 
 _HERE = Path(__file__).parent
@@ -54,24 +53,20 @@ class WheelPolicies:
     def __init__(
         self,
         *,
-        libc: Libc | None = None,
+        libc: Libc,
+        arch: Architecture,
         musl_policy: str | None = None,
-        arch: Architecture | None = None,
     ) -> None:
-        if libc is None:
-            libc = get_libc() if musl_policy is None else Libc.MUSL
         if libc != Libc.MUSL and musl_policy is not None:
             msg = f"'musl_policy' shall be None for libc {libc.name}"
             raise ValueError(msg)
         if libc == Libc.MUSL:
             if musl_policy is None:
-                musl_version = get_musl_version(find_musl_libc())
+                musl_version = libc.get_current_version()
                 musl_policy = f"musllinux_{musl_version.major}_{musl_version.minor}"
             elif _MUSL_POLICY_RE.match(musl_policy) is None:
                 msg = f"Invalid 'musl_policy': '{musl_policy}'"
                 raise ValueError(msg)
-        if arch is None:
-            arch = Architecture.get_native_architecture()
         policies = json.loads(_POLICY_JSON_MAP[libc].read_text())
         self._policies: list[Policy] = []
         self._architecture = arch
@@ -113,13 +108,16 @@ class WheelPolicies:
         if self._libc_variant == Libc.MUSL:
             assert len(self._policies) == 2, self._policies
 
+    def __iter__(self) -> Generator[Policy]:
+        yield from self._policies
+
+    @property
+    def libc(self) -> Libc:
+        return self._libc_variant
+
     @property
     def architecture(self) -> Architecture:
         return self._architecture
-
-    @property
-    def policies(self) -> list[Policy]:
-        return self._policies
 
     @property
     def highest(self) -> Policy:
@@ -127,6 +125,11 @@ class WheelPolicies:
 
     @property
     def lowest(self) -> Policy:
+        """lowest policy that's not linux"""
+        return self._policies[1]
+
+    @property
+    def linux(self) -> Policy:
         return self._policies[0]
 
     def get_policy_by_name(self, name: str) -> Policy:
@@ -210,11 +213,11 @@ class WheelPolicies:
             return reqs
 
         ret: dict[str, ExternalReference] = {}
-        for p in self.policies:
+        for p in self._policies:
             needed_external_libs: set[str] = set()
             blacklist = {}
 
-            if not (p.name == "linux" and p.priority == 0):
+            if p != self.linux:
                 # special-case the generic linux platform here, because it
                 # doesn't have a whitelist. or, you could say its
                 # whitelist is the complete set of all libraries. so nothing
