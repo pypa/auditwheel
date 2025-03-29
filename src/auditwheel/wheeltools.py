@@ -21,14 +21,13 @@ from types import TracebackType
 from packaging.utils import parse_wheel_filename
 
 from ._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
+from .architecture import Architecture
+from .error import NonPlatformWheel, WheelToolsError
+from .libc import Libc
 from .tmpdirs import InTemporaryDirectory
 from .tools import dir2zip, unique_by_index, walk, zip2dir
 
 logger = logging.getLogger(__name__)
-
-
-class WheelToolsError(Exception):
-    pass
 
 
 def _dist_info_dir(bdist_dir: Path) -> Path:
@@ -211,6 +210,7 @@ def add_platforms(
         raise ValueError(msg)
 
     to_remove = list(remove_platforms)  # we might want to modify this, make a copy
+
     definitely_not_purelib = False
 
     info_fname = _dist_info_dir(wheel_ctx.path) / "WHEEL"
@@ -274,3 +274,54 @@ def add_platforms(
     else:
         logger.info("No WHEEL info change needed.")
     return out_wheel
+
+
+def get_wheel_architecture(filename: str) -> Architecture:
+    result: set[Architecture] = set()
+    missed = False
+    pure = True
+    _, _, _, in_tags = parse_wheel_filename(filename)
+    for tag in in_tags:
+        found = False
+        pure_ = tag.platform == "any"
+        pure = pure and pure_
+        missed = missed or pure_
+        if not pure_:
+            for arch in Architecture:
+                if tag.platform.endswith(f"_{arch.value}"):
+                    result.add(arch.baseline)
+                    found = True
+            if not found:
+                logger.warning(
+                    "couldn't guess architecture for platform tag '%s'", tag.platform
+                )
+                missed = True
+    if len(result) == 0:
+        if pure:
+            raise NonPlatformWheel(None, None)
+        msg = "unknown architecture"
+        raise WheelToolsError(msg)
+    if missed or len(result) > 1:
+        if len(result) == 1:
+            msg = "wheels with multiple architectures are not supported"
+        else:
+            msg = f"wheels with multiple architectures are not supported, got {result}"
+        raise WheelToolsError(msg)
+    return result.pop()
+
+
+def get_wheel_libc(filename: str) -> Libc:
+    result: set[Libc] = set()
+    _, _, _, in_tags = parse_wheel_filename(filename)
+    for tag in in_tags:
+        if "musllinux_" in tag.platform:
+            result.add(Libc.MUSL)
+        if "manylinux" in tag.platform:
+            result.add(Libc.GLIBC)
+    if len(result) == 0:
+        msg = "unknown libc used"
+        raise WheelToolsError(msg)
+    if len(result) > 1:
+        msg = f"wheels with multiple libc are not supported, got {result}"
+        raise WheelToolsError(msg)
+    return result.pop()

@@ -14,7 +14,6 @@ from auditwheel.policy import (
     Policy,
     WheelPolicies,
     _validate_pep600_compliance,
-    get_libc,
     get_replace_platforms,
 )
 
@@ -139,30 +138,30 @@ def test_pep600_compliance():
 
 class TestPolicyAccess:
     def test_get_by_name(self):
-        arch = Architecture.get_native_architecture()
-        wheel_policy = WheelPolicies(libc=Libc.GLIBC, arch=arch)
-        assert wheel_policy.get_policy_by_name(f"manylinux_2_27_{arch}").priority == 65
-        assert wheel_policy.get_policy_by_name(f"manylinux_2_24_{arch}").priority == 70
-        assert wheel_policy.get_policy_by_name(f"manylinux2014_{arch}").priority == 80
-        assert wheel_policy.get_policy_by_name(f"manylinux_2_17_{arch}").priority == 80
+        arch = Architecture.detect()
+        policies = WheelPolicies(libc=Libc.GLIBC, arch=arch)
+        assert policies.get_policy_by_name(f"manylinux_2_27_{arch}").priority == 65
+        assert policies.get_policy_by_name(f"manylinux_2_24_{arch}").priority == 70
+        assert policies.get_policy_by_name(f"manylinux2014_{arch}").priority == 80
+        assert policies.get_policy_by_name(f"manylinux_2_17_{arch}").priority == 80
         if arch not in {Architecture.x86_64, Architecture.i686}:
             return
-        assert wheel_policy.get_policy_by_name(f"manylinux2010_{arch}").priority == 90
-        assert wheel_policy.get_policy_by_name(f"manylinux_2_12_{arch}").priority == 90
-        assert wheel_policy.get_policy_by_name(f"manylinux1_{arch}").priority == 100
-        assert wheel_policy.get_policy_by_name(f"manylinux_2_5_{arch}").priority == 100
+        assert policies.get_policy_by_name(f"manylinux2010_{arch}").priority == 90
+        assert policies.get_policy_by_name(f"manylinux_2_12_{arch}").priority == 90
+        assert policies.get_policy_by_name(f"manylinux1_{arch}").priority == 100
+        assert policies.get_policy_by_name(f"manylinux_2_5_{arch}").priority == 100
 
     def test_get_by_name_missing(self):
-        wheel_policy = WheelPolicies()
+        policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
         with pytest.raises(LookupError):
-            wheel_policy.get_policy_by_name("nosuchpolicy")
+            policies.get_policy_by_name("nosuchpolicy")
 
     def test_get_by_name_duplicate(self):
-        wheel_policy = WheelPolicies()
+        policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
         policy = Policy("duplicate", (), 0, {}, frozenset(), {})
-        wheel_policy._policies = [policy, policy]
+        policies._policies = [policy, policy]
         with pytest.raises(RuntimeError):
-            wheel_policy.get_policy_by_name("duplicate")
+            policies.get_policy_by_name("duplicate")
 
 
 class TestLddTreeExternalReferences:
@@ -183,6 +182,7 @@ class TestLddTreeExternalReferences:
         libs = filtered_libs + unfiltered_libs
         lddtree = DynamicExecutable(
             interpreter=None,
+            libc=Libc.GLIBC,
             path="/path/to/lib",
             realpath=Path("/path/to/lib"),
             platform=Platform(
@@ -196,50 +196,69 @@ class TestLddTreeExternalReferences:
             rpath=(),
             runpath=(),
         )
-        wheel_policy = WheelPolicies()
-        full_external_refs = wheel_policy.lddtree_external_references(
+        policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+        full_external_refs = policies.lddtree_external_references(
             lddtree, Path("/path/to/wheel")
         )
 
         # Assert that each policy only has the unfiltered libs.
         for policy in full_external_refs:
-            assert set(full_external_refs[policy].libs) == set(unfiltered_libs)
+            if policy.startswith("linux_"):
+                assert set(full_external_refs[policy].libs) == set()
+            else:
+                assert set(full_external_refs[policy].libs) == set(unfiltered_libs)
 
 
 @pytest.mark.parametrize(
     ("libc", "musl_policy", "arch", "exception"),
     [
         # valid
-        (None, None, None, does_not_raise()),
-        (Libc.GLIBC, None, None, does_not_raise()),
-        (Libc.MUSL, "musllinux_1_1", None, does_not_raise()),
-        (None, "musllinux_1_1", None, does_not_raise()),
-        (None, None, Architecture.aarch64, does_not_raise()),
+        (Libc.detect(), None, Architecture.detect(), does_not_raise()),
+        (Libc.GLIBC, None, Architecture.x86_64, does_not_raise()),
+        (Libc.MUSL, "musllinux_1_1", Architecture.x86_64, does_not_raise()),
+        (Libc.GLIBC, None, Architecture.aarch64, does_not_raise()),
         # invalid
         (
             Libc.GLIBC,
             "musllinux_1_1",
-            None,
+            Architecture.x86_64,
             raises(ValueError, "'musl_policy' shall be None"),
         ),
-        (Libc.MUSL, "manylinux_1_1", None, raises(ValueError, "Invalid 'musl_policy'")),
-        (Libc.MUSL, "musllinux_5_1", None, raises(AssertionError)),
+        (
+            Libc.MUSL,
+            "manylinux_1_1",
+            Architecture.x86_64,
+            raises(ValueError, "Invalid 'musl_policy'"),
+        ),
+        (Libc.MUSL, "musllinux_5_1", Architecture.x86_64, raises(AssertionError)),
         # platform dependant
         (
             Libc.MUSL,
             None,
-            None,
-            does_not_raise() if get_libc() == Libc.MUSL else raises(InvalidLibc),
+            Architecture.x86_64,
+            does_not_raise() if Libc.detect() == Libc.MUSL else raises(InvalidLibc),
         ),
     ],
     ids=ids,
 )
 def test_wheel_policies_args(libc, musl_policy, arch, exception):
     with exception:
-        wheel_policies = WheelPolicies(libc=libc, musl_policy=musl_policy, arch=arch)
-        if libc is not None:
-            assert wheel_policies._libc_variant == libc
+        policies = WheelPolicies(libc=libc, musl_policy=musl_policy, arch=arch)
+        assert policies.libc == libc
+        assert policies.architecture == arch
         if musl_policy is not None:
-            assert wheel_policies._musl_policy == musl_policy
-        if arch is not None:
-            assert wheel_policies.architecture == arch
+            assert policies._musl_policy == musl_policy
+
+
+def test_policy_checks_glibc():
+    policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+
+    policy = policies.versioned_symbols_policy({"some_library.so": {"GLIBC_2.17"}})
+    assert policy > policies.linux
+    policy = policies.versioned_symbols_policy({"some_library.so": {"GLIBC_999"}})
+    assert policy == policies.linux
+    policy = policies.versioned_symbols_policy({"some_library.so": {"OPENSSL_1_1_0"}})
+    assert policy == policies.highest
+    policy = policies.versioned_symbols_policy({"some_library.so": {"IAMALIBRARY"}})
+    assert policy == policies.highest
+    assert policies.linux < policies.lowest < policies.highest
