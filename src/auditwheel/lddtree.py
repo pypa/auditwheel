@@ -522,6 +522,12 @@ def ldd(
                 if libc != Libc.GLIBC:
                     msg = f"found a dependency on GLIBC but the libc is already set to {libc}"
                     raise InvalidLibc(msg)
+        if libc is None:
+            # try the filename as a last resort
+            if path.name.endswith(("-arm-linux-musleabihf.so", "-linux-musl.so")):
+                libc = Libc.MUSL
+            elif path.name.endswith(("-arm-linux-gnueabihf.so", "-linux-gnu.so")):
+                libc = Libc.GLIBC
         if ldpaths is None:
             ldpaths = load_ld_paths(libc).copy()
         # Propagate the rpaths used by the main ELF since those will be
