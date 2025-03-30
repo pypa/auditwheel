@@ -11,6 +11,7 @@ from typing import Any
 
 from ..architecture import Architecture
 from ..elfutils import filter_undefined_symbols
+from ..error import InvalidLibc
 from ..lddtree import DynamicExecutable
 from ..libc import Libc
 from ..tools import is_subdir
@@ -62,8 +63,13 @@ class WheelPolicies:
             raise ValueError(msg)
         if libc == Libc.MUSL:
             if musl_policy is None:
-                musl_version = libc.get_current_version()
-                musl_policy = f"musllinux_{musl_version.major}_{musl_version.minor}"
+                try:
+                    musl_version = libc.get_current_version()
+                    musl_policy = f"musllinux_{musl_version.major}_{musl_version.minor}"
+                except InvalidLibc:
+                    logger.warning(
+                        "can't determine musl libc version, latest known version will be used."
+                    )
             elif _MUSL_POLICY_RE.match(musl_policy) is None:
                 msg = f"Invalid 'musl_policy': '{musl_policy}'"
                 raise ValueError(msg)
@@ -106,6 +112,9 @@ class WheelPolicies:
         self._policies.sort()
 
         if self._libc_variant == Libc.MUSL:
+            if musl_policy is None:
+                self._musl_policy = "_".join(self._policies[1].name.split("_")[0:3])
+                self._policies = [self._policies[0], self._policies[1]]
             assert len(self._policies) == 2, self._policies
 
     def __iter__(self) -> Generator[Policy]:

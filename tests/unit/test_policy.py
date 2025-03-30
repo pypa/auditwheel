@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from auditwheel.architecture import Architecture
-from auditwheel.error import InvalidLibc
 from auditwheel.lddtree import DynamicExecutable, DynamicLibrary, Platform
 from auditwheel.libc import Libc
 from auditwheel.policy import (
@@ -231,13 +230,7 @@ class TestLddTreeExternalReferences:
             raises(ValueError, "Invalid 'musl_policy'"),
         ),
         (Libc.MUSL, "musllinux_5_1", Architecture.x86_64, raises(AssertionError)),
-        # platform dependant
-        (
-            Libc.MUSL,
-            None,
-            Architecture.x86_64,
-            does_not_raise() if Libc.detect() == Libc.MUSL else raises(InvalidLibc),
-        ),
+        (Libc.MUSL, None, Architecture.x86_64, does_not_raise()),
     ],
     ids=ids,
 )
@@ -248,6 +241,8 @@ def test_wheel_policies_args(libc, musl_policy, arch, exception):
         assert policies.architecture == arch
         if musl_policy is not None:
             assert policies._musl_policy == musl_policy
+        elif libc == Libc.MUSL:
+            assert policies._musl_policy == "musllinux_1_2"
 
 
 def test_policy_checks_glibc():

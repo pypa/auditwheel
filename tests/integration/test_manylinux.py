@@ -786,6 +786,45 @@ class Anylinux:
         # with ISA check, we shall not report a manylinux/musllinux policy
         assert_show_output(anylinux, repaired_wheel, f"linux_{PLATFORM}", True)
 
+    @pytest.mark.parametrize(
+        "arch",
+        [
+            Architecture.aarch64,
+            Architecture.armv7l,
+            Architecture.i686,
+            Architecture.ppc64le,
+            Architecture.riscv64,
+            Architecture.s390x,
+            Architecture.x86_64,
+        ],
+    )
+    @pytest.mark.parametrize("libc", [Libc.GLIBC, Libc.MUSL])
+    def test_cross_repair(
+        self, anylinux: AnyLinuxContainer, libc: Libc, arch: Architecture
+    ) -> None:
+        if libc == Libc.MUSL:
+            source = "musllinux_1_2"
+            platform_tag = f"musllinux_1_2_{arch.value}"
+            python_abi = "cp312-cp312"
+        else:
+            assert libc == Libc.GLIBC
+            source = "glibc"
+            platform_tag = f"manylinux_2_17_{arch.value}.manylinux2014_{arch.value}"
+            if arch in {Architecture.x86_64, Architecture.i686}:
+                platform_tag = f"manylinux_2_5_{arch.value}.manylinux1_{arch.value}"
+            elif arch == Architecture.riscv64:
+                platform_tag = f"manylinux_2_31_{arch.value}"
+            python_abi = "cp313-cp313"
+        test_path = f"/auditwheel_src/tests/integration/arch-wheels/{source}"
+        orig_wheel = f"testsimple-0.0.1-{python_abi}-linux_{arch.value}.whl"
+        anylinux.exec(["cp", "-f", f"{test_path}/{orig_wheel}", f"/io/{orig_wheel}"])
+        anylinux.repair(orig_wheel, plat="auto", only_plat=False)
+        anylinux.check_wheel(
+            "testsimple",
+            python_abi=python_abi,
+            platform_tag=platform_tag,
+        )
+
 
 class TestManylinux(Anylinux):
     @pytest.fixture(scope="session")

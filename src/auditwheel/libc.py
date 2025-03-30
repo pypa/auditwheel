@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import Enum
 from pathlib import Path
 
 from .error import InvalidLibc
@@ -19,9 +19,14 @@ class LibcVersion:
     minor: int
 
 
-class Libc(IntEnum):
-    GLIBC = (1,)
-    MUSL = (2,)
+class Libc(Enum):
+    value: str
+
+    GLIBC = "glibc"
+    MUSL = "musl"
+
+    def __str__(self) -> str:
+        return self.value
 
     def get_current_version(self) -> LibcVersion:
         if self == Libc.MUSL:
