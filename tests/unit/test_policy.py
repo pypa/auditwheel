@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from auditwheel.architecture import Architecture
-from auditwheel.error import InvalidLibc
 from auditwheel.lddtree import DynamicExecutable, DynamicLibrary, Platform
 from auditwheel.libc import Libc
 from auditwheel.policy import (
