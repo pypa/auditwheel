@@ -27,15 +27,17 @@ class InTemporaryDirectory:
 
     def __init__(self) -> None:
         self._tmpdir = TemporaryDirectory()
+        self._name = Path(self._tmpdir.name).resolve(strict=True)
 
     @property
     def name(self) -> Path:
-        return Path(self._tmpdir.name)
+        return self._name
 
     def __enter__(self) -> Path:
         self._pwd = Path.cwd()
-        os.chdir(self._tmpdir.name)
-        return Path(self._tmpdir.__enter__())
+        os.chdir(self._name)
+        self._tmpdir.__enter__()
+        return self._name
 
     def __exit__(
         self,
@@ -44,7 +46,7 @@ class InTemporaryDirectory:
         tb: TracebackType | None,
     ) -> None:
         os.chdir(self._pwd)
-        return self._tmpdir.__exit__(exc, value, tb)
+        self._tmpdir.__exit__(exc, value, tb)
 
 
 class InGivenDirectory:

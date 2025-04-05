@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -8,10 +10,13 @@ from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheel
 from auditwheel.libc import Libc
 from auditwheel.wheeltools import (
+    InWheelCtx,
     WheelToolsError,
     get_wheel_architecture,
     get_wheel_libc,
 )
+
+HERE = Path(__file__).parent.resolve()
 
 
 @pytest.mark.parametrize(
@@ -76,3 +81,19 @@ def test_get_wheel_libc_multiple(filename: str) -> None:
     match = re.escape("multiple libc are not supported")
     with pytest.raises(WheelToolsError, match=match):
         get_wheel_libc(filename)
+
+
+def test_inwheel_tmpdir(tmp_path, monkeypatch):
+    wheel_path = (
+        HERE
+        / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
+    )
+    tmp_path = tmp_path.resolve(strict=True)
+    tmpdir = tmp_path / "tmpdir"
+    tmpdir.mkdir()
+    tmpdir_symlink = tmp_path / "symlink"
+    tmpdir_symlink.symlink_to(str(tmpdir), target_is_directory=True)
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmpdir_symlink))
+    with InWheelCtx(wheel_path, tmp_path / wheel_path.name) as context:
+        Path(context._tmpdir.name).relative_to(tmpdir_symlink)
+        context.name.relative_to(tmpdir)
