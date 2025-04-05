@@ -142,6 +142,9 @@ def dir2zip(
         st = in_dir.stat()
         date_time = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
     date_time_args = date_time.timetuple()[:6]
+    if date_time_args < (1980, 1, 1, 0, 0, 0):
+        logger.warning("dir2zip, clipping timestamp to 1980-01-01")
+        date_time_args = (1980, 1, 1, 0, 0, 0)
     compression = zipfile.ZIP_DEFLATED
     with zipfile.ZipFile(zip_fname, "w", compression=compression) as z:
         for dname, _, files in walk(in_dir):
