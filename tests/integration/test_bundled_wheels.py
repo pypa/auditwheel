@@ -72,21 +72,24 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
     # If exclude libs contain path, LD_LIBRARY_PATH need to be modified to find the libs
     # `lddtree.load_ld_paths` needs to be reloaded for it's `lru_cache`-ed.
     modify_ld_library_path = any(isabs(e) for e in exclude)
+    lddtree.parse_ld_so_conf.cache_clear()
 
-    with pytest.MonkeyPatch.context() as cp:
+    for env_var in ["LD_LIBRARY_PATH", "AUDITWHEEL_LD_LIBRARY_PATH"]:
+        with pytest.MonkeyPatch.context() as cp:
+            if modify_ld_library_path:
+                cp.setenv(env_var, f"{HERE}")
+                importlib.reload(lddtree)
+
+            winfo = analyze_wheel_abi(
+                Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False, True
+            )
+            assert (
+                set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs
+            ), f"{HERE}, {exclude}, {os.environ}"
+            lddtree.parse_ld_so_conf.cache_clear()
+
         if modify_ld_library_path:
-            cp.setenv("LD_LIBRARY_PATH", f"{HERE}")
             importlib.reload(lddtree)
-
-        winfo = analyze_wheel_abi(
-            Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False, True
-        )
-        assert set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs, (
-            f"{HERE}, {exclude}, {os.environ}"
-        )
-
-    if modify_ld_library_path:
-        importlib.reload(lddtree)
 
 
 def test_analyze_wheel_abi_pyfpe():
