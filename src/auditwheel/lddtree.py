@@ -318,7 +318,9 @@ def load_ld_paths(
     ldpaths: dict[str, list[str]] = {"conf": [], "env": [], "interp": []}
 
     # Load up $LD_LIBRARY_PATH.
-    env_ldpath = os.environ.get("AUDITWHEEL_LD_LIBRARY_PATH", default=os.environ.get("LD_LIBRARY_PATH"))
+    env_ldpath = os.environ.get(
+        "AUDITWHEEL_LD_LIBRARY_PATH", default=os.environ.get("LD_LIBRARY_PATH")
+    )
     if env_ldpath is not None:
         if root != "/":
             log.warning("ignoring LD_LIBRARY_PATH due to ROOT usage")

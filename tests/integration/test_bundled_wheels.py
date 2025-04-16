@@ -77,6 +77,7 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
     if modify_ld_library_path:
         importlib.reload(lddtree)
 
+
 @pytest.mark.parametrize(
     ("file", "external_libs", "exclude"),
     [
@@ -117,7 +118,7 @@ def test_analyze_wheel_abi_awllp(file, external_libs, exclude):
 
     with pytest.MonkeyPatch.context() as cp:
         if modify_ld_library_path:
-            cp.setenv("LD_LIBRARY_PATH", f"NOTHERE")
+            cp.setenv("LD_LIBRARY_PATH", "NOTHERE")
             cp.setenv("AUDITWHEEL_LD_LIBRARY_PATH", f"{HERE}")
             importlib.reload(lddtree)
 
