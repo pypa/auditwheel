@@ -66,9 +66,9 @@ def repair_wheel(
             raise ValueError(msg)
 
         dest_dir = Path(match.group("name") + lib_sdir)
-        dist_info_dirs = glob.glob(os.path.join(ctx.path, "*.dist-info"))
+        dist_info_dirs = glob.glob(ctx.path / "*.dist-info")
         assert len(dist_info_dirs) == 1
-        sbom_filepaths = []
+        sbom_filepaths: list[Path] = []
 
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
@@ -130,10 +130,9 @@ def repair_wheel(
             sbom_filepaths=sbom_filepaths,
         )
         if sbom_data:
-            sbom_dir = os.path.join(dist_info_dirs[0], "sboms")
-            os.makedirs(sbom_dir, exist_ok=True)
-            with open(os.path.join(sbom_dir, "auditwheel.cdx.json"), mode="w") as f:
-                f.write(json.dumps(sbom_data))
+            sbom_dir = Path(dist_info_dirs[0], "sboms")
+            sbom_dir.mkdir(exist_ok=True)
+            (sbom_dir / "auditwheel.cdx.json").write_text(json.dumps(sbom_data))
 
     return ctx.out_wheel
 
