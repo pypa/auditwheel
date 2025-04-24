@@ -16,7 +16,7 @@ import sys
 import typing
 from urllib.parse import quote
 
-__all__ = ["whichprovides", "ProvidedBy"]
+__all__ = ["ProvidedBy", "whichprovides"]
 __version__ = "0.3.0"
 
 _OS_RELEASE_LINES_RE = re.compile(r"^([A-Z_]+)=(?:\"([^\"]*)\"|(.*))$", re.MULTILINE)
@@ -91,7 +91,7 @@ class PackageProvider:
         assert cached_bin is not True
         if cached_bin is False:
             return None
-        elif cached_bin is not None:
+        if cached_bin is not None:
             return cached_bin
         bin_which = shutil.which(bin)
         if bin_which is None:  # Cache the 'not-found' result.
