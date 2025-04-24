@@ -3,13 +3,14 @@ from __future__ import annotations
 import hashlib
 import typing
 from importlib import metadata
+from pathlib import Path
 from urllib.parse import quote
 
-from auditwheel.whichprovides import whichprovides
+from auditwheel._vendor.whichprovides import whichprovides
 
 
 def create_sbom_for_wheel(
-    wheel_fname: str, sbom_filepaths: list[str]
+    wheel_fname: str, sbom_filepaths: list[Path]
 ) -> None | dict[str, typing.Any]:
     # If there aren't any files then we bail.
     if not sbom_filepaths:
@@ -17,7 +18,7 @@ def create_sbom_for_wheel(
 
     # Lookup which packages provided libraries.
     # If there aren't any then we don't generate an SBOM.
-    sbom_packages = whichprovides(sbom_filepaths)
+    sbom_packages = whichprovides([str(f) for f in sbom_filepaths])
     if not sbom_packages:
         return None
 
