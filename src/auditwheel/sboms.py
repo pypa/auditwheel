@@ -28,7 +28,7 @@ def create_sbom_for_wheel(
     wheel_name, wheel_version, *_ = wheel_fname.split("-", 2)
     wheel_name = wheel_name.lower()
     wheel_purl = (
-        f"pkg:pypi/{quote(wheel_name, safe='')}" f"@{quote(wheel_version, safe='')}"
+        f"pkg:pypi/{quote(wheel_name, safe='')}@{quote(wheel_version, safe='')}"
     )
 
     sbom_components: list[dict[str, typing.Any]] = [
