@@ -66,7 +66,7 @@ def repair_wheel(
             raise ValueError(msg)
 
         dest_dir = Path(match.group("name") + lib_sdir)
-        dist_info_dirs = glob.glob(ctx.path / "*.dist-info")
+        dist_info_dirs = glob.glob(str(ctx.path / "*.dist-info"))
         assert len(dist_info_dirs) == 1
         sbom_filepaths: list[Path] = []
 
