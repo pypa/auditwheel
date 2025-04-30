@@ -336,7 +336,7 @@ def docker_exec(
     ec, output = container.exec_run(cmd, workdir=cwd, environment=env)
     output = output.decode("utf-8")
     if ec != expected_retcode:
-        print(output)
+        logger.info("docker exec error %s: %s", container.id[:12], output)
         raise CalledProcessError(ec, cmd, output=output)
     return output
 
