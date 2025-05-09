@@ -13,12 +13,12 @@ files on disk).
 
 from __future__ import annotations
 
-from collections import OrderedDict
 import errno
 import functools
 import glob
 import logging
 import os
+from collections import OrderedDict
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
