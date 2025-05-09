@@ -565,6 +565,8 @@ def ldd(
             _excluded_libs.add(soname)
             continue
         realpath, fullpath = find_lib(platform, soname, all_ldpaths, root)
+        if soname not in _all_libs:
+            _all_libs[soname] = DynamicLibrary(soname, fullpath, realpath)
         if realpath is None:
             log.info("Could not locate %s, skipping.", soname)
             continue
@@ -572,8 +574,6 @@ def ldd(
             log.info("Excluding %s", realpath)
             _excluded_libs.add(soname)
             continue
-        if soname not in _all_libs:
-            _all_libs[soname] = DynamicLibrary(soname, fullpath, realpath)
         dependency = ldd(realpath, root, prefix, ldpaths, fullpath, exclude, _all_libs)
         _all_libs[soname] = DynamicLibrary(
             soname,
