@@ -570,7 +570,7 @@ def ldd(
         if realpath is None:
             log.info("Could not locate %s, skipping.", soname)
             continue
-        if any(fnmatch(str(realpath), e) for e in exclude):
+        elif any(fnmatch(str(realpath), e) for e in exclude):
             log.info("Excluding %s", realpath)
             _excluded_libs.add(soname)
             continue
