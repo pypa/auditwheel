@@ -13,12 +13,12 @@ files on disk).
 
 from __future__ import annotations
 
-from collections import OrderedDict
 import errno
 import functools
 import glob
 import logging
 import os
+from collections import OrderedDict
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
@@ -568,7 +568,7 @@ def ldd(
         if realpath is None:
             log.info("Could not locate %s, skipping.", soname)
             continue
-        if realpath is not None and any(fnmatch(str(realpath), e) for e in exclude):
+        if any(fnmatch(str(realpath), e) for e in exclude):
             log.info("Excluding %s", realpath)
             _excluded_libs.add(soname)
             continue
