@@ -13,6 +13,7 @@ files on disk).
 
 from __future__ import annotations
 
+from collections import OrderedDict
 import errno
 import functools
 import glob
@@ -441,7 +442,7 @@ def ldd(
     """
     _first = _all_libs is None
     if _all_libs is None:
-        _all_libs = {}
+        _all_libs = OrderedDict()
 
     log.debug("ldd(%s)", path)
 
@@ -554,7 +555,7 @@ def ldd(
         + ldpaths["interp"]
     )
     _excluded_libs: set[str] = set()
-    for soname in needed:
+    for soname in sorted(needed):
         if soname in _all_libs:
             continue
         if soname in _excluded_libs:
