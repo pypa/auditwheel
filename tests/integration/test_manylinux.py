@@ -622,8 +622,11 @@ class Anylinux:
             libraries = tuple(
                 name for name in w.namelist() if "testrpath.libs/lib" in name
             )
-            assert len(libraries) == 2
-            assert any(".libs/liba" in name for name in libraries)
+            assert len(libraries) == 3
+            assert all(
+                (any(f".libs/lib{lib}" in name for name in libraries))
+                for lib in ["a", "b", "d"]
+            )
             for name in libraries:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
