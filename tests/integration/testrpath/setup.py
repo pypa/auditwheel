@@ -11,11 +11,11 @@ class BuildExt(build_ext):
     def run(self) -> None:
         cmd = "gcc -fPIC -shared -o c/libc.so c/c.c"
         subprocess.check_call(cmd.split())
-        cmd = "gcc -fPIC -shared -o b/libb.so b/b.c -Wl,-rpath=$ORIGIN/../c -Ic -Lc -lc"
+        cmd = "gcc -fPIC -shared -o b/libb.so b/b.c -Ic -Lc -lc"
         subprocess.check_call(cmd.split())
         cmd = (
             "gcc -fPIC -shared -o a/liba.so a/a.c "
-            "-Wl,{dtags_flag} -Wl,-rpath=$ORIGIN/../b "
+            "-Wl,{dtags_flag} -Wl,-rpath=$ORIGIN/../b -Wl,-rpath=$ORIGIN/../c "
             "-Ib -Lb -lb -Ic -Lc -lc"
         ).format(
             dtags_flag=(

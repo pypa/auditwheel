@@ -1,1 +1,1 @@
-int fb(void);
+int fc(void);
