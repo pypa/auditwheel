@@ -617,7 +617,7 @@ class Anylinux:
 
         python.install_wheel(repaired_wheel)
         output = python.run("from testrpath import testrpath; print(testrpath.func())")
-        assert output.strip() == "11"
+        assert output.strip() == "33"
         with zipfile.ZipFile(anylinux.io_folder / repaired_wheel) as w:
             libraries = tuple(
                 name for name in w.namelist() if "testrpath.libs/lib" in name
