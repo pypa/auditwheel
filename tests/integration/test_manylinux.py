@@ -592,6 +592,7 @@ class Anylinux:
         # - check if RUNPATH is replaced by RPATH
         # - check if RPATH location is correct, i.e. it is inside .libs directory
         #   where all gathered libraries are put
+        # - check if the order of dependencies affects if library is found
 
         policy = anylinux.policy
 
@@ -605,7 +606,12 @@ class Anylinux:
             assert f"DT_{dtag.upper()}" in tags
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, library_paths=[f"{test_path}/a"])
+        repair_output = anylinux.repair(
+            orig_wheel, library_paths=[f"{test_path}/a"], verbose=3
+        )
+        assert "lddtree:Could not locate libd.so, skipping" in repair_output, (
+            repair_output
+        )
         repaired_wheel = anylinux.check_wheel("testrpath")
         assert_show_output(anylinux, repaired_wheel, policy, False)
 
@@ -640,19 +646,6 @@ class Anylinux:
                         ]
                         assert len(rpath_tags) == 1
                         assert rpath_tags[0].rpath == "$ORIGIN"
-
-    def test_dependency_order(
-        self, anylinux: AnyLinuxContainer, python: PythonContainer
-    ) -> None:
-        policy = anylinux.policy
-
-        test_path = "/auditwheel_src/tests/integration/testrpath"
-        orig_wheel = anylinux.build_wheel(test_path)
-
-        repair_output = anylinux.repair(
-            orig_wheel, library_paths=[f"{test_path}/a"], verbose=3
-        )
-        assert "lddtree:Could not locate libd.so, skipping" in repair_output
 
     def test_multiple_top_level(
         self, anylinux: AnyLinuxContainer, python: PythonContainer
