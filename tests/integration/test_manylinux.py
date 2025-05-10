@@ -649,8 +649,10 @@ class Anylinux:
         test_path = "/auditwheel_src/tests/integration/testrpath"
         orig_wheel = anylinux.build_wheel(test_path)
 
-        repair_output = anylinux.repair(orig_wheel, library_paths=[f"{test_path}/a"], verbose=3)
-        assert 'lddtree:Could not locate libd.so, skipping' in repair_output
+        repair_output = anylinux.repair(
+            orig_wheel, library_paths=[f"{test_path}/a"], verbose=3
+        )
+        assert "lddtree:Could not locate libd.so, skipping" in repair_output
 
     def test_multiple_top_level(
         self, anylinux: AnyLinuxContainer, python: PythonContainer
