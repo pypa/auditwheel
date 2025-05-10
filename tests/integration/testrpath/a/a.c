@@ -1,6 +1,6 @@
 #include "b.h"
-#include "c.h"
+#include "d.h"
 
 int fa(void) {
-    return 1 + fb() + fc();
+    return 1 + fb() + fd();
 }

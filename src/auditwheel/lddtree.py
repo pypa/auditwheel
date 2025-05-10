@@ -568,7 +568,7 @@ def ldd(
         if soname not in _all_libs:
             _all_libs[soname] = DynamicLibrary(soname, fullpath, realpath)
         if realpath is None:
-            log.info("Could not locate %s, skipping.", soname)
+            log.debug("Could not locate %s, skipping.", soname)
             continue
         if any(fnmatch(str(realpath), e) for e in exclude):
             log.info("Excluding %s", realpath)

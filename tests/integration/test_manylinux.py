@@ -161,13 +161,17 @@ class AnyLinuxContainer:
         strip: bool = False,
         library_paths: list[str] | None = None,
         excludes: list[str] | None = None,
+        verbose: int = 0,
     ) -> str:
         plat = plat or self._policy
         args = []
         if library_paths:
             ld_library_path = ":".join([*library_paths, "$LD_LIBRARY_PATH"])
             args.append(f"LD_LIBRARY_PATH={ld_library_path}")
-        args.extend(["auditwheel", "repair", "-w", "/io", "--plat", plat])
+        args.append("auditwheel")
+        if verbose:
+            args.append(f"-{'v' * verbose}")
+        args.extend(["repair", "-w", "/io", "--plat", plat])
         if only_plat:
             args.append("--only-plat")
         if not isa_ext_check:
@@ -643,6 +647,10 @@ class Anylinux:
         policy = anylinux.policy
 
         test_path = "/auditwheel_src/tests/integration/testrpath"
+        orig_wheel = anylinux.build_wheel(test_path)
+
+        repair_output = anylinux.repair(orig_wheel, library_paths=[f"{test_path}/a"], verbose=3)
+        assert 'lddtree:Could not locate libd.so, skipping' in repair_output
 
     def test_multiple_top_level(
         self, anylinux: AnyLinuxContainer, python: PythonContainer

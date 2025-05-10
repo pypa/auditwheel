@@ -1,3 +1,3 @@
-int fc(void) {
+int fd(void) {
     return 11;
 }

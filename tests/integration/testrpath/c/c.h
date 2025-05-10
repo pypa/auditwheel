@@ -1,1 +1,0 @@
-int fc(void);
