@@ -9,12 +9,14 @@ from setuptools.command.build_ext import build_ext
 
 class BuildExt(build_ext):
     def run(self) -> None:
-        cmd = "gcc -fPIC -shared -o b/libb.so b/b.c"
+        cmd = "gcc -fPIC -shared -o c/libc.so c/c.c"
+        subprocess.check_call(cmd.split())
+        cmd = "gcc -fPIC -shared -o b/libb.so b/b.c -Wl,-rpath=$ORIGIN/../c -Ic -Lc -lc"
         subprocess.check_call(cmd.split())
         cmd = (
-            "gcc -fPIC -shared -o a/liba.so "
+            "gcc -fPIC -shared -o a/liba.so a/a.c "
             "-Wl,{dtags_flag} -Wl,-rpath=$ORIGIN/../b "
-            "-Ib a/a.c -Lb -lb"
+            "-Ib -Lb -lb -Ic -Lc -lc"
         ).format(
             dtags_flag=(
                 "--enable-new-dtags"

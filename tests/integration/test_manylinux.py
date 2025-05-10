@@ -636,6 +636,13 @@ class Anylinux:
                         ]
                         assert len(rpath_tags) == 1
                         assert rpath_tags[0].rpath == "$ORIGIN"
+    
+    def test_dependency_order(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
+        policy = anylinux.policy
+
+        test_path = "/auditwheel_src/tests/integration/testrpath"
+
+        pass
 
     def test_multiple_top_level(
         self, anylinux: AnyLinuxContainer, python: PythonContainer
