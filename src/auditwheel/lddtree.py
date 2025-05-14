@@ -592,5 +592,5 @@ def ldd(
         frozenset(needed - _excluded_libs),
         tuple(rpaths),
         tuple(runpaths),
-        _all_libs,
+        {k: v for k, v in _all_libs.items() if k not in _excluded_libs},
     )
