@@ -573,6 +573,7 @@ def ldd(
         if any(fnmatch(str(realpath), e) for e in exclude):
             log.info("Excluding %s", realpath)
             _excluded_libs.add(soname)
+            _all_libs.pop(soname)
             continue
         dependency = ldd(realpath, root, prefix, ldpaths, fullpath, exclude, _all_libs)
         _all_libs[soname] = DynamicLibrary(
@@ -592,5 +593,5 @@ def ldd(
         frozenset(needed - _excluded_libs),
         tuple(rpaths),
         tuple(runpaths),
-        {k: v for k, v in _all_libs.items() if k not in _excluded_libs},
+        _all_libs,
     )
