@@ -966,9 +966,9 @@ class TestManylinux(Anylinux):
 
         with zipfile.ZipFile(anylinux.io_folder / repaired_wheel) as z:
             for file in z.namelist():
-                assert not file.startswith(
-                    "testsimple.libs"
-                ), "should not have empty .libs folder"
+                assert not file.startswith("testsimple.libs"), (
+                    "should not have empty .libs folder"
+                )
 
         python.install_wheel(repaired_wheel)
         python.run("from testsimple import run; exit(run())")
