@@ -242,7 +242,7 @@ def add_platforms(
 
     fparts = {
         "prefix": wheel_fname.rsplit("-", maxsplit=1)[0],
-        "plat": ".".join(fname_tags),
+        "plat": ".".join(sorted(fname_tags)),
         "ext": splitext(wheel_fname)[1],
     }
     out_wheel_fname = "{prefix}-{plat}{ext}".format(**fparts)
