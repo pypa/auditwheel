@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -192,7 +192,7 @@ class WheelPolicies:
         self, lddtree: DynamicExecutable, wheel_path: Path
     ) -> dict[str, ExternalReference]:
         def filter_libs(
-            libs: frozenset[str], whitelist: frozenset[str]
+            libs: Iterable[str], whitelist: frozenset[str]
         ) -> Generator[str]:
             for lib in libs:
                 if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
@@ -232,7 +232,7 @@ class WheelPolicies:
                 # whitelist is the complete set of all libraries. so nothing
                 # is considered "external" that needs to be copied in.
                 whitelist = p.whitelist
-                blacklist_libs = set(p.blacklist.keys()) & lddtree.needed
+                blacklist_libs = set(p.blacklist.keys()) & set(lddtree.needed)
                 blacklist_reduced = {k: p.blacklist[k] for k in blacklist_libs}
                 blacklist = filter_undefined_symbols(
                     lddtree.realpath, blacklist_reduced
