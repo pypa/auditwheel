@@ -465,7 +465,12 @@ class Anylinux:
 
         with docker_container_ctx(manylinux_img, io_folder, env) as container:
             platform_tag = ".".join(
-                [f"{p}_{PLATFORM}" for p in [policy, *POLICY_ALIASES.get(policy, [])]]
+                sorted(
+                    [
+                        f"{p}_{PLATFORM}"
+                        for p in [policy, *POLICY_ALIASES.get(policy, [])]
+                    ]
+                )
             )
             yield AnyLinuxContainer(
                 f"{policy}_{PLATFORM}", platform_tag, container, io_folder
@@ -826,9 +831,9 @@ class Anylinux:
         else:
             assert libc == Libc.GLIBC
             source = "glibc"
-            platform_tag = f"manylinux_2_17_{arch.value}.manylinux2014_{arch.value}"
+            platform_tag = f"manylinux2014_{arch.value}.manylinux_2_17_{arch.value}"
             if arch in {Architecture.x86_64, Architecture.i686}:
-                platform_tag = f"manylinux_2_5_{arch.value}.manylinux1_{arch.value}"
+                platform_tag = f"manylinux1_{arch.value}.manylinux_2_5_{arch.value}"
             elif arch == Architecture.riscv64:
                 platform_tag = f"manylinux_2_31_{arch.value}"
             python_abi = "cp313-cp313"
@@ -952,24 +957,26 @@ class TestManylinux(Anylinux):
 
         if PLATFORM in {"x86_64", "i686"}:
             expect = f"manylinux_2_5_{PLATFORM}"
-            expect_tag = f"manylinux_2_5_{PLATFORM}.manylinux1_{PLATFORM}"
+            expect_tag = f"manylinux1_{PLATFORM}.manylinux_2_5_{PLATFORM}"
         else:
             expect = f"manylinux_2_17_{PLATFORM}"
-            expect_tag = f"manylinux_2_17_{PLATFORM}.manylinux2014_{PLATFORM}"
+            expect_tag = f"manylinux2014_{PLATFORM}.manylinux_2_17_{PLATFORM}"
 
         target_tag = target_policy
         for pep600_policy, aliases in POLICY_ALIASES.items():
             policy_ = f"{pep600_policy}_{PLATFORM}"
             aliases_ = [f"{p}_{PLATFORM}" for p in aliases]
             if target_policy == policy_ or target_policy in aliases_:
-                target_tag = f"{policy_}.{'.'.join(aliases_)}"
+                target_tag = ".".join(sorted([policy_, *aliases_]))
 
         # we shall ba able to repair the wheel for all targets
         anylinux.repair(orig_wheel, plat=target_policy, only_plat=only_plat)
         if only_plat or target_tag == expect_tag:
             repaired_tag = target_tag
         else:
-            repaired_tag = f"{expect_tag}.{target_tag}"
+            repaired_tag = ".".join(
+                sorted(expect_tag.split(".") + target_tag.split("."))
+            )
         repaired_wheel = anylinux.check_wheel("testsimple", platform_tag=repaired_tag)
 
         assert_show_output(anylinux, repaired_wheel, expect, True)
