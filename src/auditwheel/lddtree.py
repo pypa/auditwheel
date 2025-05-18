@@ -75,7 +75,7 @@ class DynamicLibrary:
     path: str | None
     realpath: Path | None
     platform: Platform | None = None
-    needed: frozenset[str] = frozenset()
+    needed: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -85,7 +85,7 @@ class DynamicExecutable:
     path: str
     realpath: Path
     platform: Platform
-    needed: frozenset[str]
+    needed: tuple[str, ...]
     rpath: tuple[str, ...]
     runpath: tuple[str, ...]
     libraries: dict[str, DynamicLibrary]
@@ -447,7 +447,7 @@ def ldd(
 
     interpreter: str | None = None
     libc: Libc | None = None
-    needed: set[str] = set()
+    needed: list[str] = []
     rpaths: list[str] = []
     runpaths: list[str] = []
 
@@ -496,7 +496,7 @@ def ldd(
                 elif t.entry.d_tag == "DT_RUNPATH":
                     runpaths = parse_ld_paths(t.runpath, path=str(path), root=root)
                 elif t.entry.d_tag == "DT_NEEDED":
-                    needed.add(t.needed)
+                    needed.append(t.needed)
             if runpaths:
                 # If both RPATH and RUNPATH are set, only the latter is used.
                 rpaths = []
@@ -586,7 +586,7 @@ def ldd(
         str(path) if display is None else display,
         path,
         platform,
-        frozenset(needed - _excluded_libs),
+        tuple(soname for soname in needed if soname not in _excluded_libs),
         tuple(rpaths),
         tuple(runpaths),
         _all_libs,

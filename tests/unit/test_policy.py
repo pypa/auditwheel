@@ -187,7 +187,7 @@ class TestLddTreeExternalReferences:
             platform=Platform(
                 "", 64, True, "EM_X86_64", Architecture.x86_64, None, None
             ),
-            needed=frozenset(libs),
+            needed=tuple(libs),
             libraries={
                 lib: DynamicLibrary(lib, f"/path/to/{lib}", Path(f"/path/to/{lib}"))
                 for lib in libs
