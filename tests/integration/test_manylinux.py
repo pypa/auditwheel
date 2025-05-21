@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import re
@@ -505,6 +506,97 @@ class Anylinux:
         # Check that the 2 fortran runtimes are well isolated and can be loaded
         # at once in the same Python program:
         python.run("import numpy; import foo")
+
+    def test_numpy_sbom(
+        self, anylinux: AnyLinuxContainer, python: PythonContainer
+    ) -> None:
+        policy = anylinux.policy
+
+        # Build and repair numpy
+        orig_wheel = build_numpy(anylinux, anylinux.io_folder)
+        assert orig_wheel == ORIGINAL_NUMPY_WHEEL
+        assert "manylinux" not in orig_wheel
+
+        # Repair the wheel using the manylinux container
+        anylinux.repair(orig_wheel)
+        repaired_wheel = anylinux.check_wheel("numpy", version=NUMPY_VERSION)
+        assert_show_output(anylinux, repaired_wheel, policy, False)
+
+        # Install the wheel so the SBOM document is added to the environment.
+        python.install_wheel(repaired_wheel)
+
+        # Load the auditwheel SBOM from .dist-info/sboms
+        site_packages = python.run(
+            "import site; print(site.getsitepackages()[0])"
+        ).strip()
+        assert re.match(
+            r"\A/usr/local/lib/python[0-9.]+/site-packages\Z", site_packages
+        )
+        sbom_data = python.run(
+            f"-c \"print(open('{site_packages}/numpy-{NUMPY_VERSION}.dist-info/sboms/auditwheel.cdx.json').read())\""
+        ).strip()
+        sbom = json.loads(sbom_data)
+
+        # Separate all the components that vary over test runs.
+        sbom_tools = sbom["metadata"].pop("tools")
+        sbom_components = sbom.pop("components")
+        sbom_dependencies = sbom.pop("dependencies")
+
+        assert sbom == {
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.4",
+            "version": 1,
+            "metadata": {
+                "component": {
+                    "type": "library",
+                    "bom-ref": f"pkg:pypi/numpy@{NUMPY_VERSION}",
+                    "name": "numpy",
+                    "version": NUMPY_VERSION,
+                    "purl": f"pkg:pypi/numpy@{NUMPY_VERSION}",
+                },
+                # "tools": [{...}, ...],
+            },
+            # "components": [{...}, ...],
+            # "dependencies": [{...}, ...],
+        }
+
+        assert len(sbom_tools) == 1
+        assert sbom_tools[0]["name"] == "auditwheel"
+        assert "version" in sbom_tools[0]
+
+        assert sbom_components[0] == {
+            "bom-ref": f"pkg:pypi/numpy@{NUMPY_VERSION}",
+            "name": "numpy",
+            "purl": f"pkg:pypi/numpy@{NUMPY_VERSION}",
+            "type": "library",
+            "version": NUMPY_VERSION,
+        }
+
+        component_purls = {
+            component["purl"].split("@")[0] for component in sbom_components[1:]
+        }
+        if policy.startswith("musllinux"):
+            assert component_purls == {
+                "pkg:apk/alpine/libgcc",
+                "pkg:apk/alpine/libgfortran",
+                "pkg:apk/alpine/libquadmath",
+                "pkg:apk/alpine/libstdc%2B%2B",
+                "pkg:apk/alpine/openblas",
+            }
+        elif policy == "manylinux_2_34_x86_64":
+            assert component_purls == {
+                "pkg:rpm/almalinux/libgfortran",
+                "pkg:rpm/almalinux/libquadmath",
+                "pkg:rpm/almalinux/openblas-serial",
+            }
+        else:
+            assert component_purls == {
+                "pkg:rpm/almalinux/libgfortran",
+                "pkg:rpm/almalinux/libquadmath",
+                "pkg:rpm/almalinux/openblas",
+            }
+
+        assert len(sbom_dependencies) == len(component_purls) + 1
 
     def test_exclude(self, anylinux: AnyLinuxContainer) -> None:
         """Test the --exclude argument to avoid grafting certain libraries."""
