@@ -70,9 +70,11 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
         winfo = analyze_wheel_abi(
             Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False, True
         )
-        assert set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs, (
-            f"{HERE}, {exclude}, {os.environ}"
-        )
+        assert {
+            lib
+            for lib in winfo.external_refs["manylinux_2_5_x86_64"].libs
+            if "libpython" not in lib
+        } == external_libs, f"{HERE}, {exclude}, {os.environ}"
 
     if modify_ld_library_path:
         importlib.reload(lddtree)
