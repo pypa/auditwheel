@@ -23,6 +23,8 @@ from .wheeltools import InWheelCtx, add_platforms
 
 logger = logging.getLogger(__name__)
 
+# Regex to match libpython shared library names
+LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
 
 # Copied from wheel 0.31.1
 WHEEL_INFO_RE = re.compile(
@@ -70,6 +72,12 @@ def repair_wheel(
             ext_libs = v[abis[0]].libs
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
+                # Handle libpython dependencies by removing them
+                if LIBPYTHON_RE.match(soname):
+                    logger.info("Removing libpython dependency %s from %s", soname, fn)
+                    patcher.replace_needed(fn, (soname, ""))
+                    continue
+
                 if src_path is None:
                     msg = (
                         "Cannot repair wheel, because required "
