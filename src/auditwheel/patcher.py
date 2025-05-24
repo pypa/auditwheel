@@ -11,6 +11,9 @@ class ElfPatcher:
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
         raise NotImplementedError()
 
+    def remove_needed(self, file_name: Path, *sonames: str) -> None:
+        raise NotImplementedError()
+
     def set_soname(self, file_name: Path, new_so_name: str) -> None:
         raise NotImplementedError()
 
@@ -53,6 +56,15 @@ class Patchelf(ElfPatcher):
                 *chain.from_iterable(
                     ("--replace-needed", *pair) for pair in old_new_pairs
                 ),
+                file_name,
+            ]
+        )
+
+    def remove_needed(self, file_name: Path, *sonames: str) -> None:
+        check_call(
+            [
+                "patchelf",
+                *chain.from_iterable(("--remove-needed", soname) for soname in sonames),
                 file_name,
             ]
         )

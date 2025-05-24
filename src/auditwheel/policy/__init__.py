@@ -17,7 +17,6 @@ from ..libc import Libc
 from ..tools import is_subdir
 
 _HERE = Path(__file__).parent
-LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
 _MUSL_POLICY_RE = re.compile(r"^musllinux_\d+_\d+$")
 
 logger = logging.getLogger(__name__)
@@ -200,9 +199,6 @@ class WheelPolicies:
                     # 'ld64.so.2' on s390x
                     # 'ld64.so.1' on ppc64le
                     # 'ld-linux*' on other platforms
-                    continue
-                if LIBPYTHON_RE.match(lib):
-                    # always exclude libpythonXY
                     continue
                 if lib in whitelist:
                     # exclude any libs in the whitelist
