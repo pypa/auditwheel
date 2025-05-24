@@ -25,29 +25,41 @@ HERE = Path(__file__).parent.resolve()
 @pytest.mark.parametrize(
     ("file", "external_libs", "exclude"),
     [
-        ("cffi-1.5.0-cp27-none-linux_x86_64.whl", {"libffi.so.5"}, frozenset()),
-        ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["libffi.so.5"])),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
-            {"libffi.so.5"},
+            {"libffi.so.5", "libpython2.7.so.1.0"},
+            frozenset(),
+        ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            set(),
+            frozenset(["libffi.so.5", "libpython2.7.so.1.0"]),
+        ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            {"libffi.so.5", "libpython2.7.so.1.0"},
             frozenset(["libffi.so.noexist", "libnoexist.so.*"]),
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
-            set(),
+            {"libpython2.7.so.1.0"},
             frozenset(["libffi.so.[4,5]"]),
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
-            {"libffi.so.5"},
+            {"libffi.so.5", "libpython2.7.so.1.0"},
             frozenset(["libffi.so.[6,7]"]),
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
-            set(),
+            {"libpython2.7.so.1.0"},
             frozenset([f"{HERE}/*"]),
         ),
-        ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["libffi.so.*"])),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            {"libpython2.7.so.1.0"},
+            frozenset(["libffi.so.*"]),
+        ),
         ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["*"])),
         (
             "python_snappy-0.5.2-pp260-pypy_41-linux_x86_64.whl",
@@ -69,11 +81,9 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
         winfo = analyze_wheel_abi(
             Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False, True
         )
-        assert {
-            lib
-            for lib in winfo.external_refs["manylinux_2_5_x86_64"].libs
-            if "libpython" not in lib
-        } == external_libs, f"{HERE}, {exclude}, {os.environ}"
+        assert set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs, (
+            f"{HERE}, {exclude}, {os.environ}"
+        )
 
     if modify_ld_library_path:
         importlib.reload(lddtree)
