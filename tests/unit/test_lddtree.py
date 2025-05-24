@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from auditwheel.architecture import Architecture
 from auditwheel.lddtree import ldd
 from auditwheel.libc import Libc
@@ -8,7 +10,7 @@ from auditwheel.tools import zip2dir
 HERE = Path(__file__).parent.resolve(strict=True)
 
 
-def test_libpython(tmp_path: Path, caplog):
+def test_libpython(tmp_path: Path, caplog: pytest.CaptureFixture) -> None:
     wheel = (
         HERE
         / ".."
