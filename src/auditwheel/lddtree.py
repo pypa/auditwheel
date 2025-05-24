@@ -18,7 +18,6 @@ import functools
 import glob
 import logging
 import os
-from collections import OrderedDict
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
@@ -442,7 +441,7 @@ def ldd(
     """
     _first = _all_libs is None
     if _all_libs is None:
-        _all_libs = OrderedDict()
+        _all_libs = {}
 
     log.debug("ldd(%s)", path)
 
@@ -555,7 +554,7 @@ def ldd(
         + ldpaths["interp"]
     )
     _excluded_libs: set[str] = set()
-    for soname in sorted(needed):
+    for soname in needed:
         if soname in _all_libs and _all_libs[soname].realpath is not None:
             continue
         if soname in _excluded_libs:
