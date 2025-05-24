@@ -74,8 +74,12 @@ def repair_wheel(
             for soname, src_path in ext_libs.items():
                 # Handle libpython dependencies by removing them
                 if LIBPYTHON_RE.match(soname):
-                    logger.info("Removing libpython dependency %s from %s", soname, fn)
-                    patcher.replace_needed(fn, (soname, ""))
+                    logger.warning(
+                        "Removing libpython dependency %s from %s, libpython shall not be linked for CPython extensions on Linux",
+                        soname,
+                        fn,
+                    )
+                    patcher.remove_needed(fn, soname)
                     continue
 
                 if src_path is None:
