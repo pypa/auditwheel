@@ -16,15 +16,13 @@ from auditwheel.patcher import ElfPatcher
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths
 from .hashfile import hashfile
+from .lddtree import LIBPYTHON_RE
 from .policy import get_replace_platforms
 from .tools import is_subdir, unique_by_index
 from .wheel_abi import WheelAbIInfo
 from .wheeltools import InWheelCtx, add_platforms
 
 logger = logging.getLogger(__name__)
-
-# Regex to match libpython shared library names
-LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
 
 # Copied from wheel 0.31.1
 WHEEL_INFO_RE = re.compile(
@@ -75,9 +73,9 @@ def repair_wheel(
                 # Handle libpython dependencies by removing them
                 if LIBPYTHON_RE.match(soname):
                     logger.warning(
-                        "Removing libpython dependency %s from %s, libpython shall not be linked for CPython extensions on Linux",
+                        "Removing %s dependency from %s. Linking with libpython is forbidden for manylinux/musllinux wheels.",
                         soname,
-                        fn,
+                        str(fn),
                     )
                     patcher.remove_needed(fn, soname)
                     continue

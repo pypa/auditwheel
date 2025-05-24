@@ -9,7 +9,6 @@ from argparse import Namespace
 from datetime import datetime, timezone
 from os.path import isabs
 from pathlib import Path
-from unittest import mock
 from unittest.mock import Mock
 
 import pytest
@@ -172,13 +171,37 @@ def test_wheel_source_date_epoch(timestamp, tmp_path, monkeypatch):
     )
 
     monkeypatch.setenv("SOURCE_DATE_EPOCH", str(timestamp[0]))
-    # patchelf might not be available as we aren't running in a manylinux container
-    # here. We don't need need it in this test, so just patch it.
-    with mock.patch("auditwheel.patcher._verify_patchelf"):
-        main_repair.execute(args, Mock())
-
+    main_repair.execute(args, Mock())
     output_wheel, *_ = list(wheel_output_path.glob("*.whl"))
     with zipfile.ZipFile(output_wheel) as wheel_file:
         for file in wheel_file.infolist():
             file_date_time = datetime(*file.date_time, tzinfo=timezone.utc)
             assert file_date_time.timestamp() == timestamp[1]
+
+
+def test_libpython(tmp_path, caplog):
+    wheel = HERE / "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.whl"
+    args = Namespace(
+        LIB_SDIR=".libs",
+        ONLY_PLAT=False,
+        PLAT="auto",
+        STRIP=False,
+        UPDATE_TAGS=True,
+        WHEEL_DIR=tmp_path,
+        WHEEL_FILE=[wheel],
+        EXCLUDE=[],
+        DISABLE_ISA_EXT_CHECK=False,
+        ZIP_COMPRESSION_LEVEL=6,
+        cmd="repair",
+        func=Mock(),
+        prog="auditwheel",
+        verbose=0,
+    )
+    main_repair.execute(args, Mock())
+    assert (
+        "Removing libpython3.13.so.1.0 dependency from python_mscl/_mscl.so"
+        in caplog.text
+    )
+    assert tuple(path.name for path in tmp_path.glob("*.whl")) == (
+        "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_31_aarch64.whl",
+    )
