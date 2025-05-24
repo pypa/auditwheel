@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 __all__ = ["LIBPYTHON_RE", "DynamicExecutable", "DynamicLibrary", "ldd"]
 
 # Regex to match libpython shared library names
-LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(.\d)*$")
+LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(\.\d)*$")
 
 
 @dataclass(frozen=True)

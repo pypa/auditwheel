@@ -3,11 +3,35 @@ from pathlib import Path
 import pytest
 
 from auditwheel.architecture import Architecture
-from auditwheel.lddtree import ldd
+from auditwheel.lddtree import LIBPYTHON_RE, ldd
 from auditwheel.libc import Libc
 from auditwheel.tools import zip2dir
 
 HERE = Path(__file__).parent.resolve(strict=True)
+
+
+@pytest.mark.parametrize(
+    "soname",
+    [
+        "libpython3.7m.so.1.0",
+        "libpython3.9.so.1.0",
+        "libpython3.10.so.1.0",
+        "libpython999.999.so.1.0",
+    ],
+)
+def test_libpython_re_match(soname: str) -> None:
+    assert LIBPYTHON_RE.match(soname)
+
+
+@pytest.mark.parametrize(
+    "soname",
+    [
+        "libpython3.7m.soa1.0",
+        "libpython3.9.so.1a0",
+    ],
+)
+def test_libpython_re_nomatch(soname: str) -> None:
+    assert LIBPYTHON_RE.match(soname) is None
 
 
 def test_libpython(tmp_path: Path, caplog: pytest.CaptureFixture) -> None:
