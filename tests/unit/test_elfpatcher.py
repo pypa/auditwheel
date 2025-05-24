@@ -110,3 +110,20 @@ class TestPatchElf:
 
         assert result == check_output.return_value.decode()
         assert check_output.call_args_list == check_output_expected_args
+
+    def test_remove_needed(self, check_call, _0, _1):  # noqa: PT019
+        patcher = Patchelf()
+        filename = Path("test.so")
+        soname_1 = "TEST_REM_1"
+        soname_2 = "TEST_REM_2"
+        patcher.remove_needed(filename, soname_1, soname_2)
+        check_call.assert_called_once_with(
+            [
+                "patchelf",
+                "--remove-needed",
+                soname_1,
+                "--remove-needed",
+                soname_2,
+                filename,
+            ]
+        )
