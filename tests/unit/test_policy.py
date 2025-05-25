@@ -172,10 +172,6 @@ class TestLddTreeExternalReferences:
             "ld-linux-x86_64.so.1",
             "ld64.so.1",
             "ld64.so.2",
-            "libpython3.7m.so.1.0",
-            "libpython3.9.so.1.0",
-            "libpython3.10.so.1.0",
-            "libpython999.999.so.1.0",
         ]
         unfiltered_libs = ["libfoo.so.1.0", "libbar.so.999.999.999"]
         libs = filtered_libs + unfiltered_libs

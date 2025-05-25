@@ -18,6 +18,7 @@ import functools
 import glob
 import logging
 import os
+import re
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
@@ -31,7 +32,10 @@ from .error import InvalidLibc
 from .libc import Libc
 
 log = logging.getLogger(__name__)
-__all__ = ["DynamicExecutable", "DynamicLibrary", "ldd"]
+__all__ = ["LIBPYTHON_RE", "DynamicExecutable", "DynamicLibrary", "ldd"]
+
+# Regex to match libpython shared library names
+LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(\.\d)*$")
 
 
 @dataclass(frozen=True)
@@ -563,6 +567,16 @@ def ldd(
             log.info("Excluding %s", soname)
             _excluded_libs.add(soname)
             continue
+
+        # special case for libpython, see https://github.com/pypa/auditwheel/issues/589
+        # we want to return the dependency to be able to remove it later on but
+        # we don't want to analyze it for symbol versions nor do we want to analyze its
+        # dependencies as it will be removed.
+        if LIBPYTHON_RE.match(soname):
+            log.info("Skip %s resolution", soname)
+            _all_libs[soname] = DynamicLibrary(soname, None, None)
+            continue
+
         realpath, fullpath = find_lib(platform, soname, all_ldpaths, root)
         if realpath is not None and any(fnmatch(str(realpath), e) for e in exclude):
             log.info("Excluding %s", realpath)
