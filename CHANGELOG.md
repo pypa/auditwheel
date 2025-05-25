@@ -2,6 +2,19 @@
 
 ## HEAD
 
+## 6.4.0
+
+Released May 25, 2025
+
+### User-facing changes
+- [FEATURE] detect architecture/libc from wheel ([#548](https://github.com/pypa/auditwheel/pull/548))
+- [FEATURE] Add libatomic.so.1 to lib_whitelist ([#572](https://github.com/pypa/auditwheel/pull/572))
+- [BUGFIX] Respect `DT_NEEDED` entries order in `lddtree` ([#561](https://github.com/pypa/auditwheel/issues/561), [#586](https://github.com/pypa/auditwheel/pull/586))
+- [BUGFIX] Resolve path of InTemporaryDirectory name ([#565](https://github.com/pypa/auditwheel/issues/565))
+- [BUGFIX] Clip zip timestamp to 1980-01-01 ([#566](https://github.com/pypa/auditwheel/issues/566))
+- [BUGFIX] Compressed tag sets are not sorted when rewriting wheel filename ([#583](https://github.com/pypa/auditwheel/issues/583))
+- [BUGFIX] Remove libpython linkage instead of ignoring it ([#589](https://github.com/pypa/auditwheel/issues/589))
+
 ## 6.3.0
 
 Released March 16, 2025
