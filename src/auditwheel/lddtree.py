@@ -568,7 +568,7 @@ def ldd(
             _excluded_libs.add(soname)
             continue
 
-        # special case for libpython, see https://github.com/pypa/auditwheel/pull/590
+        # special case for libpython, see https://github.com/pypa/auditwheel/issues/589
         # we want to return the dependency to be able to remove it later on but
         # we don't want to analyze it for symbol versions nor do we want to analyze its
         # dependencies as it will be removed.
