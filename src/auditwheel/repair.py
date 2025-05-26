@@ -16,13 +16,13 @@ from auditwheel.patcher import ElfPatcher
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths
 from .hashfile import hashfile
+from .lddtree import LIBPYTHON_RE
 from .policy import get_replace_platforms
 from .tools import is_subdir, unique_by_index
 from .wheel_abi import WheelAbIInfo
 from .wheeltools import InWheelCtx, add_platforms
 
 logger = logging.getLogger(__name__)
-
 
 # Copied from wheel 0.31.1
 WHEEL_INFO_RE = re.compile(
@@ -70,6 +70,16 @@ def repair_wheel(
             ext_libs = v[abis[0]].libs
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
+                # Handle libpython dependencies by removing them
+                if LIBPYTHON_RE.match(soname):
+                    logger.warning(
+                        "Removing %s dependency from %s. Linking with libpython is forbidden for manylinux/musllinux wheels.",
+                        soname,
+                        str(fn),
+                    )
+                    patcher.remove_needed(fn, soname)
+                    continue
+
                 if src_path is None:
                     msg = (
                         "Cannot repair wheel, because required "
