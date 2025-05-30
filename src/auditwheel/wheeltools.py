@@ -182,7 +182,7 @@ class InWheelCtx(InWheel):
         record = record_names[0].read_text()
         reader = csv.reader(r for r in record.splitlines())
         for row in reader:
-            filename = row[0]
+            filename = ",".join(row[0:-2])
             yield Path(filename)
 
 
