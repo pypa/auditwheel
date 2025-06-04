@@ -11,6 +11,7 @@ from unittest.mock import Mock
 
 import pytest
 
+import auditwheel.wheel_abi
 from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
@@ -87,7 +88,8 @@ def test_analyze_wheel_abi(file, external_libs, exclude, env):
     with pytest.MonkeyPatch.context() as cp:
         if env:
             cp.setenv(env, f"{HERE}")
-            importlib.reload(lddtree)
+        importlib.reload(lddtree)
+        importlib.reload(auditwheel.wheel_abi)
 
         winfo = analyze_wheel_abi(
             Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False, True
@@ -96,8 +98,8 @@ def test_analyze_wheel_abi(file, external_libs, exclude, env):
             f"{HERE}, {exclude}, {env}"
         )
 
-    if env:
-        importlib.reload(lddtree)
+    importlib.reload(lddtree)
+    importlib.reload(auditwheel.wheel_abi)
 
 
 def test_analyze_wheel_abi_pyfpe():
