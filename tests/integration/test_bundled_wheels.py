@@ -61,6 +61,12 @@ HERE = Path(__file__).parent.resolve()
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            {"libffi.so.5", "libpython2.7.so.1.0"},
+            frozenset([f"{HERE}/*"]),
+            None,
+        ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libpython2.7.so.1.0"},
             frozenset(["libffi.so.*"]),
             None,
