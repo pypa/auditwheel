@@ -34,7 +34,7 @@ def test_libpython_re_nomatch(soname: str) -> None:
     assert LIBPYTHON_RE.match(soname) is None
 
 
-def test_libpython(tmp_path: Path, caplog: pytest.CaptureFixture) -> None:
+def test_libpython(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     wheel = (
         HERE
         / ".."
