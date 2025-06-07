@@ -34,6 +34,12 @@ repos:
   rev: v1.16.0
   hooks:
   - id: mypy
-    exclude: ^tests/integration/.*/.*$|^scripts/calculate_symbol_versions.py$
+    exclude: tests/integration/.*/.*|tests/integration/quick_check_numpy.py|tests/unit/test_wheel_abi.py|scripts/calculate_symbol_versions.py|conftest.py
+    args: ["--python-version=3.9"]
     additional_dependencies:
+      - nox
+      - packaging
+      - pyelftools
+      - pytest
+      - types-docker
       - types-requests
