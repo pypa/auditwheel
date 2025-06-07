@@ -19,7 +19,7 @@ wheel = ""
 sdist = ""
 
 
-@nox.session(python=["3.9"], reuse_venv=True)
+@nox.session(reuse_venv=True)
 def lint(session: nox.Session) -> None:
     """
     Run linters on the codebase.

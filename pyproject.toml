@@ -73,6 +73,7 @@ warn_redundant_casts = true
 warn_unreachable = false
 warn_unused_configs = true
 warn_unused_ignores = true
+untyped_calls_exclude = ["elftools.elf.elffile.ELFFile", "elftools.elf.sections.NoteSection"]
 
 [[tool.mypy.overrides]]
 module = "auditwheel.*"
