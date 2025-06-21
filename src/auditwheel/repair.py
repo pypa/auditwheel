@@ -53,8 +53,9 @@ def repair_wheel(
     out_dir = out_dir.resolve(strict=True)
     wheel_fname = wheel_path.name
 
+    output_wheel = out_dir / wheel_fname
     with InWheelCtx(wheel_path) as ctx:
-        ctx.out_wheel = out_dir / wheel_fname
+        ctx.out_wheel = output_wheel
         ctx.zip_compression_level = zip_compression_level
 
         match = WHEEL_INFO_RE(wheel_fname)
@@ -125,7 +126,7 @@ def repair_wheel(
             extensions = external_refs_by_fn.keys()
             strip_symbols(itertools.chain(libs_to_strip, extensions))
 
-    return ctx.out_wheel
+    return output_wheel
 
 
 def strip_symbols(libraries: Iterable[Path]) -> None:

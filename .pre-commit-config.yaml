@@ -1,9 +1,6 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 
-default_language_version:
-  python: python3.9
-
 exclude: ^src/auditwheel/_vendor/
 
 repos:
@@ -24,16 +21,22 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.11.11
+  rev: v0.11.13
   hooks:
   - id: ruff
     args: ["--fix", "--show-fixes"]
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.15.0
+  rev: v1.16.0
   hooks:
   - id: mypy
-    exclude: ^tests/integration/.*/.*$|^scripts/calculate_symbol_versions.py$
+    exclude: tests/integration/.*/.*|tests/integration/quick_check_numpy.py|tests/unit/test_wheel_abi.py|scripts/calculate_symbol_versions.py
+    args: ["--python-version=3.9"]
     additional_dependencies:
+      - nox
+      - packaging
+      - pyelftools
+      - pytest
+      - types-docker
       - types-requests
