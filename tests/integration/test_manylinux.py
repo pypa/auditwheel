@@ -293,6 +293,7 @@ def docker_start(
         environment=env_variables,
         platform=f"linux/{goarch}",
     )
+    assert isinstance(con.id, str)
     logger.info("Started container %s", con.id[:12])
     return con
 
@@ -333,6 +334,7 @@ def docker_exec(
     cwd: str | None = None,
     env: dict[str, str] | None = None,
 ) -> str:
+    assert isinstance(container.id, str)
     logger.info("docker exec %s: %r", container.id[:12], cmd)
     ec, output = container.exec_run(cmd, workdir=cwd, environment=env)
     output = output.decode("utf-8")

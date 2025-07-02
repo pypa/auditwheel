@@ -19,13 +19,13 @@ from auditwheel.sboms import create_sbom_for_wheel
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths
 from .hashfile import hashfile
+from .lddtree import LIBPYTHON_RE
 from .policy import get_replace_platforms
 from .tools import is_subdir, unique_by_index
 from .wheel_abi import WheelAbIInfo
 from .wheeltools import InWheelCtx, add_platforms
 
 logger = logging.getLogger(__name__)
-
 
 # Copied from wheel 0.31.1
 WHEEL_INFO_RE = re.compile(
@@ -56,8 +56,9 @@ def repair_wheel(
     out_dir = out_dir.resolve(strict=True)
     wheel_fname = wheel_path.name
 
+    output_wheel = out_dir / wheel_fname
     with InWheelCtx(wheel_path) as ctx:
-        ctx.out_wheel = out_dir / wheel_fname
+        ctx.out_wheel = output_wheel
         ctx.zip_compression_level = zip_compression_level
 
         match = WHEEL_INFO_RE(wheel_fname)
@@ -76,6 +77,16 @@ def repair_wheel(
             ext_libs = v[abis[0]].libs
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
+                # Handle libpython dependencies by removing them
+                if LIBPYTHON_RE.match(soname):
+                    logger.warning(
+                        "Removing %s dependency from %s. Linking with libpython is forbidden for manylinux/musllinux wheels.",
+                        soname,
+                        str(fn),
+                    )
+                    patcher.remove_needed(fn, soname)
+                    continue
+
                 if src_path is None:
                     msg = (
                         "Cannot repair wheel, because required "
@@ -134,7 +145,7 @@ def repair_wheel(
             sbom_dir.mkdir(exist_ok=True)
             (sbom_dir / "auditwheel.cdx.json").write_text(json.dumps(sbom_data))
 
-    return ctx.out_wheel
+    return output_wheel
 
 
 def strip_symbols(libraries: Iterable[Path]) -> None:
