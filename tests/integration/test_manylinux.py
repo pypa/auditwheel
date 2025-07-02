@@ -578,22 +578,27 @@ class Anylinux:
             component["purl"].split("@")[0] for component in sbom_components[1:]
         }
         # Package URL prefixes must match for a policy.
-        print(policy, component_purls)
         if policy.startswith("musllinux"):
-            assert all(purl.startswith("pkg:apk/alpine/") for purl in component_purls)
+            assert all(
+                purl.startswith("pkg:apk/alpine/") for purl in component_purls
+            ), str(component_purls)
         elif policy == "manylinux_2_34_x86_64":
             assert all(
                 purl.startswith("pkg:rpm/almalinux/") for purl in component_purls
-            )
+            ), str(component_purls)
         else:
             assert all(
                 purl.startswith("pkg:rpm/almalinux/") for purl in component_purls
-            )
+            ), str(component_purls)
 
         # We expect libgfortran, libquadmath, and openblas* as dependencies.
-        assert any("libgfortran" in purl for purl in component_purls)
-        assert any("libquadmath" in purl for purl in component_purls)
-        assert any("openblas" in purl for purl in component_purls)
+        assert any("libgfortran" in purl for purl in component_purls), str(
+            component_purls
+        )
+        assert any("libquadmath" in purl for purl in component_purls), str(
+            component_purls
+        )
+        assert any("openblas" in purl for purl in component_purls), str(component_purls)
 
         assert len(sbom_dependencies) == len(component_purls) + 1
 
