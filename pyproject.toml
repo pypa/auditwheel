@@ -122,3 +122,8 @@ ignore = [
   "ISC001", # Conflicts with formatter
   "PLR",    # Design related pylint codes
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"src/auditwheel/main_lddtree.py" = ["PLC0415"]
+"src/auditwheel/main_repair.py" = ["PLC0415"]
+"src/auditwheel/main_show.py" = ["PLC0415"]
