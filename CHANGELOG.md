@@ -2,6 +2,13 @@
 
 ## HEAD
 
+## 6.4.1
+
+Released July 6, 2025
+
+### User-facing changes
+- [FEATURE] Add manylinux_2_26 policy ([#602](https://github.com/pypa/auditwheel/pull/602))
+
 ## 6.4.0
 
 Released May 25, 2025
