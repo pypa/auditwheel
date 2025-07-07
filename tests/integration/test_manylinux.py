@@ -513,6 +513,8 @@ class Anylinux:
         self, anylinux: AnyLinuxContainer, python: PythonContainer
     ) -> None:
         policy = anylinux.policy
+        if policy.startswith(("manylinux_2_5_", "manylinux_2_12_")):
+            pytest.skip(f"whichprovides doesn't support {policy}")
 
         # Build and repair numpy
         orig_wheel = build_numpy(anylinux, anylinux.io_folder)
@@ -579,21 +581,19 @@ class Anylinux:
         }
         # Package URL prefixes must match for a policy.
         if policy.startswith("musllinux"):
-            assert all(
-                purl.startswith("pkg:apk/alpine/") for purl in component_purls
-            ), str(component_purls)
+            expected_purl_prefix = "pkg:apk/alpine/"
         elif policy.startswith("manylinux_2_17"):
-            assert all(
-                purl.startswith("pkg:rpm/centos/") for purl in component_purls
-            ), str(component_purls)
-        elif policy == "manylinux_2_34_x86_64":
-            assert all(
-                purl.startswith("pkg:rpm/almalinux/") for purl in component_purls
-            ), str(component_purls)
+            expected_purl_prefix = "pkg:deb/ubuntu/"
+        elif policy.startswith("manylinux_2_31_"):
+            expected_purl_prefix = "pkg:rpm/centos/"
+        elif policy.startswith("manylinux_2_34_"):
+            expected_purl_prefix = "pkg:rpm/almalinux/"
         else:
-            assert all(
-                purl.startswith("pkg:rpm/almalinux/") for purl in component_purls
-            ), str(component_purls)
+            expected_purl_prefix = "pkg:rpm/almalinux/"
+
+        assert all(purl.startswith(expected_purl_prefix) for purl in component_purls), (
+            str(component_purls)
+        )
 
         # We expect libgfortran and openblas* (aka atlas) as dependencies.
         assert any("libgfortran" in purl for purl in component_purls), str(
