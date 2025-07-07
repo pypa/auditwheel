@@ -37,11 +37,11 @@ if PLATFORM in {"i686", "x86_64"}:
         "manylinux_2_5": MANYLINUX1_IMAGE_ID,
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
+        "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
     }
     if PLATFORM == "x86_64":
         MANYLINUX_IMAGES.update(
             {
-                "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
                 "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
             }
         )
