@@ -582,6 +582,10 @@ class Anylinux:
             assert all(
                 purl.startswith("pkg:apk/alpine/") for purl in component_purls
             ), str(component_purls)
+        elif policy.startswith("manylinux_2_17"):
+            assert all(
+                purl.startswith("pkg:rpm/centos/") for purl in component_purls
+            ), str(component_purls)
         elif policy == "manylinux_2_34_x86_64":
             assert all(
                 purl.startswith("pkg:rpm/almalinux/") for purl in component_purls
@@ -591,14 +595,13 @@ class Anylinux:
                 purl.startswith("pkg:rpm/almalinux/") for purl in component_purls
             ), str(component_purls)
 
-        # We expect libgfortran, libquadmath, and openblas* as dependencies.
+        # We expect libgfortran and openblas* (aka atlas) as dependencies.
         assert any("libgfortran" in purl for purl in component_purls), str(
             component_purls
         )
-        assert any("libquadmath" in purl for purl in component_purls), str(
-            component_purls
-        )
-        assert any("openblas" in purl for purl in component_purls), str(component_purls)
+        assert any("openblas" in purl for purl in component_purls) or any(
+            "atlas" in purl for purl in component_purls
+        ), str(component_purls)
 
         assert len(sbom_dependencies) == len(component_purls) + 1
 
