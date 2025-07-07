@@ -582,10 +582,8 @@ class Anylinux:
         # Package URL prefixes must match for a policy.
         if policy.startswith("musllinux"):
             expected_purl_prefix = "pkg:apk/alpine/"
-        elif policy.startswith("manylinux_2_17"):
-            expected_purl_prefix = "pkg:deb/ubuntu/"
-        elif policy.startswith("manylinux_2_31_"):
-            expected_purl_prefix = "pkg:rpm/centos/"
+        elif policy.startswith(("manylinux_2_17", "manylinux_2_31_")):
+            expected_purl_prefix = ("pkg:rpm/centos/", "pkg:deb/ubuntu/")
         elif policy.startswith("manylinux_2_34_"):
             expected_purl_prefix = "pkg:rpm/almalinux/"
         else:
