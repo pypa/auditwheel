@@ -273,6 +273,7 @@ def add_platforms(
         write_pkg_info(info_fname, info)
     else:
         logger.info("No WHEEL info change needed.")
+    wheel_ctx.out_wheel = out_wheel
     return out_wheel
 
 
