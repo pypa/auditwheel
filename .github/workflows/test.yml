@@ -45,7 +45,7 @@ jobs:
       matrix:
         platform:
           - [ 'x86_64', 'ubuntu-24.04' ]
-        python: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
         include:
           - platform: [ 'aarch64', 'ubuntu-24.04-arm' ]
             python: '3.12'
