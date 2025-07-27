@@ -2,6 +2,15 @@
 
 ## HEAD
 
+## 6.4.2
+
+Released July 27, 2025
+
+### User-facing changes
+- [FEATURE] Add `libanl.so.1` to manylinux whitelisted libraries ([#607](https://github.com/pypa/auditwheel/pull/607))
+- [FEATURE] Add Python 3.14 support ([#611](https://github.com/pypa/auditwheel/pull/611))
+- [BUGFIX] Fix logged repaired file path ([#609](https://github.com/pypa/auditwheel/issues/609))
+
 ## 6.4.1
 
 Released July 6, 2025
