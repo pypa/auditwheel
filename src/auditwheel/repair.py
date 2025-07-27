@@ -126,7 +126,7 @@ def repair_wheel(
                 patcher.replace_needed(path, *replacements)
 
         if update_tags:
-            ctx.out_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
+            output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
         if strip:
             libs_to_strip = [path for (_, path) in soname_map.values()]
