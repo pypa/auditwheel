@@ -137,7 +137,7 @@ def repair_wheel(
         # We recalculate the checksum at this point because there can be
         # modifications to libraries during patching.
         sbom_data = create_sbom_for_wheel(
-            wheel_fname=wheel_fname,
+            wheel_fname=output_wheel.name,
             sbom_filepaths=sbom_filepaths,
         )
         if sbom_data:
