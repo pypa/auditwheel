@@ -7,7 +7,10 @@ import platform
 import re
 import shutil
 import stat
+import tempfile
+import zipfile
 from collections.abc import Iterable
+from enum import Enum
 from os.path import isabs
 from pathlib import Path
 from subprocess import check_call
@@ -23,6 +26,14 @@ from .wheel_abi import WheelAbIInfo
 from .wheeltools import InWheelCtx, add_platforms
 
 logger = logging.getLogger(__name__)
+
+
+class StripLevel(Enum):
+    """Strip levels for symbol processing."""
+    NONE = "none"
+    DEBUG = "debug"
+    UNNEEDED = "unneeded"
+    ALL = "all"
 
 # Copied from wheel 0.31.1
 WHEEL_INFO_RE = re.compile(
@@ -40,8 +51,11 @@ def repair_wheel(
     out_dir: Path,
     update_tags: bool,
     patcher: ElfPatcher,
-    strip: bool,
-    zip_compression_level: int,
+    strip: bool | None = None,
+    strip_level: StripLevel | None = None,
+    collect_debug_symbols: bool = False,
+    debug_symbols_output: Path | None = None,
+    zip_compression_level: int = 0,
 ) -> Path | None:
     external_refs_by_fn = wheel_abi.full_external_refs
     # Do not repair a pure wheel, i.e. has no external refs
@@ -121,18 +135,124 @@ def repair_wheel(
         if update_tags:
             output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
-        if strip:
-            libs_to_strip = [path for (_, path) in soname_map.values()]
-            extensions = external_refs_by_fn.keys()
-            strip_symbols(itertools.chain(libs_to_strip, extensions))
+        # Handle backward compatibility for strip parameter
+        if strip is not None and strip_level is not None:
+            raise ValueError("Cannot specify both 'strip' and 'strip_level' parameters")
+        
+        if strip is True:
+            strip_level = StripLevel.ALL
+        elif strip_level is None:
+            strip_level = StripLevel.NONE
+
+        if strip_level != StripLevel.NONE:
+            libs_to_process = [path for (_, path) in soname_map.values()]
+            extensions = list(external_refs_by_fn.keys())
+            all_libraries = list(itertools.chain(libs_to_process, extensions))
+            
+            debug_symbols_zip = None
+            if collect_debug_symbols:
+                debug_symbols_zip = debug_symbols_output or (
+                    out_dir / f"{match.group('namever')}_debug_symbols.zip"
+                )
+            
+            process_symbols(
+                all_libraries,
+                strip_level,
+                collect_debug_symbols,
+                debug_symbols_zip
+            )
 
     return output_wheel
 
 
+def process_symbols(
+    libraries: Iterable[Path],
+    strip_level: StripLevel,
+    collect_debug_symbols: bool = False,
+    debug_symbols_zip: Path | None = None,
+) -> None:
+    """Process symbols in libraries according to strip level and optionally collect debug symbols."""
+    libraries_list = list(libraries)
+    
+    if not libraries_list:
+        return
+        
+    if collect_debug_symbols and debug_symbols_zip:
+        _collect_debug_symbols(libraries_list, debug_symbols_zip)
+    
+    if strip_level == StripLevel.NONE:
+        return
+        
+    strip_args = _get_strip_args(strip_level)
+    for lib in libraries_list:
+        logger.info("Processing symbols in %s (level: %s)", lib, strip_level.value)
+        check_call(["strip"] + strip_args + [str(lib)])
+
+
+def _get_strip_args(strip_level: StripLevel) -> list[str]:
+    """Get strip command arguments for the given strip level."""
+    if strip_level == StripLevel.DEBUG:
+        return ["-g"]  # Remove debug symbols only
+    elif strip_level == StripLevel.UNNEEDED:
+        return ["--strip-unneeded"]  # Remove unneeded symbols
+    elif strip_level == StripLevel.ALL:
+        return ["-s"]  # Remove all symbols
+    else:
+        return []
+
+
+def _collect_debug_symbols(libraries: list[Path], debug_symbols_zip: Path) -> None:
+    """Extract debug symbols from libraries and create a zip archive."""
+    logger.info("Collecting debug symbols to %s", debug_symbols_zip)
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        debug_files = []
+        
+        for lib in libraries:
+            debug_file = temp_path / f"{lib.name}.debug"
+            logger.debug("Extracting debug symbols from %s to %s", lib, debug_file)
+            
+            try:
+                # Extract debug symbols
+                check_call([
+                    "objcopy",
+                    "--only-keep-debug",
+                    str(lib),
+                    str(debug_file)
+                ])
+                
+                # Add gnu debuglink
+                check_call([
+                    "objcopy",
+                    f"--add-gnu-debuglink={debug_file}",
+                    str(lib)
+                ])
+                
+                debug_files.append((lib, debug_file))
+                
+            except Exception as e:
+                logger.warning("Failed to extract debug symbols from %s: %s", lib, e)
+        
+        if debug_files:
+            # Create zip archive with preserved directory structure
+            with zipfile.ZipFile(debug_symbols_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for original_lib, debug_file in debug_files:
+                    # Preserve relative path structure in the zip
+                    if str(original_lib).startswith("./"):
+                        arcname = str(original_lib)[2:] + ".debug"
+                    else:
+                        arcname = original_lib.name + ".debug"
+                    zf.write(debug_file, arcname)
+                    logger.debug("Added %s to debug symbols archive", arcname)
+        else:
+            logger.warning("No debug symbols were successfully extracted")
+
+
+# Backward compatibility function
 def strip_symbols(libraries: Iterable[Path]) -> None:
-    for lib in libraries:
-        logger.info("Stripping symbols from %s", lib)
-        check_call(["strip", "-s", lib])
+    """Legacy function for backward compatibility. Use process_symbols instead."""
+    process_symbols(libraries, StripLevel.ALL, False, None)
 
 
 def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, Path]:
