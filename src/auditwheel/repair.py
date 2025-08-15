@@ -30,10 +30,12 @@ logger = logging.getLogger(__name__)
 
 class StripLevel(Enum):
     """Strip levels for symbol processing."""
+
     NONE = "none"
     DEBUG = "debug"
     UNNEEDED = "unneeded"
     ALL = "all"
+
 
 # Copied from wheel 0.31.1
 WHEEL_INFO_RE = re.compile(
@@ -138,7 +140,7 @@ def repair_wheel(
         # Handle backward compatibility for strip parameter
         if strip is not None and strip_level is not None:
             raise ValueError("Cannot specify both 'strip' and 'strip_level' parameters")
-        
+
         if strip is True:
             strip_level = StripLevel.ALL
         elif strip_level is None:
@@ -148,18 +150,15 @@ def repair_wheel(
             libs_to_process = [path for (_, path) in soname_map.values()]
             extensions = list(external_refs_by_fn.keys())
             all_libraries = list(itertools.chain(libs_to_process, extensions))
-            
+
             debug_symbols_zip = None
             if collect_debug_symbols:
                 debug_symbols_zip = debug_symbols_output or (
                     out_dir / f"{match.group('namever')}_debug_symbols.zip"
                 )
-            
+
             process_symbols(
-                all_libraries,
-                strip_level,
-                collect_debug_symbols,
-                debug_symbols_zip
+                all_libraries, strip_level, collect_debug_symbols, debug_symbols_zip
             )
 
     return output_wheel
@@ -173,16 +172,16 @@ def process_symbols(
 ) -> None:
     """Process symbols in libraries according to strip level and optionally collect debug symbols."""
     libraries_list = list(libraries)
-    
+
     if not libraries_list:
         return
-        
+
     if collect_debug_symbols and debug_symbols_zip:
         _collect_debug_symbols(libraries_list, debug_symbols_zip)
-    
+
     if strip_level == StripLevel.NONE:
         return
-        
+
     strip_args = _get_strip_args(strip_level)
     for lib in libraries_list:
         logger.info("Processing symbols in %s (level: %s)", lib, strip_level.value)
@@ -193,50 +192,40 @@ def _get_strip_args(strip_level: StripLevel) -> list[str]:
     """Get strip command arguments for the given strip level."""
     if strip_level == StripLevel.DEBUG:
         return ["-g"]  # Remove debug symbols only
-    elif strip_level == StripLevel.UNNEEDED:
+    if strip_level == StripLevel.UNNEEDED:
         return ["--strip-unneeded"]  # Remove unneeded symbols
-    elif strip_level == StripLevel.ALL:
+    if strip_level == StripLevel.ALL:
         return ["-s"]  # Remove all symbols
-    else:
-        return []
+    return []
 
 
 def _collect_debug_symbols(libraries: list[Path], debug_symbols_zip: Path) -> None:
     """Extract debug symbols from libraries and create a zip archive."""
     logger.info("Collecting debug symbols to %s", debug_symbols_zip)
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         debug_files = []
-        
+
         for lib in libraries:
             debug_file = temp_path / f"{lib.name}.debug"
             logger.debug("Extracting debug symbols from %s to %s", lib, debug_file)
-            
+
             try:
                 # Extract debug symbols
-                check_call([
-                    "objcopy",
-                    "--only-keep-debug",
-                    str(lib),
-                    str(debug_file)
-                ])
-                
+                check_call(["objcopy", "--only-keep-debug", str(lib), str(debug_file)])
+
                 # Add gnu debuglink
-                check_call([
-                    "objcopy",
-                    f"--add-gnu-debuglink={debug_file}",
-                    str(lib)
-                ])
-                
+                check_call(["objcopy", f"--add-gnu-debuglink={debug_file}", str(lib)])
+
                 debug_files.append((lib, debug_file))
-                
+
             except Exception as e:
                 logger.warning("Failed to extract debug symbols from %s: %s", lib, e)
-        
+
         if debug_files:
             # Create zip archive with preserved directory structure
-            with zipfile.ZipFile(debug_symbols_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+            with zipfile.ZipFile(debug_symbols_zip, "w", zipfile.ZIP_DEFLATED) as zf:
                 for original_lib, debug_file in debug_files:
                     # Preserve relative path structure in the zip
                     if str(original_lib).startswith("./"):

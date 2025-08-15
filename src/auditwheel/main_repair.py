@@ -277,19 +277,21 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         # Handle argument validation and backward compatibility
         if args.STRIP and args.STRIP_LEVEL != "none":
             parser.error("Cannot specify both --strip and --strip-level")
-        
+
         if args.STRIP:
             warnings.warn(
                 "The --strip option is deprecated. Use --strip-level=all instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-        
+
         if args.COLLECT_DEBUG_SYMBOLS and args.STRIP_LEVEL == "none" and not args.STRIP:
-            parser.error("--collect-debug-symbols requires stripping to be enabled. Use --strip-level or --strip.")
-        
+            parser.error(
+                "--collect-debug-symbols requires stripping to be enabled. Use --strip-level or --strip."
+            )
+
         strip_level = StripLevel(args.STRIP_LEVEL)
-        
+
         patcher = Patchelf()
         out_wheel = repair_wheel(
             wheel_abi,
