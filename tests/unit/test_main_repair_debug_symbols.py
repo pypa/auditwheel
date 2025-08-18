@@ -6,11 +6,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from auditwheel.main_repair import (  # type: ignore[import-not-found]
+from auditwheel.main_repair import (
     configure_parser,
     execute,
 )
-from auditwheel.repair import StripLevel  # type: ignore[import-not-found]
+from auditwheel.repair import StripLevel
 
 
 class TestMainRepairDebugSymbols:

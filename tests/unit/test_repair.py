@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import call, patch
 
-from auditwheel.patcher import Patchelf  # type: ignore[import-not-found]
-from auditwheel.repair import (  # type: ignore[import-not-found]
+from auditwheel.patcher import Patchelf
+from auditwheel.repair import (
     append_rpath_within_wheel,
 )
 

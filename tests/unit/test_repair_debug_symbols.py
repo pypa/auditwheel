@@ -6,7 +6,7 @@ from unittest.mock import call, patch
 
 import pytest
 
-from auditwheel.repair import (  # type: ignore[import-not-found]
+from auditwheel.repair import (
     StripLevel,
     _collect_debug_symbols,
     _get_strip_args,

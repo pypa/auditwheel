@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from auditwheel.repair import StripLevel, repair_wheel  # type: ignore[import-not-found]
+from auditwheel.repair import StripLevel, repair_wheel
 
 
 class TestRepairWheelIntegration:
