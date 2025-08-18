@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import warnings
 import zlib
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from auditwheel.patcher import Patchelf
 from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
 
 from .policy import WheelPolicies
+from .repair import StripLevel
 from .tools import EnvironmentDefault
 
 logger = logging.getLogger(__name__)
@@ -96,8 +98,29 @@ wheel will abort processing of subsequent wheels.
         "--strip",
         dest="STRIP",
         action="store_true",
-        help="Strip symbols in the resulting wheel",
+        help="(DEPRECATED) Strip all symbols in the resulting wheel. Use --strip-level=all instead.",
         default=False,
+    )
+    parser.add_argument(
+        "--strip-level",
+        dest="STRIP_LEVEL",
+        choices=[level.value for level in StripLevel],
+        help="Strip level for symbol processing. Options: none (default), debug (remove debug symbols), unneeded (remove unneeded symbols), all (remove all symbols).",
+        default="none",
+    )
+    parser.add_argument(
+        "--collect-debug-symbols",
+        dest="COLLECT_DEBUG_SYMBOLS",
+        action="store_true",
+        help="Extract debug symbols before stripping and create a zip archive.",
+        default=False,
+    )
+    parser.add_argument(
+        "--debug-symbols-output",
+        dest="DEBUG_SYMBOLS_OUTPUT",
+        type=Path,
+        help="Output path for debug symbols zip file. Defaults to {wheel_name}_debug_symbols.zip",
+        default=None,
     )
     parser.add_argument(
         "--exclude",
@@ -251,6 +274,24 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 *abis,
             ]
 
+        # Handle argument validation and backward compatibility
+        if args.STRIP and args.STRIP_LEVEL != "none":
+            parser.error("Cannot specify both --strip and --strip-level")
+
+        if args.STRIP:
+            warnings.warn(
+                "The --strip option is deprecated. Use --strip-level=all instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if args.COLLECT_DEBUG_SYMBOLS and args.STRIP_LEVEL == "none" and not args.STRIP:
+            parser.error(
+                "--collect-debug-symbols requires stripping to be enabled. Use --strip-level or --strip."
+            )
+
+        strip_level = StripLevel(args.STRIP_LEVEL)
+
         patcher = Patchelf()
         out_wheel = repair_wheel(
             wheel_abi,
@@ -260,7 +301,10 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             out_dir=wheel_dir,
             update_tags=args.UPDATE_TAGS,
             patcher=patcher,
-            strip=args.STRIP,
+            strip=args.STRIP if args.STRIP else None,
+            strip_level=strip_level,
+            collect_debug_symbols=args.COLLECT_DEBUG_SYMBOLS,
+            debug_symbols_output=args.DEBUG_SYMBOLS_OUTPUT,
             zip_compression_level=args.ZIP_COMPRESSION_LEVEL,
         )
 
