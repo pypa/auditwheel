@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import platform
-import re
 import shutil
 import stat
 from collections.abc import Iterable
@@ -23,16 +22,9 @@ from .lddtree import LIBPYTHON_RE
 from .policy import get_replace_platforms
 from .tools import is_subdir, unique_by_index
 from .wheel_abi import WheelAbIInfo
-from .wheeltools import InWheelCtx, add_platforms
+from .wheeltools import WHEEL_INFO_RE, InWheelCtx, add_platforms
 
 logger = logging.getLogger(__name__)
-
-# Copied from wheel 0.31.1
-WHEEL_INFO_RE = re.compile(
-    r"""^(?P<namever>(?P<name>.+?)-(?P<ver>\d.*?))(-(?P<build>\d.*?))?
-     -(?P<pyver>[a-z].+?)-(?P<abi>.+?)-(?P<plat>.+?)(\.whl|\.dist-info)$""",
-    re.VERBOSE,
-).match
 
 
 def repair_wheel(

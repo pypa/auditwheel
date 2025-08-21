@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from auditwheel._vendor.whichprovides import whichprovides
+from auditwheel.wheeltools import WHEEL_INFO_RE
 
 
 def create_sbom_for_wheel(
@@ -26,10 +27,15 @@ def create_sbom_for_wheel(
     # from the wheel filename. This segment doesn't
     # change even after "repairing", so we don't have
     # to worry about it changing.
-    wheel_name, wheel_version, *_ = wheel_fname.split("-", 2)
-    wheel_name = wheel_name.lower()
+    match = WHEEL_INFO_RE(wheel_fname)
+    if not match:
+        msg = f"Failed to parse wheel file name: {wheel_fname}"
+        raise ValueError(msg)
+    wheel_name = match.group("name")
+    wheel_version = match.group("ver")
     wheel_purl = (
         f"pkg:pypi/{quote(wheel_name, safe='')}@{quote(wheel_version, safe='')}"
+        f"?file_name={quote(wheel_fname, safe='')}"
     )
 
     sbom_components: list[dict[str, typing.Any]] = [
