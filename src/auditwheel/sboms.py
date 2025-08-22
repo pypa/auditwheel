@@ -17,12 +17,6 @@ def create_sbom_for_wheel(
     if not sbom_filepaths:
         return None
 
-    # Lookup which packages provided libraries.
-    # If there aren't any then we don't generate an SBOM.
-    sbom_packages = whichprovides([str(f) for f in sbom_filepaths])
-    if not sbom_packages:
-        return None
-
     # Pull the top-level package name and version
     # from the wheel filename. This segment doesn't
     # change even after "repairing", so we don't have
@@ -37,6 +31,12 @@ def create_sbom_for_wheel(
         f"pkg:pypi/{quote(wheel_name, safe='')}@{quote(wheel_version, safe='')}"
         f"?file_name={quote(wheel_fname, safe='')}"
     )
+
+    # Lookup which packages provided libraries.
+    # If there aren't any then we don't generate an SBOM.
+    sbom_packages = whichprovides([str(f) for f in sbom_filepaths])
+    if not sbom_packages:
+        return None
 
     sbom_components: list[dict[str, typing.Any]] = [
         {
