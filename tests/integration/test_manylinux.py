@@ -15,7 +15,6 @@ from subprocess import CalledProcessError
 from typing import Any
 
 import docker
-import packaging.tags
 import pytest
 from docker.models.containers import Container
 from elftools.elf.elffile import ELFFile
@@ -550,10 +549,9 @@ class Anylinux:
         sbom_components = sbom.pop("components")
         sbom_dependencies = sbom.pop("dependencies")
 
-        expected_tag = (
-            f"{packaging.tags.interpreter_name()}{packaging.tags.interpreter_version()}"
+        expected_numpy_purl = (
+            f"pkg:pypi/numpy@{NUMPY_VERSION}?file_name={repaired_wheel}"
         )
-        expected_numpy_purl = f"pkg:pypi/numpy@{NUMPY_VERSION}?file_name=numpy-{NUMPY_VERSION}-{expected_tag}-{expected_tag}-{policy}.whl"
         assert sbom == {
             "bomFormat": "CycloneDX",
             "specVersion": "1.4",
