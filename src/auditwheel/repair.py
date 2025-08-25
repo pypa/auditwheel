@@ -60,7 +60,9 @@ def repair_wheel(
 
         dest_dir = Path(match.group("name") + lib_sdir)
         dist_info_dirs = glob.glob(str(ctx.path / "*.dist-info"))
-        assert len(dist_info_dirs) == 1, f"Expected exactly one .dist-info directory, found {len(dist_info_dirs)}: {dist_info_dirs}"
+        assert len(dist_info_dirs) == 1, (
+            f"Expected exactly one .dist-info directory, found {len(dist_info_dirs)}: {dist_info_dirs}"
+        )
         sbom_filepaths: list[Path] = []
 
         # here, fn is a path to an ELF file (lib or executable) in
