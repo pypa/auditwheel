@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import glob
 import itertools
+import json
 import logging
 import os
 import platform
-import re
 import shutil
 import stat
 from collections.abc import Iterable
@@ -13,6 +14,7 @@ from pathlib import Path
 from subprocess import check_call
 
 from auditwheel.patcher import ElfPatcher
+from auditwheel.sboms import create_sbom_for_wheel
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths
 from .hashfile import hashfile
@@ -20,16 +22,9 @@ from .lddtree import LIBPYTHON_RE
 from .policy import get_replace_platforms
 from .tools import is_subdir, unique_by_index
 from .wheel_abi import WheelAbIInfo
-from .wheeltools import InWheelCtx, add_platforms
+from .wheeltools import WHEEL_INFO_RE, InWheelCtx, add_platforms
 
 logger = logging.getLogger(__name__)
-
-# Copied from wheel 0.31.1
-WHEEL_INFO_RE = re.compile(
-    r"""^(?P<namever>(?P<name>.+?)-(?P<ver>\d.*?))(-(?P<build>\d.*?))?
-     -(?P<pyver>[a-z].+?)-(?P<abi>.+?)-(?P<plat>.+?)(\.whl|\.dist-info)$""",
-    re.VERBOSE,
-).match
 
 
 def repair_wheel(
@@ -64,6 +59,11 @@ def repair_wheel(
             raise ValueError(msg)
 
         dest_dir = Path(match.group("name") + lib_sdir)
+        dist_info_dirs = glob.glob(str(ctx.path / "*.dist-info"))
+        assert len(dist_info_dirs) == 1, (
+            f"Expected exactly one .dist-info directory, found {len(dist_info_dirs)}: {dist_info_dirs}"
+        )
+        sbom_filepaths: list[Path] = []
 
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
@@ -90,6 +90,7 @@ def repair_wheel(
 
                 if not dest_dir.exists():
                     dest_dir.mkdir()
+                sbom_filepaths.append(src_path)
                 new_soname, new_path = copylib(src_path, dest_dir, patcher)
                 soname_map[soname] = (new_soname, new_path)
                 replacements.append((soname, new_soname))
@@ -125,6 +126,18 @@ def repair_wheel(
             libs_to_strip = [path for (_, path) in soname_map.values()]
             extensions = external_refs_by_fn.keys()
             strip_symbols(itertools.chain(libs_to_strip, extensions))
+
+        # If we grafted packages with identities we add an SBOM to the wheel.
+        # We recalculate the checksum at this point because there can be
+        # modifications to libraries during patching.
+        sbom_data = create_sbom_for_wheel(
+            wheel_fname=output_wheel.name,
+            sbom_filepaths=sbom_filepaths,
+        )
+        if sbom_data:
+            sbom_dir = Path(dist_info_dirs[0], "sboms")
+            sbom_dir.mkdir(exist_ok=True)
+            (sbom_dir / "auditwheel.cdx.json").write_text(json.dumps(sbom_data))
 
     return output_wheel
 

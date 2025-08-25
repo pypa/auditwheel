@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import re
@@ -341,7 +342,7 @@ def docker_exec(
     ec, output = container.exec_run(cmd, workdir=cwd, environment=env)
     output = output.decode("utf-8")
     if ec != expected_retcode:
-        print(output)
+        logger.info("docker exec error %s: %s", container.id[:12], output)
         raise CalledProcessError(ec, cmd, output=output)
     return output
 
@@ -510,6 +511,103 @@ class Anylinux:
         # Check that the 2 fortran runtimes are well isolated and can be loaded
         # at once in the same Python program:
         python.run("import numpy; import foo")
+
+    def test_numpy_sbom(
+        self, anylinux: AnyLinuxContainer, python: PythonContainer
+    ) -> None:
+        policy = anylinux.policy
+        if policy.startswith(("manylinux_2_5_", "manylinux_2_12_")):
+            pytest.skip(f"whichprovides doesn't support {policy}")
+
+        # Build and repair numpy
+        orig_wheel = build_numpy(anylinux, anylinux.io_folder)
+        assert orig_wheel == ORIGINAL_NUMPY_WHEEL
+        assert "manylinux" not in orig_wheel
+
+        # Repair the wheel using the manylinux container
+        anylinux.repair(orig_wheel)
+        repaired_wheel = anylinux.check_wheel("numpy", version=NUMPY_VERSION)
+        assert_show_output(anylinux, repaired_wheel, policy, False)
+
+        # Install the wheel so the SBOM document is added to the environment.
+        python.install_wheel(repaired_wheel)
+
+        # Load the auditwheel SBOM from .dist-info/sboms
+        site_packages = python.run(
+            "import site; print(site.getsitepackages()[0])"
+        ).strip()
+        assert re.match(
+            r"\A/usr/local/lib/python[0-9.]+/site-packages\Z", site_packages
+        )
+        sbom_data = python.run(
+            f"-c \"print(open('{site_packages}/numpy-{NUMPY_VERSION}.dist-info/sboms/auditwheel.cdx.json').read())\""
+        ).strip()
+        sbom = json.loads(sbom_data)
+
+        # Separate all the components that vary over test runs.
+        sbom_tools = sbom["metadata"].pop("tools")
+        sbom_components = sbom.pop("components")
+        sbom_dependencies = sbom.pop("dependencies")
+
+        expected_numpy_purl = (
+            f"pkg:pypi/numpy@{NUMPY_VERSION}?file_name={repaired_wheel}"
+        )
+        assert sbom == {
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.4",
+            "version": 1,
+            "metadata": {
+                "component": {
+                    "type": "library",
+                    "bom-ref": expected_numpy_purl,
+                    "name": "numpy",
+                    "version": NUMPY_VERSION,
+                    "purl": expected_numpy_purl,
+                },
+                # "tools": [{...}, ...],
+            },
+            # "components": [{...}, ...],
+            # "dependencies": [{...}, ...],
+        }
+
+        assert len(sbom_tools) == 1
+        assert sbom_tools[0]["name"] == "auditwheel"
+        assert "version" in sbom_tools[0]
+
+        assert sbom_components[0] == {
+            "bom-ref": expected_numpy_purl,
+            "name": "numpy",
+            "purl": expected_numpy_purl,
+            "type": "library",
+            "version": NUMPY_VERSION,
+        }
+
+        component_purls = {
+            component["purl"].split("@")[0] for component in sbom_components[1:]
+        }
+        # Package URL prefixes must match for a policy.
+        if policy.startswith("musllinux"):
+            expected_purl_prefix = "pkg:apk/alpine/"
+        elif policy.startswith("manylinux_2_17_"):
+            expected_purl_prefix = "pkg:rpm/centos/"
+        elif policy.startswith("manylinux_2_31_"):
+            expected_purl_prefix = "pkg:deb/ubuntu/"
+        else:
+            expected_purl_prefix = "pkg:rpm/almalinux/"
+
+        assert all(purl.startswith(expected_purl_prefix) for purl in component_purls), (
+            str(component_purls)
+        )
+
+        # We expect libgfortran and openblas* (aka atlas) as dependencies.
+        assert any("libgfortran" in purl for purl in component_purls), str(
+            component_purls
+        )
+        assert any("openblas" in purl for purl in component_purls) or any(
+            "atlas" in purl for purl in component_purls
+        ), str(component_purls)
+
+        assert len(sbom_dependencies) == len(component_purls) + 1
 
     def test_exclude(self, anylinux: AnyLinuxContainer) -> None:
         """Test the --exclude argument to avoid grafting certain libraries."""

@@ -9,6 +9,7 @@ import csv
 import hashlib
 import logging
 import os
+import re
 import zlib
 from base64 import urlsafe_b64encode
 from collections.abc import Generator, Iterable
@@ -28,6 +29,14 @@ from .tmpdirs import InTemporaryDirectory
 from .tools import dir2zip, unique_by_index, walk, zip2dir
 
 logger = logging.getLogger(__name__)
+
+
+# Copied from wheel 0.31.1
+WHEEL_INFO_RE = re.compile(
+    r"""^(?P<namever>(?P<name>.+?)-(?P<ver>\d.*?))(-(?P<build>\d.*?))?
+     -(?P<pyver>[a-z].+?)-(?P<abi>.+?)-(?P<plat>.+?)(\.whl|\.dist-info)$""",
+    re.VERBOSE,
+).match
 
 
 def _dist_info_dir(bdist_dir: Path) -> Path:
