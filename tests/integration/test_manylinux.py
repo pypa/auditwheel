@@ -165,13 +165,17 @@ class AnyLinuxContainer:
         strip: bool = False,
         library_paths: list[str] | None = None,
         excludes: list[str] | None = None,
+        verbose: int = 0,
     ) -> str:
         plat = plat or self._policy
         args = []
         if library_paths:
             ld_library_path = ":".join([*library_paths, "$LD_LIBRARY_PATH"])
             args.append(f"LD_LIBRARY_PATH={ld_library_path}")
-        args.extend(["auditwheel", "repair", "-w", "/io", "--plat", plat])
+        args.append("auditwheel")
+        if verbose:
+            args.append(f"-{'v' * verbose}")
+        args.extend(["repair", "-w", "/io", "--plat", plat])
         if only_plat:
             args.append("--only-plat")
         if not isa_ext_check:
@@ -700,6 +704,7 @@ class Anylinux:
         # - check if RUNPATH is replaced by RPATH
         # - check if RPATH location is correct, i.e. it is inside .libs directory
         #   where all gathered libraries are put
+        # - check if the order of dependencies affects if library is found
 
         policy = anylinux.policy
 
@@ -713,19 +718,27 @@ class Anylinux:
             assert f"DT_{dtag.upper()}" in tags
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, library_paths=[f"{test_path}/a"])
+        repair_output = anylinux.repair(
+            orig_wheel, library_paths=[f"{test_path}/a"], verbose=3
+        )
+        assert "lddtree:Could not locate libd.so, skipping" in repair_output, (
+            repair_output
+        )
         repaired_wheel = anylinux.check_wheel("testrpath")
         assert_show_output(anylinux, repaired_wheel, policy, False)
 
         python.install_wheel(repaired_wheel)
         output = python.run("from testrpath import testrpath; print(testrpath.func())")
-        assert output.strip() == "11"
+        assert output.strip() == "33"
         with zipfile.ZipFile(anylinux.io_folder / repaired_wheel) as w:
             libraries = tuple(
                 name for name in w.namelist() if "testrpath.libs/lib" in name
             )
-            assert len(libraries) == 2
-            assert any(".libs/liba" in name for name in libraries)
+            assert len(libraries) == 3
+            assert all(
+                (any(f".libs/lib{lib}" in name for name in libraries))
+                for lib in ["a", "b", "d"]
+            )
             for name in libraries:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
