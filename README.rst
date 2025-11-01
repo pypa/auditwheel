@@ -40,7 +40,7 @@ advised that bundling, like static linking, may implicate copyright concerns.
 Requirements
 ------------
 - OS: Linux
-- Python: 3.9+
+- Python: 3.10+
 - `patchelf <https://github.com/NixOS/patchelf>`_: 0.14+
 
 Only systems that use `ELF
@@ -51,9 +51,9 @@ In general, building ``manylinux1`` wheels requires running on a CentOS5
 machine, building ``manylinux2010`` wheels requires running on a CentOS6
 machine, and building ``manylinux2014`` wheels requires running on a CentOS7
 machine, so we recommend using the pre-built manylinux `Docker images
-<https://quay.io/repository/pypa/manylinux1_x86_64>`_, e.g. ::
+<https://quay.io/repository/pypa/manylinux_2_28_x86_64>`_, e.g. ::
 
-  $ docker run -i -t -v `pwd`:/io quay.io/pypa/manylinux1_x86_64 /bin/bash
+  $ docker run -i -t -v `pwd`:/io quay.io/pypa/manylinux_2_28_x86_64 /bin/bash
 
 Installation
 ------------
@@ -135,8 +135,7 @@ daemon. These tests will pull a number of docker images if they are not already
 available on your system, but it won't update existing images.
 To update these images manually, run::
 
-    docker pull python:3.9-slim-bookworm
-    docker pull quay.io/pypa/manylinux1_x86_64
+    docker pull python:3.10-slim-bookworm
     docker pull quay.io/pypa/manylinux2010_x86_64
     docker pull quay.io/pypa/manylinux2014_x86_64
     docker pull quay.io/pypa/manylinux_2_28_x86_64

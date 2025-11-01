@@ -26,7 +26,6 @@ from auditwheel.policy import WheelPolicies
 logger = logging.getLogger(__name__)
 
 PLATFORM = os.environ.get("AUDITWHEEL_ARCH", Architecture.detect().value)
-MANYLINUX1_IMAGE_ID = f"quay.io/pypa/manylinux1_{PLATFORM}:latest"
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
 MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
@@ -34,7 +33,6 @@ MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:latest"
 MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:latest"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
-        "manylinux_2_5": MANYLINUX1_IMAGE_ID,
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
         "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
@@ -76,7 +74,6 @@ MUSLLINUX_IMAGES = {
 }
 MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
-    "manylinux_2_5": "devtoolset-2",
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
     "manylinux_2_28": "gcc-toolset-14",
@@ -98,7 +95,6 @@ PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items
 WHEEL_CACHE_FOLDER = Path.home().joinpath(".cache", "auditwheel_tests")
 HERE = Path(__file__).parent.resolve(strict=True)
 NUMPY_VERSION_MAP = {
-    "39": "1.21.4",
     "310": "1.21.4",
     "311": "1.23.4",
     "312": "1.26.0",
@@ -410,9 +406,7 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
             # https://github.com/numpy/numpy/issues/27932
             fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
             container.exec(f'sh -c "{fix_hwcap}"')
-    elif container.policy.startswith(
-        ("manylinux_2_5_", "manylinux_2_12_", "manylinux_2_17_")
-    ):
+    elif container.policy.startswith(("manylinux_2_12_", "manylinux_2_17_")):
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
             pytest.skip("numpy>=1.26 requires openblas")
         container.exec("yum install -y atlas atlas-devel")
@@ -460,10 +454,6 @@ class Anylinux:
         for key in os.environ:
             if key.startswith("COV_CORE_"):
                 env[key] = os.environ[key]
-        # cython 3.1.0+ requires a C99 compiler,
-        # where manylinux_2_5 uses gcc 4.8 which is not C99 compliant by default.
-        if policy == "manylinux_2_5":
-            env["CFLAGS"] = "-std=c99"
 
         with docker_container_ctx(manylinux_img, io_folder, env) as container:
             platform_tag = ".".join(
@@ -516,7 +506,7 @@ class Anylinux:
         self, anylinux: AnyLinuxContainer, python: PythonContainer
     ) -> None:
         policy = anylinux.policy
-        if policy.startswith(("manylinux_2_5_", "manylinux_2_12_")):
+        if policy.startswith("manylinux_2_12_"):
             pytest.skip(f"whichprovides doesn't support {policy}")
 
         # Build and repair numpy
@@ -879,7 +869,7 @@ class Anylinux:
     @pytest.mark.parametrize("isa_ext", ["x86-64-v2", "x86-64-v3", "x86-64-v4"])
     def test_isa_variants(self, anylinux: AnyLinuxContainer, isa_ext: str) -> None:
         policy = anylinux.policy
-        if policy.startswith(("manylinux_2_5_", "manylinux_2_12_", "manylinux_2_17_")):
+        if policy.startswith(("manylinux_2_12_", "manylinux_2_17_")):
             pytest.skip("skip old gcc")
 
         test_path = "/auditwheel_src/tests/integration/testdependencies"
@@ -954,7 +944,6 @@ class TestManylinux(Anylinux):
         """
         policy = request.param
         check_set = {
-            "manylinux_2_5": {"38", "39"},
             "manylinux_2_12": {"38", "39", "310"},
         }.get(policy)
         if check_set and PYTHON_ABI_MAJ_MIN not in check_set:

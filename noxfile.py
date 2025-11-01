@@ -12,7 +12,7 @@ import nox
 
 nox.needs_version = ">=2025.2.9"
 
-PYTHON_ALL_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+PYTHON_ALL_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 RUNNING_CI = "TRAVIS" in os.environ or "GITHUB_ACTIONS" in os.environ
 
 wheel = ""
@@ -101,7 +101,7 @@ def tests(session: nox.Session) -> None:
         session.run("coverage", "xml", "-ocoverage.xml")
 
 
-@nox.session(python=["3.9"], default=False)
+@nox.session(python=["3.10"], default=False)
 def build(session: nox.Session) -> None:
     session.install("build")
     tmp_dir = Path(session.create_tmp()) / "build-output"
