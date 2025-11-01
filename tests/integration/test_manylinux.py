@@ -95,9 +95,9 @@ PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items
 WHEEL_CACHE_FOLDER = Path.home().joinpath(".cache", "auditwheel_tests")
 HERE = Path(__file__).parent.resolve(strict=True)
 NUMPY_VERSION_MAP = {
-    "310": "1.25.2",
-    "311": "1.25.2",
-    "312": "1.26.4",
+    "310": "1.21.4",
+    "311": "1.23.4",
+    "312": "1.26.0",
     "313": "2.0.1",
     "314": "2.3.2",
 }
@@ -238,17 +238,24 @@ class PythonContainer:
     def install_wheel(self, filename: str) -> str:
         return self.pip_install(f"/io/{filename}")
 
-    def run(self, cmd: str) -> str:
+    def run(self, cmd: str, *, env: dict[str, str] | None = None) -> str:
         args: str | list[str]
         if cmd.startswith(("from ", "import ")):
             # run python code
             args = ["python", "-c", cmd]
         else:
             args = f"python {cmd}"
-        return self.exec(args)
+        return self.exec(args, env=env)
 
-    def exec(self, cmd: str | list[str], expected_retcode: int = 0) -> str:
-        return docker_exec(self._container, cmd, expected_retcode=expected_retcode)
+    def exec(
+        self,
+        cmd: str | list[str],
+        expected_retcode: int = 0,
+        env: dict[str, str] | None = None,
+    ) -> str:
+        return docker_exec(
+            self._container, cmd, expected_retcode=expected_retcode, env=env
+        )
 
 
 def find_src_folder() -> Path | None:
@@ -496,7 +503,13 @@ class Anylinux:
             python.exec("apt-get install -y gfortran")
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
             python.pip_install("meson ninja")
-        python.run("-m numpy.f2py -c /auditwheel_src/tests/integration/foo.f90 -m foo")
+            f2py_env = None
+        else:
+            f2py_env = {"SETUPTOOLS_USE_DISTUTILS": "stdlib"}
+        python.run(
+            "-m numpy.f2py -c /auditwheel_src/tests/integration/foo.f90 -m foo",
+            env=f2py_env,
+        )
 
         # Check that the 2 fortran runtimes are well isolated and can be loaded
         # at once in the same Python program:
