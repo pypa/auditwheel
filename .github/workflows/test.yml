@@ -31,7 +31,7 @@ jobs:
       - name: Install CPython 3.10
         uses: actions/setup-python@v6
         with:
-          python-version: 3.10
+          python-version: "3.10"
           architecture: x64
       - name: Run tests
         run: pipx run nox -s test-sdist-3.10 test-wheel-3.10
