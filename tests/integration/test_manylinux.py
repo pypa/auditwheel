@@ -95,8 +95,8 @@ PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items
 WHEEL_CACHE_FOLDER = Path.home().joinpath(".cache", "auditwheel_tests")
 HERE = Path(__file__).parent.resolve(strict=True)
 NUMPY_VERSION_MAP = {
-    "310": "1.26.4",
-    "311": "1.26.4",
+    "310": "1.25.2",
+    "311": "1.25.2",
     "312": "1.26.4",
     "313": "2.0.1",
     "314": "2.3.2",
