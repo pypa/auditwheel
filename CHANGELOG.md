@@ -2,6 +2,16 @@
 
 ## HEAD
 
+## 6.5.0
+
+Released November 2, 2025
+
+### User-facing changes
+- [REMOVAL] Drop python 3.9 support ([#631](https://github.com/pypa/auditwheel/pull/631))
+- [FEATURE] Add `manylinux_2_40` & `manylinux_2_41` policies ([#632](https://github.com/pypa/auditwheel/pull/632), [#626](https://github.com/pypa/auditwheel/issues/626))
+- [FEATURE] Add `libmvec.so.1` to manylinux whitelisted libraries ([#632](https://github.com/pypa/auditwheel/pull/632), [#623](https://github.com/pypa/auditwheel/issues/623))
+- [FEATURE] Generate SBOMs for repaired libraries ([#577](https://github.com/pypa/auditwheel/pull/577), [#541](https://github.com/pypa/auditwheel/issues/541), [#398](https://github.com/pypa/auditwheel/issues/398))
+
 ## 6.4.2
 
 Released July 27, 2025
