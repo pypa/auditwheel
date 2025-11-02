@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 from . import json
 from .architecture import Architecture
@@ -399,7 +399,7 @@ def analyze_wheel_abi(
     )
 
 
-_T = TypeVar("_T", ExternalReference, Optional[Path])
+_T = TypeVar("_T", ExternalReference, Path | None)
 
 
 def update(d: dict[str, _T], u: Mapping[str, _T]) -> None:

@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Cross-distribution Linux wheels"
 readme = "README.rst"
 license = {text = "MIT" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Robert T. McGibbon", email = "rmcgibbo@gmail.com" },
 ]
@@ -19,7 +19,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -93,7 +92,7 @@ log_cli = true
 log_cli_level = 20
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 exclude = ["src/auditwheel/_vendor"]
 
 [tool.ruff.lint]

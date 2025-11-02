@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.9"
+          python-version: "3.10"
       - uses: pre-commit/action@v3.0.1
 
   test-dist:
@@ -28,13 +28,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      - name: Install CPython 3.9
+      - name: Install CPython 3.10
         uses: actions/setup-python@v6
         with:
-          python-version: 3.9
+          python-version: "3.10"
           architecture: x64
       - name: Run tests
-        run: pipx run nox -s test-sdist-3.9 test-wheel-3.9
+        run: pipx run nox -s test-sdist-3.10 test-wheel-3.10
 
   test:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}
@@ -45,7 +45,7 @@ jobs:
       matrix:
         platform:
           - [ 'x86_64', 'ubuntu-24.04' ]
-        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        python: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
         include:
           - platform: [ 'aarch64', 'ubuntu-24.04-arm' ]
             python: '3.12'
