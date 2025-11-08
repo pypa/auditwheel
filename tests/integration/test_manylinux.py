@@ -31,18 +31,14 @@ MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
 MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
 MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:latest"
 MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:latest"
+MANYLINUX_2_39_IMAGE_ID = f"quay.io/pypa/manylinux_2_39_{PLATFORM}:latest"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
         "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
+        "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
     }
-    if PLATFORM == "x86_64":
-        MANYLINUX_IMAGES.update(
-            {
-                "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
-            }
-        )
     POLICY_ALIASES = {
         "manylinux_2_5": ["manylinux1"],
         "manylinux_2_12": ["manylinux2010"],
@@ -51,6 +47,9 @@ if PLATFORM in {"i686", "x86_64"}:
 elif PLATFORM == "armv7l":
     MANYLINUX_IMAGES = {"manylinux_2_31": MANYLINUX_2_31_IMAGE_ID}
     POLICY_ALIASES = {}
+elif PLATFORM == "riscv64":
+    MANYLINUX_IMAGES = {"manylinux_2_39": MANYLINUX_2_39_IMAGE_ID}
+    POLICY_ALIASES = {}
 else:
     MANYLINUX_IMAGES = {
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
@@ -58,6 +57,8 @@ else:
     }
     if os.environ.get("AUDITWHEEL_QEMU", "") != "true":
         MANYLINUX_IMAGES.update({"manylinux_2_34": MANYLINUX_2_34_IMAGE_ID})
+        if PLATFORM == "aarch64":
+            MANYLINUX_IMAGES.update({"manylinux_2_39": MANYLINUX_2_39_IMAGE_ID})
     POLICY_ALIASES = {
         "manylinux_2_17": ["manylinux2014"],
     }
@@ -68,7 +69,7 @@ PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
 PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + (
     "-rc" if PYTHON_ABI_MAJ_MIN == "314" else ""
 )
-MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-bookworm"
+MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-trixie"
 MUSLLINUX_IMAGES = {
     "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:latest",
 }
@@ -79,6 +80,7 @@ DEVTOOLSET = {
     "manylinux_2_28": "gcc-toolset-14",
     "manylinux_2_31": "devtoolset-not-present",
     "manylinux_2_34": "gcc-toolset-14",
+    "manylinux_2_39": "devtoolset-not-present",
     "musllinux_1_2": "devtoolset-not-present",
 }
 PATH_DIRS = [
@@ -97,7 +99,7 @@ HERE = Path(__file__).parent.resolve(strict=True)
 NUMPY_VERSION_MAP = {
     "310": "1.21.4",
     "311": "1.23.4",
-    "312": "1.26.0",
+    "312": "1.26.4",
     "313": "2.0.1",
     "314": "2.3.2",
 }
@@ -418,7 +420,11 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
             pytest.skip("numpy>=1.26 requires openblas")
         container.exec("yum install -y atlas atlas-devel")
     elif container.policy.startswith("manylinux_2_31_"):
-        container.exec("apt-get install -y libopenblas-dev")
+        container.exec("apt-get install -y libopenblas-dev execstack")
+        # TODO auditwheel shall check for executable stack
+        container.exec(
+            ["bash", "-c", "execstack -c $(find /usr/lib* -name 'libopenblas*.so')"]
+        )
     else:
         container.exec("dnf install -y openblas-devel")
 
@@ -595,6 +601,8 @@ class Anylinux:
             expected_purl_prefix = "pkg:rpm/centos/"
         elif policy.startswith("manylinux_2_31_"):
             expected_purl_prefix = "pkg:deb/ubuntu/"
+        elif policy == "manylinux_2_39_riscv64":
+            expected_purl_prefix = "pkg:rpm/rocky/"
         else:
             expected_purl_prefix = "pkg:rpm/almalinux/"
 
@@ -603,9 +611,10 @@ class Anylinux:
         )
 
         # We expect libgfortran and openblas* (aka atlas) as dependencies.
-        assert any("libgfortran" in purl for purl in component_purls), str(
-            component_purls
-        )
+        if policy != "musllinux_1_2_riscv64":
+            assert any("libgfortran" in purl for purl in component_purls), str(
+                component_purls
+            )
         assert any("openblas" in purl for purl in component_purls) or any(
             "atlas" in purl for purl in component_purls
         ), str(component_purls)
@@ -636,6 +645,8 @@ class Anylinux:
             anylinux.exec("apk add gsl-dev")
         elif policy.startswith("manylinux_2_31_"):
             anylinux.exec("apt-get install -y libgsl-dev")
+        elif policy == "manylinux_2_39_riscv64":
+            pytest.skip(reason=f"no gsl-devel on {policy}")
         else:
             anylinux.exec("yum install -y gsl-devel")
 
@@ -1050,6 +1061,9 @@ class TestManylinux(Anylinux):
         if PLATFORM in {"x86_64", "i686"}:
             expect = f"manylinux_2_5_{PLATFORM}"
             expect_tag = f"manylinux1_{PLATFORM}.manylinux_2_5_{PLATFORM}"
+        elif PLATFORM == "riscv64":
+            expect = f"manylinux_2_31_{PLATFORM}"
+            expect_tag = f"manylinux_2_31_{PLATFORM}"
         else:
             expect = f"manylinux_2_17_{PLATFORM}"
             expect_tag = f"manylinux2014_{PLATFORM}.manylinux_2_17_{PLATFORM}"
@@ -1085,7 +1099,13 @@ class TestManylinux(Anylinux):
     def test_zlib_blacklist(self, anylinux: AnyLinuxContainer) -> None:
         policy = anylinux.policy
         if policy.startswith(
-            ("manylinux_2_17_", "manylinux_2_28_", "manylinux_2_31_", "manylinux_2_34_")
+            (
+                "manylinux_2_17_",
+                "manylinux_2_28_",
+                "manylinux_2_31_",
+                "manylinux_2_34_",
+                "manylinux_2_39_",
+            )
         ):
             pytest.skip(f"{policy} image has no blacklist symbols in libz.so.1")
 

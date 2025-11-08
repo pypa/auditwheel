@@ -135,7 +135,7 @@ daemon. These tests will pull a number of docker images if they are not already
 available on your system, but it won't update existing images.
 To update these images manually, run::
 
-    docker pull python:3.10-slim-bookworm
+    docker pull python:3.10-slim-trixie
     docker pull quay.io/pypa/manylinux2010_x86_64
     docker pull quay.io/pypa/manylinux2014_x86_64
     docker pull quay.io/pypa/manylinux_2_28_x86_64
