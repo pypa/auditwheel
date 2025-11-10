@@ -13,6 +13,9 @@
 #if __GLIBC_PREREQ(2, 39)
 #include <sys/pidfd.h>
 #endif
+#if __GLIBC_PREREQ(2, 35)
+#include <sys/epoll.h>
+#endif
 #if __GLIBC_PREREQ(2, 28)
 #include <threads.h>
 #endif
@@ -35,6 +38,8 @@ run(PyObject *self, PyObject *args)
 #elif defined(__GLIBC_PREREQ)
 #if __GLIBC_PREREQ(2, 39)
     res = (pidfd_getpid(0) == pidfd_getpid(0)) ? 0 : 1;
+#elif __GLIBC_PREREQ(2, 35)
+    res = (epoll_pwait2(0, NULL, 0, NULL, NULL) == epoll_pwait2(0, NULL, 0, NULL, NULL)) ? 0 : 1;
 #elif __GLIBC_PREREQ(2, 34)
     // pthread_mutexattr_init was moved to libc.so.6 in manylinux_2_34+
     pthread_mutexattr_t attr;
