@@ -31,6 +31,7 @@ MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
 MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
 MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:latest"
 MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:latest"
+MANYLINUX_2_35_IMAGE_ID = f"quay.io/pypa/manylinux_2_35_{PLATFORM}:latest"
 MANYLINUX_2_39_IMAGE_ID = f"quay.io/pypa/manylinux_2_39_{PLATFORM}:latest"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
@@ -45,7 +46,10 @@ if PLATFORM in {"i686", "x86_64"}:
         "manylinux_2_17": ["manylinux2014"],
     }
 elif PLATFORM == "armv7l":
-    MANYLINUX_IMAGES = {"manylinux_2_31": MANYLINUX_2_31_IMAGE_ID}
+    MANYLINUX_IMAGES = {
+        "manylinux_2_31": MANYLINUX_2_31_IMAGE_ID,
+        "manylinux_2_35": MANYLINUX_2_35_IMAGE_ID,
+    }
     POLICY_ALIASES = {}
 elif PLATFORM == "riscv64":
     MANYLINUX_IMAGES = {"manylinux_2_39": MANYLINUX_2_39_IMAGE_ID}
@@ -80,6 +84,7 @@ DEVTOOLSET = {
     "manylinux_2_28": "gcc-toolset-14",
     "manylinux_2_31": "devtoolset-not-present",
     "manylinux_2_34": "gcc-toolset-14",
+    "manylinux_2_35": "devtoolset-not-present",
     "manylinux_2_39": "devtoolset-not-present",
     "musllinux_1_2": "devtoolset-not-present",
 }
@@ -419,7 +424,7 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
             pytest.skip("numpy>=1.26 requires openblas")
         container.exec("yum install -y atlas atlas-devel")
-    elif container.policy.startswith("manylinux_2_31_"):
+    elif container.policy.startswith(("manylinux_2_31_", "manylinux_2_35_")):
         container.exec("apt-get install -y libopenblas-dev execstack")
         # TODO auditwheel shall check for executable stack:
         # https://github.com/pypa/auditwheel/issues/634
@@ -600,7 +605,7 @@ class Anylinux:
             expected_purl_prefix = "pkg:apk/alpine/"
         elif policy.startswith("manylinux_2_17_"):
             expected_purl_prefix = "pkg:rpm/centos/"
-        elif policy.startswith("manylinux_2_31_"):
+        elif policy.startswith(("manylinux_2_31_", "manylinux_2_35_")):
             expected_purl_prefix = "pkg:deb/ubuntu/"
         elif policy == "manylinux_2_39_riscv64":
             expected_purl_prefix = "pkg:rpm/rocky/"
@@ -644,7 +649,7 @@ class Anylinux:
         policy = anylinux.policy
         if policy.startswith("musllinux_"):
             anylinux.exec("apk add gsl-dev")
-        elif policy.startswith("manylinux_2_31_"):
+        elif policy.startswith(("manylinux_2_31_", "manylinux_2_35_")):
             anylinux.exec("apt-get install -y libgsl-dev")
         elif policy == "manylinux_2_39_riscv64":
             pytest.skip(reason=f"no gsl-devel on {policy}")
@@ -981,7 +986,7 @@ class TestManylinux(Anylinux):
             "pip install -U pip setuptools pytest-cov",
             "pip install -U -e /auditwheel_src",
         ]
-        if policy == "manylinux_2_31":
+        if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
         with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id
@@ -1105,6 +1110,7 @@ class TestManylinux(Anylinux):
                 "manylinux_2_28_",
                 "manylinux_2_31_",
                 "manylinux_2_34_",
+                "manylinux_2_35_",
                 "manylinux_2_39_",
             )
         ):
