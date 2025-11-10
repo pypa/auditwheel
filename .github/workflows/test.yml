@@ -53,12 +53,15 @@ jobs:
             python: '3.12'
           - platform: [ 'armv7l', 'ubuntu-24.04-arm' ]
             python: '3.12'
-          #- platform: [ 'ppc64le', 'ubuntu-24.04' ]
-          #  python: '3.12'
-          #  qemu: true
-          #- platform: [ 's390x', 'ubuntu-24.04' ]
-          #  python: '3.12'
-          #  qemu: true
+          - platform: [ 'ppc64le', 'ubuntu-24.04' ]
+            python: '3.12'
+            qemu: true
+          - platform: [ 's390x', 'ubuntu-24.04' ]
+            python: '3.12'
+            qemu: true
+          - platform: [ 'riscv64', 'ubuntu-24.04' ]
+            python: '3.12'
+            qemu: true
     steps:
       - name: Checkout
         uses: actions/checkout@v5

@@ -8,6 +8,9 @@
 #include <time.h>
 #include <unistd.h>
 #if defined(__GLIBC_PREREQ)
+#if __GLIBC_PREREQ(2, 39)
+#include <sys/pidfd.h>
+#endif
 #if __GLIBC_PREREQ(2, 28)
 #include <threads.h>
 #endif
@@ -16,7 +19,9 @@
 int dep_run()
 {
 #if defined(__GLIBC_PREREQ)
-#if __GLIBC_PREREQ(2, 34)
+#if __GLIBC_PREREQ(2, 39)
+    return (pidfd_getpid(0) == pidfd_getpid(0)) ? 0 : 1;
+#elif __GLIBC_PREREQ(2, 34)
     // pthread_mutexattr_init was moved to libc.so.6 in manylinux_2_34+
     pthread_mutexattr_t attr;
     int sts = pthread_mutexattr_init(&attr);
