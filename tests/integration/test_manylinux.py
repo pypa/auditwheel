@@ -421,7 +421,8 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
         container.exec("yum install -y atlas atlas-devel")
     elif container.policy.startswith("manylinux_2_31_"):
         container.exec("apt-get install -y libopenblas-dev execstack")
-        # TODO auditwheel shall check for executable stack
+        # TODO auditwheel shall check for executable stack:
+        # https://github.com/pypa/auditwheel/issues/634
         container.exec(
             ["bash", "-c", "execstack -c $(find /usr/lib* -name 'libopenblas*.so')"]
         )
