@@ -15,7 +15,7 @@ jobs:
     name: Pre-commit checks (Black, Flake8, MyPy, ...)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Install CPython 3.10
         uses: actions/setup-python@v6
         with:
@@ -64,7 +64,7 @@ jobs:
             qemu: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Setup cache
         uses: actions/cache@v4
         with:
