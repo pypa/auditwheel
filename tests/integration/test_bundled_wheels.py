@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib
 import os
-import platform
 import sys
 import zipfile
 from argparse import Namespace
@@ -108,7 +107,7 @@ def test_analyze_wheel_abi_pyfpe():
 def test_show_wheel_abi_pyfpe(monkeypatch, capsys):
     wheel = str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl")
     monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
     monkeypatch.setattr(sys, "argv", ["auditwheel", "show", wheel])
     assert main() == 0
     captured = capsys.readouterr()

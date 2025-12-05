@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import platform
 import sys
 
 import pytest
 
+from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc, LibcVersion
 from auditwheel.main import main
 
@@ -41,7 +41,7 @@ def test_help(monkeypatch, capsys):
 @pytest.mark.parametrize("function", ["show", "repair"])
 def test_unexisting_wheel(monkeypatch, capsys, tmp_path, function):
     monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
     wheel = str(tmp_path / "not-a-file.whl")
     monkeypatch.setattr(sys, "argv", ["auditwheel", function, wheel])
 
@@ -79,7 +79,7 @@ def test_repair_wheel_mismatch(
     monkeypatch, capsys, tmp_path, libc, filename, plat, message
 ):
     monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
     monkeypatch.setattr(Libc, "detect", lambda: libc)
     monkeypatch.setattr(Libc, "get_current_version", lambda _: LibcVersion(1, 1))
     wheel = tmp_path / filename
