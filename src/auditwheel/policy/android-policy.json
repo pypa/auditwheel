@@ -1,0 +1,26 @@
+[
+  {
+    "name": "linux",
+    "aliases": [],
+    "priority": -9999,
+    "symbol_versions": {},
+    "lib_whitelist": [],
+    "blacklist": {}
+  },
+  {
+    "name": "android_21",
+    "aliases": [],
+    "priority": -21,
+    "symbol_versions": {"x86_64": {}, "arm64_v8a": {}},
+    "lib_whitelist": ["libandroid.so", "libc.so", "libcrypto_python.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so", "libjnigraphics.so", "liblog.so", "libm.so", "libmediandk.so", "libOpenMAXAL.so", "libOpenSLES.so", "libsqlite3_python.so", "libssl_python.so", "libz.so"],
+    "blacklist": {}
+  },
+  {
+    "name": "android_24",
+    "aliases": [],
+    "priority": -24,
+    "symbol_versions": {"x86_64": {}, "arm64_v8a": {}},
+    "lib_whitelist": ["libandroid.so", "libc.so", "libcamera2ndk.so", "libcrypto_python.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so", "libjnigraphics.so", "liblog.so", "libm.so", "libmediandk.so", "libOpenMAXAL.so", "libOpenSLES.so", "libsqlite3_python.so", "libssl_python.so", "libvulkan.so", "libz.so"],
+    "blacklist": {}
+  }
+]

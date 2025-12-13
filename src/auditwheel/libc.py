@@ -22,6 +22,7 @@ class LibcVersion:
 class Libc(Enum):
     value: str
 
+    ANDROID = "android"
     GLIBC = "glibc"
     MUSL = "musl"
 
@@ -31,7 +32,10 @@ class Libc(Enum):
     def get_current_version(self) -> LibcVersion:
         if self == Libc.MUSL:
             return _get_musl_version(_find_musl_libc())
-        return _get_glibc_version()
+        if self == Libc.GLIBC:
+            return _get_glibc_version()
+        msg = f"can't determine version of libc '{self}'"
+        raise InvalidLibc(msg)
 
     @staticmethod
     def detect() -> Libc:

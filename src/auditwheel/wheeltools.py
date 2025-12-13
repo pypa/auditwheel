@@ -324,6 +324,8 @@ def get_wheel_libc(filename: str) -> Libc:
     result: set[Libc] = set()
     _, _, _, in_tags = parse_wheel_filename(filename)
     for tag in in_tags:
+        if "android" in tag.platform:
+            result.add(Libc.ANDROID)
         if "musllinux_" in tag.platform:
             result.add(Libc.MUSL)
         if "manylinux" in tag.platform:

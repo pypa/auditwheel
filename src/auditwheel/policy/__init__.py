@@ -22,6 +22,7 @@ _MUSL_POLICY_RE = re.compile(r"^musllinux_\d+_\d+$")
 logger = logging.getLogger(__name__)
 
 _POLICY_JSON_MAP = {
+    Libc.ANDROID: _HERE / "android-policy.json",
     Libc.GLIBC: _HERE / "manylinux-policy.json",
     Libc.MUSL: _HERE / "musllinux-policy.json",
 }
