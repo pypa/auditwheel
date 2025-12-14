@@ -521,7 +521,10 @@ def ldd(
             if libc is None:
                 libc = new_libc
             if libc != new_libc:
-                msg = f"found a dependency on {new_libc} but the libc is already set to {libc}"
+                msg = (
+                    f"found a dependency on {new_libc} but the libc is already set "
+                    f"to {libc}"
+                )
                 raise InvalidLibc(msg)
 
         for soname in needed:
@@ -542,6 +545,8 @@ def ldd(
                 valid_python = tuple(f"3{minor}" for minor in range(11, 100))
                 if soabi[0] == "cpython" and soabi[1].startswith(valid_python):
                     libc = Libc.GLIBC
+            elif path.name.endswith("-linux-android.so"):
+                libc = Libc.ANDROID
 
         if ldpaths is None:
             ldpaths = load_ld_paths(libc).copy()
@@ -579,7 +584,7 @@ def ldd(
         #
         # On Android linking with libpython is normal, but we don't want to return it as
         # this will make the wheel appear to have external references, requiring it to
-        # have an API level of at least 24 (see main_repair.execute).
+        # have an API level of at least 24 (see wheel_abi.analyze_wheel_abi).
         #
         # Either way, we don't want to analyze it for symbol versions, nor do we want to
         # analyze its dependencies.

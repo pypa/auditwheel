@@ -196,7 +196,9 @@ class InWheelCtx(InWheel):
 
 
 def add_platforms(
-    wheel_ctx: InWheelCtx, platforms: list[str], remove_platforms: Iterable[str] = ()
+    wheel_ctx: InWheelCtx,
+    platforms: list[str],
+    remove_platforms: Iterable[str | re.Pattern[str]] = (),
 ) -> Path:
     """Add platform tags `platforms` to a wheel
 
@@ -218,8 +220,6 @@ def add_platforms(
         msg = "This function should be called from wheel_ctx context manager"
         raise ValueError(msg)
 
-    to_remove = list(remove_platforms)  # we might want to modify this, make a copy
-
     definitely_not_purelib = False
 
     info_fname = _dist_info_dir(wheel_ctx.path) / "WHEEL"
@@ -235,6 +235,14 @@ def add_platforms(
     _, _, _, in_tags = parse_wheel_filename(wheel_fname)
     original_fname_tags = sorted({tag.platform for tag in in_tags})
     logger.info("Previous filename tags: %s", ", ".join(original_fname_tags))
+
+    to_remove: list[str] = []
+    for rp in remove_platforms:
+        if isinstance(rp, re.Pattern):
+            to_remove += [tag for tag in original_fname_tags if rp.fullmatch(tag)]
+        else:
+            to_remove.append(rp)
+
     fname_tags = [tag for tag in original_fname_tags if tag not in to_remove]
     fname_tags = unique_by_index(fname_tags + platforms)
 
@@ -324,12 +332,9 @@ def get_wheel_libc(filename: str) -> Libc:
     result: set[Libc] = set()
     _, _, _, in_tags = parse_wheel_filename(filename)
     for tag in in_tags:
-        if "android" in tag.platform:
-            result.add(Libc.ANDROID)
-        if "musllinux_" in tag.platform:
-            result.add(Libc.MUSL)
-        if "manylinux" in tag.platform:
-            result.add(Libc.GLIBC)
+        for libc in Libc:
+            if tag.platform.startswith(libc.tag_prefix):
+                result.add(libc)
     if len(result) == 0:
         msg = "unknown libc used"
         raise WheelToolsError(msg)

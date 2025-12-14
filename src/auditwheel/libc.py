@@ -22,9 +22,9 @@ class LibcVersion:
 class Libc(Enum):
     value: str
 
-    ANDROID = "android"
     GLIBC = "glibc"
     MUSL = "musl"
+    ANDROID = "android"
 
     def __str__(self) -> str:
         return self.value
@@ -47,6 +47,14 @@ class Libc(Enum):
         except InvalidLibc:
             logger.debug("Falling back to GNU libc")
             return Libc.GLIBC
+
+    @property
+    def tag_prefix(self) -> str:
+        return {
+            Libc.GLIBC: "manylinux",
+            Libc.MUSL: "musllinux",
+            Libc.ANDROID: "android",
+        }[self]
 
 
 def _find_musl_libc() -> Path:

@@ -2,7 +2,7 @@
   {
     "name": "linux",
     "aliases": [],
-    "priority": -9999,
+    "priority": 0,
     "symbol_versions": {},
     "lib_whitelist": [],
     "blacklist": {}
@@ -10,7 +10,7 @@
   {
     "name": "android_21",
     "aliases": [],
-    "priority": -21,
+    "priority": 79,
     "symbol_versions": {"x86_64": {}, "arm64_v8a": {}},
     "lib_whitelist": ["libandroid.so", "libc.so", "libcrypto_python.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so", "libjnigraphics.so", "liblog.so", "libm.so", "libmediandk.so", "libOpenMAXAL.so", "libOpenSLES.so", "libsqlite3_python.so", "libssl_python.so", "libz.so"],
     "blacklist": {}
@@ -18,9 +18,24 @@
   {
     "name": "android_24",
     "aliases": [],
-    "priority": -24,
+    "priority": 76,
     "symbol_versions": {"x86_64": {}, "arm64_v8a": {}},
     "lib_whitelist": ["libandroid.so", "libc.so", "libcamera2ndk.so", "libcrypto_python.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so", "libjnigraphics.so", "liblog.so", "libm.so", "libmediandk.so", "libOpenMAXAL.so", "libOpenSLES.so", "libsqlite3_python.so", "libssl_python.so", "libvulkan.so", "libz.so"],
     "blacklist": {}
-  }
-]
+  },
+  {
+    "name": "android_26",
+    "aliases": [],
+    "priority": 74,
+    "symbol_versions": {"x86_64": {}, "arm64_v8a": {}},
+    "lib_whitelist": ["libaaudio.so", "libandroid.so", "libc.so", "libcamera2ndk.so", "libcrypto_python.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so", "libjnigraphics.so", "liblog.so", "libm.so", "libmediandk.so", "libOpenMAXAL.so", "libOpenSLES.so", "libsqlite3_python.so", "libssl_python.so", "libsync.so", "libvulkan.so", "libz.so"],
+    "blacklist": {}
+  },
+  {
+    "name": "android_27",
+    "aliases": [],
+    "priority": 73,
+    "symbol_versions": {"x86_64": {}, "arm64_v8a": {}},
+    "lib_whitelist": ["libaaudio.so", "libandroid.so", "libc.so", "libcamera2ndk.so", "libcrypto_python.so", "libdl.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so", "libjnigraphics.so", "liblog.so", "libm.so", "libmediandk.so", "libneuralnetworks.so", "libOpenMAXAL.so", "libOpenSLES.so", "libsqlite3_python.so", "libssl_python.so", "libsync.so", "libvulkan.so", "libz.so"],
+    "blacklist": {}
+  }]

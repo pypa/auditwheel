@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import argparse
 import logging
-import re
 import zlib
 from pathlib import Path
-
-from packaging.utils import parse_wheel_filename
 
 from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheel, WheelToolsError
@@ -29,8 +26,6 @@ def configure_parser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
 These are the possible target platform tags, as specified by PEP 600.
 Note that old, pre-PEP 600 tags are still usable and are listed as aliases
 below.
-- auto (determine platform tag from wheel content)
-- current (use the wheel's existing platform tag)
 """
     for p in policies:
         epilog += f"- {p.name}"
@@ -178,18 +173,16 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             logger.debug("The libc could not be deduced from the wheel filename")
             libc = None
 
-        if plat_base.startswith("manylinux"):
-            if libc is None:
-                libc = Libc.GLIBC
-            if libc != Libc.GLIBC:
-                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting GLIBC"
-                parser.error(msg)
-        elif plat_base.startswith("musllinux"):
-            if libc is None:
-                libc = Libc.MUSL
-            if libc != Libc.MUSL:
-                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting MUSL"
-                parser.error(msg)
+        for lc in Libc:
+            if plat_base.startswith(lc.tag_prefix):
+                if libc is None:
+                    libc = lc
+                if libc != lc:
+                    msg = (
+                        f"can't repair wheel {wheel_filename} with {libc.name} libc "
+                        f"to a wheel targeting {lc.name}"
+                    )
+                    parser.error(msg)
 
         logger.info("Repairing %s", wheel_filename)
 
@@ -217,31 +210,9 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 plat = policies.lowest.name
             else:
                 plat = wheel_abi.overall_policy.name
-        elif plat_base == "current":
-            plats = list({t.platform for t in parse_wheel_filename(wheel_filename)[3]})
-            if len(plats) != 1:
-                msg = (
-                    f'"{wheel_file}" has {len(plats)} platform tags, but '
-                    f"`--plat current` requires it to have exactly one."
-                )
-                parser.error(msg)
-            plat = plats[0]
         else:
             plat = f"{plat_base}_{policies.architecture.value}"
         requested_policy = policies.get_policy_by_name(plat)
-
-        # https://android.googlesource.com/platform/bionic/+/refs/heads/main/android-changes-for-ndk-developers.md
-        if libc == Libc.ANDROID and wheel_abi.full_external_refs:
-            match = re.match(r"android_(\d+)", plat)
-            assert match is not None
-            if int(match[1]) < 24:
-                msg = (
-                    f'cannot repair "{wheel_file}" because it requires external '
-                    f'libraries, but the API level of "{plat}" is too low to support '
-                    f"DT_RUNPATH. If using cibuildwheel, set the environment variable "
-                    f"ANDROID_API_LEVEL to 24 or higher."
-                )
-                parser.error(msg)
 
         if requested_policy > wheel_abi.sym_policy:
             msg = (
