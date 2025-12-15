@@ -68,12 +68,6 @@ wheel will abort processing of subsequent wheels.
         default="auto",
     )
     parser.add_argument(
-        "--ldpaths",
-        dest="LDPATHS",
-        help="Colon-delimited list of paths to search for external libraries. This "
-        "replaces the default list; to add to the default list, use LD_LIBRARY_PATH.",
-    )
-    parser.add_argument(
         "-L",
         "--lib-sdir",
         dest="LIB_SDIR",
@@ -115,6 +109,12 @@ wheel will abort processing of subsequent wheels.
         "(can contain wildcards, for example libfoo.so.*)",
         action="append",
         default=[],
+    )
+    parser.add_argument(
+        "--ldpaths",
+        dest="LDPATHS",
+        help="Colon-delimited list of paths to search for external libraries. This "
+        "replaces the default list; to add to the default list, use LD_LIBRARY_PATH.",
     )
     parser.add_argument(
         "--only-plat",

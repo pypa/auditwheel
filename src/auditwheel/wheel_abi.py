@@ -88,13 +88,12 @@ def get_wheel_elfdata(
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
-
                 elftree = ldd(
                     fn,
                     exclude=exclude,
                     ldpaths=(
                         {"conf": parse_ld_paths(ldpaths, ""), "env": [], "interp": []}
-                        if ldpaths
+                        if ldpaths is not None
                         else None
                     ),
                 )
