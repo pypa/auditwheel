@@ -273,10 +273,10 @@ def add_platforms(
     pyc_apis = unique_by_index(pyc_apis)
     # Add new platform tags for each Python version, C-API combination
     wanted_tags = ["-".join(tup) for tup in product(pyc_apis, platforms)]
-    new_tags = [tag for tag in wanted_tags if tag not in in_info_tags]
     unwanted_tags = ["-".join(tup) for tup in product(pyc_apis, to_remove)]
-    updated_tags = [tag for tag in in_info_tags if tag not in unwanted_tags]
-    updated_tags += new_tags
+    updated_tags = unique_by_index(
+        [tag for tag in in_info_tags if tag not in unwanted_tags] + wanted_tags
+    )
     if updated_tags != in_info_tags:
         del info["Tag"]
         for tag in updated_tags:

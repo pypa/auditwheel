@@ -113,8 +113,9 @@ wheel will abort processing of subsequent wheels.
     parser.add_argument(
         "--ldpaths",
         dest="LDPATHS",
-        help="Colon-delimited list of paths to search for external libraries. This "
-        "replaces the default list; to add to the default list, use LD_LIBRARY_PATH.",
+        help="Colon-delimited list of directories to search for external libraries. "
+        "This replaces the default list; to add to the default, use LD_LIBRARY_PATH "
+        "instead.",
     )
     parser.add_argument(
         "--only-plat",
@@ -197,7 +198,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 exclude,
                 args.DISABLE_ISA_EXT_CHECK,
                 True,
-                args.LDPATHS,
+                parse_ldpaths_arg(parser, args.LDPATHS),
             )
         except NonPlatformWheel as e:
             logger.info(e.message)
@@ -277,3 +278,22 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         if out_wheel is not None:
             logger.info("\nFixed-up wheel written to %s", out_wheel)
     return 0
+
+
+# None of the special behavior of lddtree.parse_ld_paths is applicable to the --ldpaths
+# option.
+def parse_ldpaths_arg(
+    parser: argparse.ArgumentParser, ldpaths: str | None
+) -> tuple[str, ...] | None:
+    if ldpaths is None:
+        return None
+
+    result: list[str] = []
+    for ldp_str in ldpaths.split(":"):
+        ldp_path = Path(ldp_str)
+        if (not ldp_str) or (not ldp_path.exists()):
+            msg = f"--ldpaths item {ldp_str!r} does not exist"
+            parser.error(msg)
+        result.append(str(ldp_path.absolute()))
+
+    return tuple(result)

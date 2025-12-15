@@ -37,6 +37,8 @@ __all__ = ["LIBPYTHON_RE", "DynamicExecutable", "DynamicLibrary", "ldd"]
 # Regex to match libpython shared library names
 LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(\.\d)*$")
 
+ORIGIN_RE = re.compile(r"\$(ORIGIN|\{ORIGIN\})")
+
 
 @dataclass(frozen=True)
 class Platform:
@@ -152,6 +154,10 @@ def _get_platform(elf: ELFFile) -> Platform:
             error_msg = "armv7l shall use hard-float"
         if error_msg is not None:
             base_arch = None
+    elif base_arch == Architecture.aarch64:  # noqa: SIM102
+        # Android uses a different platform tag for this architecture.
+        if elf.get_section_by_name(".note.android.ident"):
+            base_arch = Architecture.arm64_v8a
 
     return Platform(
         elf_osabi,
@@ -240,8 +246,8 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
         if ldpath == "":
             # The ldso treats "" paths as $PWD.
             ldpath_ = os.getcwd()
-        elif "$ORIGIN" in ldpath:
-            ldpath_ = ldpath.replace("$ORIGIN", os.path.dirname(os.path.abspath(path)))
+        elif re.search(ORIGIN_RE, ldpath):
+            ldpath_ = re.sub(ORIGIN_RE, os.path.dirname(os.path.abspath(path)), ldpath)
         else:
             ldpath_ = root + ldpath
         ldpaths.append(normpath(ldpath_))
@@ -589,8 +595,10 @@ def ldd(
         # Either way, we don't want to analyze it for symbol versions, nor do we want to
         # analyze its dependencies.
         if LIBPYTHON_RE.match(soname):
-            log.info("Skip %s resolution", soname)
-            if libc != Libc.ANDROID:
+            if libc == Libc.ANDROID:
+                _excluded_libs.add(soname)
+            else:
+                log.info("Skip %s resolution", soname)
                 _all_libs[soname] = DynamicLibrary(soname, None, None)
             continue
 

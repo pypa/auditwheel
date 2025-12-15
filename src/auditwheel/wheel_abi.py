@@ -21,7 +21,7 @@ from .elfutils import (
 )
 from .error import InvalidLibc, NonPlatformWheel
 from .genericpkgctx import InGenericPkgCtx
-from .lddtree import DynamicExecutable, ldd, parse_ld_paths
+from .lddtree import DynamicExecutable, ldd
 from .libc import Libc
 from .policy import ExternalReference, Policy, WheelPolicies, tag_api_level
 
@@ -59,7 +59,7 @@ def get_wheel_elfdata(
     architecture: Architecture | None,
     wheel_fn: Path,
     exclude: frozenset[str],
-    ldpaths: str | None = None,
+    ldpaths: tuple[str, ...] | None = None,
 ) -> WheelElfData:
     full_elftree: dict[Path, DynamicExecutable] = {}
     nonpy_elftree: dict[Path, DynamicExecutable] = {}
@@ -92,9 +92,9 @@ def get_wheel_elfdata(
                     fn,
                     exclude=exclude,
                     ldpaths=(
-                        {"conf": parse_ld_paths(ldpaths, ""), "env": [], "interp": []}
-                        if ldpaths is not None
-                        else None
+                        None
+                        if ldpaths is None
+                        else {"conf": list(ldpaths), "env": [], "interp": []}
                     ),
                 )
 
@@ -335,7 +335,7 @@ def analyze_wheel_abi(
     exclude: frozenset[str],
     disable_isa_ext_check: bool,
     allow_graft: bool,
-    ldpaths: str | None = None,
+    ldpaths: tuple[str, ...] | None = None,
 ) -> WheelAbIInfo:
     data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude, ldpaths)
     policies = data.policies
