@@ -114,8 +114,7 @@ wheel will abort processing of subsequent wheels.
         "--ldpaths",
         dest="LDPATHS",
         help="Colon-delimited list of directories to search for external libraries. "
-        "This replaces the default list; to add to the default, use LD_LIBRARY_PATH "
-        "instead.",
+        "This replaces the default list; to add to the default, use LD_LIBRARY_PATH.",
     )
     parser.add_argument(
         "--only-plat",

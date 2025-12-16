@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import itertools
 import logging
+import os
 from collections import defaultdict
 from collections.abc import Mapping
 from copy import deepcopy
@@ -21,7 +22,7 @@ from .elfutils import (
 )
 from .error import InvalidLibc, NonPlatformWheel
 from .genericpkgctx import InGenericPkgCtx
-from .lddtree import DynamicExecutable, ldd
+from .lddtree import DynamicExecutable, ldd, parse_ld_paths
 from .libc import Libc
 from .policy import ExternalReference, Policy, WheelPolicies, tag_api_level
 
@@ -94,7 +95,14 @@ def get_wheel_elfdata(
                     ldpaths=(
                         None
                         if ldpaths is None
-                        else {"conf": list(ldpaths), "env": [], "interp": []}
+                        else {
+                            "conf": list(ldpaths),
+                            "env": parse_ld_paths(
+                                os.environ.get("LD_LIBRARY_PATH", ""),
+                                path="",
+                            ),
+                            "interp": [],
+                        }
                     ),
                 )
 
