@@ -261,7 +261,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 *abis,
             ]
 
-        patcher = Patchelf()
+        patcher = Patchelf(libc)
         out_wheel = repair_wheel(
             wheel_abi,
             wheel_file,

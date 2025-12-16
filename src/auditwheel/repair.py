@@ -121,6 +121,7 @@ def repair_wheel(
                     replacements.append((n, soname_map[n][0]))
             if replacements:
                 patcher.replace_needed(path, *replacements)
+                patcher.set_rpath(path, "$ORIGIN")
 
         if update_tags:
             output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))

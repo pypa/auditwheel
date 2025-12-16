@@ -6,6 +6,8 @@ from pathlib import Path
 from shutil import which
 from subprocess import CalledProcessError, check_call, check_output
 
+from .libc import Libc
+
 
 class ElfPatcher:
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
@@ -46,7 +48,8 @@ def _verify_patchelf() -> None:
 
 
 class Patchelf(ElfPatcher):
-    def __init__(self) -> None:
+    def __init__(self, libc: Libc | None = None) -> None:
+        self.libc = libc
         _verify_patchelf()
 
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
@@ -74,7 +77,10 @@ class Patchelf(ElfPatcher):
 
     def set_rpath(self, file_name: Path, rpath: str) -> None:
         check_call(["patchelf", "--remove-rpath", file_name])
-        check_call(["patchelf", "--force-rpath", "--set-rpath", rpath, file_name])
+
+        # Android supports only RUNPATH, not RPATH.
+        extra_args = [] if self.libc == Libc.ANDROID else ["--force-rpath"]
+        check_call(["patchelf", *extra_args, "--set-rpath", rpath, file_name])
 
     def get_rpath(self, file_name: Path) -> str:
         return (
