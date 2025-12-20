@@ -382,6 +382,7 @@ def tmp_docker_image(
         yield image.id
     finally:
         client = image.client
+        assert client is not None
         client.images.remove(image.id)
 
 
