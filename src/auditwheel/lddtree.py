@@ -37,6 +37,8 @@ __all__ = ["LIBPYTHON_RE", "DynamicExecutable", "DynamicLibrary", "ldd"]
 # Regex to match libpython shared library names
 LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(\.\d)*$")
 
+ORIGIN_RE = re.compile(r"\$(ORIGIN|\{ORIGIN\})")
+
 
 @dataclass(frozen=True)
 class Platform:
@@ -152,6 +154,10 @@ def _get_platform(elf: ELFFile) -> Platform:
             error_msg = "armv7l shall use hard-float"
         if error_msg is not None:
             base_arch = None
+    elif base_arch == Architecture.aarch64:  # noqa: SIM102
+        # Android uses a different platform tag for this architecture.
+        if elf.get_section_by_name(".note.android.ident"):
+            base_arch = Architecture.arm64_v8a
 
     return Platform(
         elf_osabi,
@@ -240,8 +246,8 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
         if ldpath == "":
             # The ldso treats "" paths as $PWD.
             ldpath_ = os.getcwd()
-        elif "$ORIGIN" in ldpath:
-            ldpath_ = ldpath.replace("$ORIGIN", os.path.dirname(os.path.abspath(path)))
+        elif re.search(ORIGIN_RE, ldpath):
+            ldpath_ = re.sub(ORIGIN_RE, os.path.dirname(os.path.abspath(path)), ldpath)
         else:
             ldpath_ = root + ldpath
         ldpaths.append(normpath(ldpath_))
@@ -480,14 +486,17 @@ def ldd(
                 libc = Libc.MUSL if soname.startswith("ld-musl-") else Libc.GLIBC
                 if ldpaths is None:
                     ldpaths = load_ld_paths(libc).copy()
-                # XXX: Should read it and scan for /lib paths.
-                ldpaths["interp"] = [
-                    normpath(root + os.path.dirname(interp)),
-                    normpath(
-                        root + prefix + "/usr" + os.path.dirname(interp).lstrip(prefix)
-                    ),
-                ]
-                log.debug("  ldpaths[interp]  = %s", ldpaths["interp"])
+                    # XXX: Should read it and scan for /lib paths.
+                    ldpaths["interp"] = [
+                        normpath(root + os.path.dirname(interp)),
+                        normpath(
+                            root
+                            + prefix
+                            + "/usr"
+                            + os.path.dirname(interp).lstrip(prefix)
+                        ),
+                    ]
+                    log.debug("  ldpaths[interp]  = %s", ldpaths["interp"])
                 break
 
         # Parse the ELF's dynamic tags.
@@ -513,19 +522,25 @@ def ldd(
 
     if _first:
         # get the libc based on dependencies
+        def set_libc(new_libc: Libc) -> None:
+            nonlocal libc
+            if libc is None:
+                libc = new_libc
+            if libc != new_libc:
+                msg = (
+                    f"found a dependency on {new_libc} but the libc is already set "
+                    f"to {libc}"
+                )
+                raise InvalidLibc(msg)
+
         for soname in needed:
             if soname.startswith(("libc.musl-", "ld-musl-")):
-                if libc is None:
-                    libc = Libc.MUSL
-                if libc != Libc.MUSL:
-                    msg = f"found a dependency on MUSL but the libc is already set to {libc}"
-                    raise InvalidLibc(msg)
+                set_libc(Libc.MUSL)
             elif soname == "libc.so.6" or soname.startswith(("ld-linux-", "ld64.so.")):
-                if libc is None:
-                    libc = Libc.GLIBC
-                if libc != Libc.GLIBC:
-                    msg = f"found a dependency on GLIBC but the libc is already set to {libc}"
-                    raise InvalidLibc(msg)
+                set_libc(Libc.GLIBC)
+            elif soname == "libc.so":
+                set_libc(Libc.ANDROID)
+
         if libc is None:
             # try the filename as a last resort
             if path.name.endswith(("-arm-linux-musleabihf.so", "-linux-musl.so")):
@@ -536,6 +551,8 @@ def ldd(
                 valid_python = tuple(f"3{minor}" for minor in range(11, 100))
                 if soabi[0] == "cpython" and soabi[1].startswith(valid_python):
                     libc = Libc.GLIBC
+            elif path.name.endswith("-linux-android.so"):
+                libc = Libc.ANDROID
 
         if ldpaths is None:
             ldpaths = load_ld_paths(libc).copy()
@@ -569,12 +586,20 @@ def ldd(
             continue
 
         # special case for libpython, see https://github.com/pypa/auditwheel/issues/589
-        # we want to return the dependency to be able to remove it later on but
-        # we don't want to analyze it for symbol versions nor do we want to analyze its
-        # dependencies as it will be removed.
+        # On Linux we want to return the dependency to be able to remove it later on.
+        #
+        # On Android linking with libpython is normal, but we don't want to return it as
+        # this will make the wheel appear to have external references, requiring it to
+        # have an API level of at least 24 (see wheel_abi.analyze_wheel_abi).
+        #
+        # Either way, we don't want to analyze it for symbol versions, nor do we want to
+        # analyze its dependencies.
         if LIBPYTHON_RE.match(soname):
-            log.info("Skip %s resolution", soname)
-            _all_libs[soname] = DynamicLibrary(soname, None, None)
+            if libc == Libc.ANDROID:
+                _excluded_libs.add(soname)
+            else:
+                log.info("Skip %s resolution", soname)
+                _all_libs[soname] = DynamicLibrary(soname, None, None)
             continue
 
         realpath, fullpath = find_lib(platform, soname, all_ldpaths, root)

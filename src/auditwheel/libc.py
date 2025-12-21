@@ -24,6 +24,7 @@ class Libc(Enum):
 
     GLIBC = "glibc"
     MUSL = "musl"
+    ANDROID = "android"
 
     def __str__(self) -> str:
         return self.value
@@ -31,7 +32,10 @@ class Libc(Enum):
     def get_current_version(self) -> LibcVersion:
         if self == Libc.MUSL:
             return _get_musl_version(_find_musl_libc())
-        return _get_glibc_version()
+        if self == Libc.GLIBC:
+            return _get_glibc_version()
+        msg = f"can't determine version of libc '{self}'"
+        raise InvalidLibc(msg)
 
     @staticmethod
     def detect() -> Libc:
@@ -43,6 +47,14 @@ class Libc(Enum):
         except InvalidLibc:
             logger.debug("Falling back to GNU libc")
             return Libc.GLIBC
+
+    @property
+    def tag_prefix(self) -> str:
+        return {
+            Libc.GLIBC: "manylinux",
+            Libc.MUSL: "musllinux",
+            Libc.ANDROID: "android",
+        }[self]
 
 
 def _find_musl_libc() -> Path:

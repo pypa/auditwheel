@@ -111,6 +111,12 @@ wheel will abort processing of subsequent wheels.
         default=[],
     )
     parser.add_argument(
+        "--ldpaths",
+        dest="LDPATHS",
+        help="Colon-delimited list of directories to search for external libraries. "
+        "This replaces the default list; to add to the default, use LD_LIBRARY_PATH.",
+    )
+    parser.add_argument(
         "--only-plat",
         dest="ONLY_PLAT",
         action="store_true",
@@ -167,18 +173,16 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             logger.debug("The libc could not be deduced from the wheel filename")
             libc = None
 
-        if plat_base.startswith("manylinux"):
-            if libc is None:
-                libc = Libc.GLIBC
-            if libc != Libc.GLIBC:
-                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting GLIBC"
-                parser.error(msg)
-        elif plat_base.startswith("musllinux"):
-            if libc is None:
-                libc = Libc.MUSL
-            if libc != Libc.MUSL:
-                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting MUSL"
-                parser.error(msg)
+        for lc in Libc:
+            if plat_base.startswith(lc.tag_prefix):
+                if libc is None:
+                    libc = lc
+                if libc != lc:
+                    msg = (
+                        f"can't repair wheel {wheel_filename} with {libc.name} libc "
+                        f"to a wheel targeting {lc.name}"
+                    )
+                    parser.error(msg)
 
         logger.info("Repairing %s", wheel_filename)
 
@@ -187,7 +191,13 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
         try:
             wheel_abi = analyze_wheel_abi(
-                libc, arch, wheel_file, exclude, args.DISABLE_ISA_EXT_CHECK, True
+                libc,
+                arch,
+                wheel_file,
+                exclude,
+                args.DISABLE_ISA_EXT_CHECK,
+                True,
+                parse_ldpaths_arg(parser, args.LDPATHS),
             )
         except NonPlatformWheel as e:
             logger.info(e.message)
@@ -251,7 +261,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 *abis,
             ]
 
-        patcher = Patchelf()
+        patcher = Patchelf(libc)
         out_wheel = repair_wheel(
             wheel_abi,
             wheel_file,
@@ -267,3 +277,22 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         if out_wheel is not None:
             logger.info("\nFixed-up wheel written to %s", out_wheel)
     return 0
+
+
+# None of the special behavior of lddtree.parse_ld_paths is applicable to the --ldpaths
+# option.
+def parse_ldpaths_arg(
+    parser: argparse.ArgumentParser, ldpaths: str | None
+) -> tuple[str, ...] | None:
+    if ldpaths is None:
+        return None
+
+    result: list[str] = []
+    for ldp_str in ldpaths.split(":"):
+        ldp_path = Path(ldp_str)
+        if (not ldp_str) or (not ldp_path.exists()):
+            msg = f"--ldpaths item {ldp_str!r} does not exist"
+            parser.error(msg)
+        result.append(str(ldp_path.absolute()))
+
+    return tuple(result)

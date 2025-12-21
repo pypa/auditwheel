@@ -11,6 +11,7 @@ class Architecture(Enum):
     value: str
 
     aarch64 = "aarch64"
+    arm64_v8a = "arm64_v8a"
     armv7l = "armv7l"
     i686 = "i686"
     loongarch64 = "loongarch64"

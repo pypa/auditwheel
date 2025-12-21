@@ -5,9 +5,11 @@ import logging
 import re
 from collections import defaultdict
 from collections.abc import Generator, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
+
+from packaging.utils import parse_wheel_filename
 
 from ..architecture import Architecture
 from ..elfutils import filter_undefined_symbols
@@ -24,6 +26,9 @@ logger = logging.getLogger(__name__)
 _POLICY_JSON_MAP = {
     Libc.GLIBC: _HERE / "manylinux-policy.json",
     Libc.MUSL: _HERE / "musllinux-policy.json",
+    # Android whitelists are based on
+    # https://developer.android.com/ndk/guides/stable_apis.
+    Libc.ANDROID: _HERE / "android-policy.json",
 }
 
 
@@ -55,6 +60,7 @@ class WheelPolicies:
         *,
         libc: Libc,
         arch: Architecture,
+        wheel_fn: Path | None = None,
         musl_policy: str | None = None,
     ) -> None:
         if libc != Libc.MUSL and musl_policy is not None:
@@ -116,8 +122,41 @@ class WheelPolicies:
                 self._policies = [self._policies[0], self._policies[1]]
             assert len(self._policies) == 2, self._policies
 
+        elif self._libc_variant == Libc.ANDROID:
+            # Pick the policy with the highest API level that's less than or equal to
+            # the wheel's existing tag.
+            assert wheel_fn is not None
+            plats = list({t.platform for t in parse_wheel_filename(wheel_fn.name)[3]})
+            if len(plats) != 1:
+                msg = "Android wheels must have exactly one platform tag"
+                raise ValueError(msg)
+            api_level = tag_api_level(plats[0])
+
+            valid_policies = [
+                p
+                for p in self._policies
+                if p.name.startswith("android") and tag_api_level(p.name) <= api_level
+            ]
+            if not valid_policies:
+                msg = f"minimum supported platform tag is {self.lowest.name}"
+                raise ValueError(msg)
+            best_policy = max(valid_policies, key=lambda p: tag_api_level(p.name))
+
+            # It's unsafe to reduce the API level of the existing tag, so rename the
+            # policy to match it.
+            self._policies = [self.linux, replace(best_policy, name=plats[0])]
+
     def __iter__(self) -> Generator[Policy]:
         yield from self._policies
+
+    def __len__(self) -> int:
+        return len(self._policies)
+
+    def __getitem__(self, index: int) -> Policy:
+        return self._policies[index]
+
+    def __setitem__(self, index: int, p: Policy) -> None:
+        self._policies[index] = p
 
     @property
     def libc(self) -> Libc:
@@ -311,7 +350,13 @@ def _fixup_musl_libc_soname(
     return frozenset(new_whitelist)
 
 
-def get_replace_platforms(name: str) -> list[str]:
+def tag_api_level(tag: str) -> int:
+    match = re.match(r"android_(\d+)", tag)
+    assert match is not None
+    return int(match[1])
+
+
+def get_replace_platforms(name: str) -> list[str | re.Pattern[str]]:
     """Extract platform tag replacement rules from policy
 
     >>> get_replace_platforms('linux_x86_64')
@@ -330,6 +375,9 @@ def get_replace_platforms(name: str) -> list[str]:
         return ["linux_" + "_".join(name.split("_")[3:])]
     if name.startswith("musllinux_"):
         return ["linux_" + "_".join(name.split("_")[3:])]
+    if name.startswith("android_"):
+        # On Android it only makes sense to have one platform tag at a time.
+        return [re.compile(r"android_.+")]
     return ["linux_" + "_".join(name.split("_")[1:])]
 
 

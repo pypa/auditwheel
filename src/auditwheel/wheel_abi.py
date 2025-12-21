@@ -3,10 +3,11 @@ from __future__ import annotations
 import functools
 import itertools
 import logging
+import os
 from collections import defaultdict
 from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TypeVar
 
@@ -21,9 +22,9 @@ from .elfutils import (
 )
 from .error import InvalidLibc, NonPlatformWheel
 from .genericpkgctx import InGenericPkgCtx
-from .lddtree import DynamicExecutable, ldd
+from .lddtree import DynamicExecutable, ldd, parse_ld_paths
 from .libc import Libc
-from .policy import ExternalReference, Policy, WheelPolicies
+from .policy import ExternalReference, Policy, WheelPolicies, tag_api_level
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ def get_wheel_elfdata(
     architecture: Architecture | None,
     wheel_fn: Path,
     exclude: frozenset[str],
+    ldpaths: tuple[str, ...] | None = None,
 ) -> WheelElfData:
     full_elftree: dict[Path, DynamicExecutable] = {}
     nonpy_elftree: dict[Path, DynamicExecutable] = {}
@@ -87,7 +89,22 @@ def get_wheel_elfdata(
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
-                elftree = ldd(fn, exclude=exclude)
+                elftree = ldd(
+                    fn,
+                    exclude=exclude,
+                    ldpaths=(
+                        None
+                        if ldpaths is None
+                        else {
+                            "conf": list(ldpaths),
+                            "env": parse_ld_paths(
+                                os.environ.get("LD_LIBRARY_PATH", ""),
+                                path="",
+                            ),
+                            "interp": [],
+                        }
+                    ),
+                )
 
                 try:
                     elf_arch = elftree.platform.baseline_architecture
@@ -112,7 +129,9 @@ def get_wheel_elfdata(
                         continue
 
                 if policies is None and libc is not None and architecture is not None:
-                    policies = WheelPolicies(libc=libc, arch=architecture)
+                    policies = WheelPolicies(
+                        libc=libc, arch=architecture, wheel_fn=wheel_fn
+                    )
 
                 platform_wheel = True
 
@@ -324,8 +343,9 @@ def analyze_wheel_abi(
     exclude: frozenset[str],
     disable_isa_ext_check: bool,
     allow_graft: bool,
+    ldpaths: tuple[str, ...] | None = None,
 ) -> WheelAbIInfo:
-    data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude)
+    data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude, ldpaths)
     policies = data.policies
     elftree_by_fn = data.full_elftree
     external_refs_by_fn = data.full_external_refs
@@ -383,6 +403,22 @@ def analyze_wheel_abi(
     )
     if not allow_graft:
         overall_policy = min(overall_policy, ref_policy)
+
+    # https://android.googlesource.com/platform/bionic/+/refs/heads/main/android-changes-for-ndk-developers.md
+    if (
+        libc == Libc.ANDROID
+        and external_libs
+        and tag_api_level(overall_policy.name) < 24
+    ):
+        log.warning(
+            "%s requires external libraries, which requires DT_RUNPATH; "
+            "increasing its API level to 24.",
+            wheel_fn,
+        )
+        assert overall_policy is policies[1]
+        overall_policy = policies[1] = replace(
+            overall_policy, name=f"android_24_{architecture}"
+        )
 
     return WheelAbIInfo(
         policies,
