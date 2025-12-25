@@ -41,6 +41,7 @@ class WheelAbIInfo:
     pyfpe_policy: Policy
     blacklist_policy: Policy
     machine_policy: Policy
+    graft_policy: Policy
 
 
 @dataclass(frozen=True)
@@ -368,6 +369,7 @@ def analyze_wheel_abi(
     exclude: frozenset[str],
     disable_isa_ext_check: bool,
     allow_graft: bool,
+    requested_policy_base_name: str | None = None,
 ) -> WheelAbIInfo:
     data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude)
     policies = data.policies
@@ -408,6 +410,27 @@ def analyze_wheel_abi(
         default=policies.linux,
     )
 
+    # don't allow highest priority policies with more grafted libraries
+    # than the requested policy
+    if requested_policy_base_name is None or requested_policy_base_name == "auto":
+        graft_lib_count = min(
+            (len(e.libs) for e in external_refs.values() if e.policy != policies.linux),
+            default=0,
+        )
+    else:
+        graft_lib_count = min(
+            (
+                len(e.libs)
+                for e in external_refs.values()
+                if e.policy.name.startswith(f"{requested_policy_base_name}_")
+            ),
+            default=0,
+        )
+    graft_policy = max(
+        (e.policy for e in external_refs.values() if len(e.libs) <= graft_lib_count),
+        default=policies.linux,
+    )
+
     if disable_isa_ext_check:
         machine_policy = policies.highest
     else:
@@ -425,6 +448,10 @@ def analyze_wheel_abi(
         blacklist_policy,
         machine_policy,
     )
+
+    if requested_policy_base_name is not None:
+        overall_policy = min(overall_policy, graft_policy)
+
     if not allow_graft:
         overall_policy = min(overall_policy, ref_policy)
 
@@ -440,6 +467,7 @@ def analyze_wheel_abi(
         pyfpe_policy,
         blacklist_policy,
         machine_policy,
+        graft_policy,
     )
 
 

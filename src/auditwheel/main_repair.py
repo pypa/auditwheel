@@ -187,7 +187,13 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
         try:
             wheel_abi = analyze_wheel_abi(
-                libc, arch, wheel_file, exclude, args.DISABLE_ISA_EXT_CHECK, True
+                libc,
+                arch,
+                wheel_file,
+                exclude,
+                args.DISABLE_ISA_EXT_CHECK,
+                True,
+                plat_base,
             )
         except NonPlatformWheel as e:
             logger.info(e.message)
