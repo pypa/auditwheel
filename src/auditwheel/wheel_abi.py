@@ -286,12 +286,37 @@ def _get_machine_policy(
     elftree_by_fn: dict[Path, DynamicExecutable],
     external_so_names: frozenset[str],
 ) -> Policy:
+    """
+    Determine the most appropriate machine policy for the wheel based on ELF
+    architectures and whitelisted external dependencies.
+    The function inspects the extended architecture of each top-level ELF file
+    in ``elftree_by_fn`` and of any library dependencies whose SONAME appears in
+    ``external_so_names``. If an ELF file requires instructions that are not
+    covered by ``policies.architecture``, the overall policy is downgraded to
+    reflect that requirement.
+    If the offending ELF file corresponds to an external shared object
+    (i.e. its SONAME is in ``external_so_names``), the function looks for a
+    policy whose whitelist contains that SONAME and uses the highest-priority
+    such policy instead of unconditionally falling back to the baseline
+    ``policies.linux`` policy. Informational or warning logs are emitted to
+    record any such downgrades.
+    :param policies: Collection of available wheel policies, including the
+        target architecture, the baseline ``linux`` policy, and the highest
+        (most permissive) default policy.
+    :param elftree_by_fn: Mapping from ELF file paths to their corresponding
+        :class:`DynamicExecutable` objects, used to inspect platforms and
+        dependency graphs.
+    :param external_so_names: Set of SONAMEs that are treated as external
+        references and may be whitelisted by individual policies.
+    :return: The selected :class:`Policy` after considering all relevant ELF
+        files and their dependencies.
+    """
     result = policies.highest
-    machine_to_check = {}
+    machine_to_check: dict[Path, tuple[str | None, Architecture | None]] = {}
     for fn, dynamic_executable in elftree_by_fn.items():
         if fn in machine_to_check:
             continue
-        machine_to_check[fn] = dynamic_executable.platform.extended_architecture
+        machine_to_check[fn] = (None, dynamic_executable.platform.extended_architecture)
         for dependency in dynamic_executable.libraries.values():
             if dependency.soname not in external_so_names:
                 continue
@@ -301,14 +326,30 @@ def _get_machine_policy(
             if dependency.realpath in machine_to_check:
                 continue
             machine_to_check[dependency.realpath] = (
-                dependency.platform.extended_architecture
+                dependency.soname,
+                dependency.platform.extended_architecture,
             )
 
-    for fn, extended_architecture in machine_to_check.items():
+    for fn, (soname, extended_architecture) in machine_to_check.items():
         if extended_architecture is None:
             continue
         if policies.architecture.is_superset(extended_architecture):
             continue
+        if soname is not None:
+            found_policy = policies.linux
+            for policy in policies:
+                if soname in policy.whitelist:
+                    found_policy = max(found_policy, policy)
+            if policies.linux.priority < found_policy.priority:
+                log.info(
+                    "ELF file %r requires %r instruction set, not in %r, whitelisted in %r",
+                    fn,
+                    extended_architecture.value,
+                    policies.architecture.value,
+                    found_policy.name,
+                )
+                result = min(result, found_policy)
+                continue
         log.warning(
             "ELF file %r requires %r instruction set, not in %r",
             fn,

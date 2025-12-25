@@ -1103,6 +1103,30 @@ class TestManylinux(Anylinux):
         python.install_wheel(repaired_wheel)
         python.run("from testsimple import run; exit(run())")
 
+    @pytest.mark.skipif(
+        PLATFORM != "x86_64", reason=f"libmvec not supported on {PLATFORM}"
+    )
+    def test_mvec(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
+        # Tests https://github.com/pypa/auditwheel/issues/645
+        policy = anylinux.policy
+
+        if policy.startswith(("manylinux_2_12_", "manylinux_2_17_")):
+            pytest.skip(f"libmvec not supported on {policy}")
+
+        test_path = "/auditwheel_src/tests/integration/test_mvec"
+        orig_wheel = anylinux.build_wheel(test_path, check_filename=False)
+
+        # Repair the wheel using the appropriate manylinux container
+        anylinux.repair(orig_wheel, only_plat=False)
+        platform_tag = f"manylinux_2_24_x86_64.{policy}"
+        repaired_wheel = anylinux.check_wheel(
+            "test_mvec", python_abi="py3-none", platform_tag=platform_tag
+        )
+        assert_show_output(anylinux, repaired_wheel, policy, False)
+
+        # Test the resulting wheel outside the manylinux container
+        python.install_wheel(repaired_wheel)
+
     def test_zlib_blacklist(self, anylinux: AnyLinuxContainer) -> None:
         policy = anylinux.policy
         if policy.startswith(

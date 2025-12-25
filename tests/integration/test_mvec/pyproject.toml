@@ -1,0 +1,13 @@
+[build-system]
+requires = ["scikit-build-core"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "test_mvec"
+version = "0.0.1"
+requires-python = ">=3.10"
+
+[tool.scikit-build]
+wheel.install-dir = "test_mvec"
+cmake.build-type = "Release"
+wheel.py-api = "py3"
