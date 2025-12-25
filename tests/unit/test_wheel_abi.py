@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from pathlib import Path
 
 import pretend
@@ -8,6 +9,7 @@ import pytest
 from auditwheel import wheel_abi
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
+from auditwheel.policy import ExternalReference, WheelPolicies
 
 
 class TestGetWheelElfdata:
@@ -55,3 +57,31 @@ class TestGetWheelElfdata:
             )
 
         assert exec_info.value.args == (message,)
+
+
+def test_get_symbol_policies() -> None:
+    policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+    versioned_symbols = defaultdict(set, {"libc.so.6": {"GLIBC_2.2.5"}})
+    external_versioned_symbols = {
+        "libmvec.so.1": {
+            "libc.so.6": {"GLIBC_2.2.5"},
+            "libm.so.6": {"GLIBC_2.15", "GLIBC_2.2.5"},
+        }
+    }
+    external_refs = {}
+    for policy in policies:
+        if policy.name in {
+            "manylinux_2_5_x86_64",
+            "manylinux_2_12_x86_64",
+            "manylinux_2_17_x86_64",
+        }:
+            libs = {"libmvec.so.1": Path("/lib64/libmvec-2.28.so")}
+        else:
+            libs = {}
+        blacklist = {}
+        external_refs[policy.name] = ExternalReference(libs, blacklist, policy)
+    symbol_policies = wheel_abi.get_symbol_policies(
+        policies, versioned_symbols, external_versioned_symbols, external_refs
+    )
+    max_policy = max(symbol_policy[0] for symbol_policy in symbol_policies)
+    assert max_policy.name == "manylinux_2_17_x86_64"
