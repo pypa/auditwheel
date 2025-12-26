@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import argparse
@@ -10,9 +10,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def configure_parser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
-    help = "Audit a wheel for external shared library dependencies."
-    p = sub_parsers.add_parser("show", help=help, description=help)
+def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
+    help_ = "Audit a wheel for external shared library dependencies."
+    p = sub_parsers.add_parser("show", help=help_, description=help_)
     p.add_argument("WHEEL_FILE", type=Path, help="Path to wheel file.")
     p.add_argument(
         "--disable-isa-ext-check",
@@ -33,7 +33,7 @@ def printp(text: str) -> None:
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     from auditwheel import json
-    from auditwheel.error import NonPlatformWheel, WheelToolsError
+    from auditwheel.error import NonPlatformWheelError, WheelToolsError
     from auditwheel.wheel_abi import analyze_wheel_abi
     from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
 
@@ -46,7 +46,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     fn = wheel_file.name
     try:
         arch = get_wheel_architecture(fn)
-    except (WheelToolsError, NonPlatformWheel):
+    except (WheelToolsError, NonPlatformWheelError):
         logger.warning("The architecture could not be deduced from the wheel filename")
         arch = None
 
@@ -58,27 +58,30 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
     try:
         winfo = analyze_wheel_abi(
-            libc, arch, wheel_file, frozenset(), args.DISABLE_ISA_EXT_CHECK, False
+            libc,
+            arch,
+            wheel_file,
+            frozenset(),
+            disable_isa_ext_check=args.DISABLE_ISA_EXT_CHECK,
+            allow_graft=False,
         )
-    except NonPlatformWheel as e:
+    except NonPlatformWheelError as e:
         logger.info("%s", e.message)
         return 1
 
     policies = winfo.policies
 
-    libs_with_versions = [
-        f"{k} with versions {v}" for k, v in winfo.versioned_symbols.items()
-    ]
+    libs_with_versions = [f"{k} with versions {v}" for k, v in winfo.versioned_symbols.items()]
 
     printp(
-        f'{fn} is consistent with the following platform tag: "{winfo.overall_policy.name}".'
+        f'{fn} is consistent with the following platform tag: "{winfo.overall_policy.name}".',
     )
 
     if winfo.pyfpe_policy == policies.linux:
         printp(
             "This wheel uses the PyFPE_jbuf function, which is not compatible with the"
             " manylinux/musllinux tags. (see https://www.python.org/dev/peps/pep-0513/"
-            "#fpectl-builds-vs-no-fpectl-builds)"
+            "#fpectl-builds-vs-no-fpectl-builds)",
         )
         if args.verbose < 1:
             return 0
@@ -87,7 +90,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         printp(
             "This wheel is compiled against a narrow unicode (UCS2) "
             "version of Python, which is not compatible with the "
-            "manylinux/musllinux tags."
+            "manylinux/musllinux tags.",
         )
         if args.verbose < 1:
             return 0
@@ -100,12 +103,12 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     if len(libs_with_versions) == 0:
         printp(
             "The wheel references no external versioned symbols from "
-            "system-provided shared libraries."
+            "system-provided shared libraries.",
         )
     else:
         printp(
             "The wheel references external versioned symbols in these "
-            f"system-provided shared libraries: {', '.join(libs_with_versions)}"
+            f"system-provided shared libraries: {', '.join(libs_with_versions)}",
         )
 
     if winfo.sym_policy < policies.highest:
@@ -114,7 +117,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             "In order to achieve a more compatible tag, you would "
             "need to recompile a new wheel from source on a system "
             "with earlier versions of these libraries, such as "
-            "a recent manylinux image."
+            "a recent manylinux image.",
         )
         if args.verbose < 1:
             return 0
@@ -133,7 +136,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 printp(
                     f"In order to achieve the tag platform tag {p.name!r} "
                     "the following shared library dependencies "
-                    "will need to be eliminated:"
+                    "will need to be eliminated:",
                 )
                 printp(", ".join(sorted(libs.keys())))
             blacklist = winfo.external_refs[p.name].blacklist
@@ -141,7 +144,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 printp(
                     f"In order to achieve the tag platform tag {p.name!r} "
                     "the following black-listed symbol dependencies "
-                    "will need to be eliminated:"
+                    "will need to be eliminated:",
                 )
                 for key in sorted(blacklist.keys()):
                     printp(f"From {key}: " + ", ".join(sorted(blacklist[key])))

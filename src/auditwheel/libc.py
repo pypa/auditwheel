@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from auditwheel.error import InvalidLibc
+from auditwheel.error import InvalidLibcError
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,8 @@ class Libc(Enum):
         try:
             _find_musl_libc()
             logger.debug("Detected musl libc")
-            return Libc.MUSL
-        except InvalidLibc:
+            return Libc.MUSL  # noqa: TRY300
+        except InvalidLibcError:
             logger.debug("Falling back to GNU libc")
             return Libc.GLIBC
 
@@ -51,7 +51,7 @@ def _find_musl_libc() -> Path:
     except ValueError:
         msg = "musl libc not detected"
         logger.debug("%s", msg)
-        raise InvalidLibc(msg) from None
+        raise InvalidLibcError(msg) from None
 
     return dl_path
 
@@ -59,17 +59,20 @@ def _find_musl_libc() -> Path:
 def _get_musl_version(ld_path: Path) -> LibcVersion:
     try:
         ld = subprocess.run(
-            [ld_path], check=False, errors="strict", stderr=subprocess.PIPE
+            [ld_path],
+            check=False,
+            errors="strict",
+            stderr=subprocess.PIPE,
         ).stderr
     except FileNotFoundError as err:
         msg = "failed to determine musl version"
         logger.exception("%s", msg)
-        raise InvalidLibc(msg) from err
+        raise InvalidLibcError(msg) from err
 
     match = re.search(r"Version (?P<major>\d+).(?P<minor>\d+).(?P<patch>\d+)", ld)
     if not match:
         msg = f"failed to parse musl version from string {ld!r}"
-        raise InvalidLibc(msg) from None
+        raise InvalidLibcError(msg) from None
 
     return LibcVersion(int(match.group("major")), int(match.group("minor")))
 
@@ -78,16 +81,18 @@ def _get_glibc_version() -> LibcVersion:
     # CS_GNU_LIBC_VERSION is only for glibc and shall return e.g. "glibc 2.3.4"
     try:
         version_string: str | None = os.confstr("CS_GNU_LIBC_VERSION")
-        assert version_string is not None
+        if version_string is None:
+            msg = "failed to determine glibc version"
+            raise InvalidLibcError(msg)
         _, version = version_string.rsplit()
-    except (AssertionError, AttributeError, OSError, ValueError) as err:
+    except (AttributeError, OSError, ValueError) as err:
         # os.confstr() or CS_GNU_LIBC_VERSION not available (or a bad value)...
         msg = "failed to determine glibc version"
-        raise InvalidLibc(msg) from err
+        raise InvalidLibcError(msg) from err
 
     m = re.match(r"(?P<major>[0-9]+)\.(?P<minor>[0-9]+)", version)
     if not m:
         msg = f"failed to parse glibc version from string {version!r}"
-        raise InvalidLibc(msg)
+        raise InvalidLibcError(msg)
 
     return LibcVersion(int(m.group("major")), int(m.group("minor")))

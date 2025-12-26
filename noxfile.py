@@ -21,18 +21,14 @@ sdist = ""
 
 @nox.session(reuse_venv=True)
 def lint(session: nox.Session) -> None:
-    """
-    Run linters on the codebase.
-    """
+    """Run linters on the codebase."""
     session.install("pre-commit")
     session.run("pre-commit", "run", "--all-files")
 
 
 @nox.session(default=False)
 def coverage(session: nox.Session) -> None:
-    """
-    Run coverage using unit tests.
-    """
+    """Run coverage using unit tests."""
     pyproject = nox.project.load_toml("pyproject.toml")
     deps = nox.project.dependency_groups(pyproject, "coverage")
     session.install("-e", ".", *deps)
@@ -58,7 +54,7 @@ sys.path.append("./tests/integration")
 from test_manylinux import MANYLINUX_IMAGES
 images = "\n".join(MANYLINUX_IMAGES.values())
 Path(r"{images_file}").write_text(images)
-"""
+""",
     )
     session.run("python", str(script), silent=True)
     return images_file.read_text().splitlines()
@@ -66,9 +62,7 @@ Path(r"{images_file}").write_text(images)
 
 @nox.session(python=PYTHON_ALL_VERSIONS, default=False)
 def tests(session: nox.Session) -> None:
-    """
-    Run tests.
-    """
+    """Run tests."""
     posargs = session.posargs
     dep_group = "coverage" if RUNNING_CI else "test"
     pyproject = nox.project.load_toml("pyproject.toml")
@@ -127,17 +121,13 @@ def _test_dist(session: nox.Session, path: str) -> None:
 
 @nox.session(name="test-sdist", python=PYTHON_ALL_VERSIONS, requires=["build"])
 def test_sdist(session: nox.Session) -> None:
-    """
-    Do not run explicitly.
-    """
+    """Do not run explicitly."""
     _test_dist(session, sdist)
 
 
 @nox.session(name="test-wheel", python=PYTHON_ALL_VERSIONS, requires=["build"])
 def test_wheel(session: nox.Session) -> None:
-    """
-    Do not run explicitly.
-    """
+    """Do not run explicitly."""
     _test_dist(session, wheel)
 
 

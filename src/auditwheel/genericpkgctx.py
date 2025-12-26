@@ -9,8 +9,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def InGenericPkgCtx(
-    in_path: Path, out_path: Path | None = None
+def InGenericPkgCtx(  # noqa: N802
+    in_path: Path,
+    out_path: Path | None = None,
 ) -> InWheelCtx | InCondaPkgCtx:
     """Factory that returns a InWheelCtx or InCondaPkgCtx
     context manager depending on the file extension
@@ -19,7 +20,7 @@ def InGenericPkgCtx(
         return InWheelCtx(in_path, out_path)
     if in_path.name.endswith(".tar.bz2"):
         if out_path is not None:
-            raise NotImplementedError()
+            raise NotImplementedError
         return InCondaPkgCtx(in_path)
     msg = f"Invalid package: {in_path}. File formats supported: .whl, .tar.bz2"
     raise ValueError(msg)

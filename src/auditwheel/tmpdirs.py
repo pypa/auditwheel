@@ -26,6 +26,7 @@ class InTemporaryDirectory:
     False
     >>> Path.cwd() == my_cwd
     True
+
     """
 
     def __init__(self) -> None:
@@ -84,6 +85,7 @@ class InGivenDirectory:
         path : None or Path, optional
             path to change directory to, for duration of ``with`` block.
             Defaults to ``Path.cwd()`` if None
+
         """
         if path is None:
             path = Path.cwd()

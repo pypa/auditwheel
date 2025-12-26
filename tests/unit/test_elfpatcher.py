@@ -57,7 +57,7 @@ class TestPatchElf:
         soname_new = "TEST_NEW"
         patcher.replace_needed(filename, (soname_old, soname_new))
         check_call.assert_called_once_with(
-            ["patchelf", "--replace-needed", soname_old, soname_new, filename]
+            ["patchelf", "--replace-needed", soname_old, soname_new, filename],
         )
 
     def test_replace_needed_multple(self, check_call, _0, _1):  # noqa: PT019
@@ -76,7 +76,7 @@ class TestPatchElf:
                 "--replace-needed",
                 *replacements[1],
                 filename,
-            ]
+            ],
         )
 
     def test_set_soname(self, check_call, _0, _1):  # noqa: PT019
@@ -85,7 +85,7 @@ class TestPatchElf:
         soname_new = "TEST_NEW"
         patcher.set_soname(filename, soname_new)
         check_call.assert_called_once_with(
-            ["patchelf", "--set-soname", soname_new, filename]
+            ["patchelf", "--set-soname", soname_new, filename],
         )
 
     def test_set_rpath(self, check_call, _0, _1):  # noqa: PT019
@@ -95,7 +95,7 @@ class TestPatchElf:
         check_call_expected_args = [
             call(["patchelf", "--remove-rpath", filename]),
             call(
-                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN/.lib", filename]
+                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN/.lib", filename],
             ),
         ]
 
@@ -125,5 +125,5 @@ class TestPatchElf:
                 "--remove-needed",
                 soname_2,
                 filename,
-            ]
+            ],
         )

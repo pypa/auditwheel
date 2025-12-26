@@ -11,7 +11,7 @@ from auditwheel.elfutils import (
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
     elf_read_dt_needed,
-    elf_references_PyFPE_jbuf,
+    elf_references_pyfpe_jbuf,
 )
 
 
@@ -107,9 +107,7 @@ class TestElfFindVersionedSymbols:
         verneed.configure_mock(name="foo-lib")
         veraux = Mock()
         veraux.configure_mock(name="foo-lib")
-        elf.get_section_by_name.return_value.iter_versions.return_value = (
-            (verneed, [veraux]),
-        )
+        elf.get_section_by_name.return_value.iter_versions.return_value = ((verneed, [veraux]),)
 
         # WHEN
         symbols = list(elf_find_versioned_symbols(elf))
@@ -125,9 +123,7 @@ class TestElfFindVersionedSymbols:
         verneed.configure_mock(name=ld_name)
         veraux = Mock()
         veraux.configure_mock(name="foo-lib")
-        elf.get_section_by_name.return_value.iter_versions.return_value = (
-            (verneed, [veraux]),
-        )
+        elf.get_section_by_name.return_value.iter_versions.return_value = ((verneed, [veraux]),)
 
         # WHEN
         symbols = list(elf_find_versioned_symbols(elf))
@@ -186,28 +182,32 @@ class TestElfReferencesPyPFE:
         elf = Mock()
         symbols = (
             MockSymbol(
-                "PyFPE_jbuf", st_shndx="SHN_UNDEF", st_info={"type": "STT_FUNC"}
+                "PyFPE_jbuf",
+                st_shndx="SHN_UNDEF",
+                st_info={"type": "STT_FUNC"},
             ),
         )
 
         elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
 
         # WHEN/THEN
-        assert elf_references_PyFPE_jbuf(elf) is True
+        assert elf_references_pyfpe_jbuf(elf) is True
 
     def test_elf_references_pyfpe_jbuf_false(self):
         # GIVEN
         elf = Mock()
         symbols = (
             MockSymbol(
-                "SomeSymbol", st_shndx="SHN_UNDEF", st_info={"type": "STT_FUNC"}
+                "SomeSymbol",
+                st_shndx="SHN_UNDEF",
+                st_info={"type": "STT_FUNC"},
             ),
         )
 
         elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
 
         # WHEN/THEN
-        assert elf_references_PyFPE_jbuf(elf) is False
+        assert elf_references_pyfpe_jbuf(elf) is False
 
     def test_elf_references_pyfpe_jbuf_no_section(self):
         # GIVEN
@@ -217,4 +217,4 @@ class TestElfReferencesPyPFE:
         elf.get_section_by_name.return_value = None
 
         # WHEN/THEN
-        assert elf_references_PyFPE_jbuf(elf) is False
+        assert elf_references_pyfpe_jbuf(elf) is False

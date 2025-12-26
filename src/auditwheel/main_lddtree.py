@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import argparse
@@ -9,9 +9,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def configure_subparser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
-    help = "Analyze a single ELF file (similar to ``ldd``)."
-    p = sub_parsers.add_parser("lddtree", help=help, description=help)
+def configure_subparser(sub_parsers: Any) -> None:  # noqa: ANN401
+    help_ = "Analyze a single ELF file (similar to ``ldd``)."
+    p = sub_parsers.add_parser("lddtree", help=help_, description=help_)
     p.add_argument("file", help="Path to .so file")
     p.set_defaults(func=execute)
 

@@ -16,7 +16,7 @@ from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
 from auditwheel.main import main
-from auditwheel.wheel_abi import NonPlatformWheel, analyze_wheel_abi
+from auditwheel.wheel_abi import NonPlatformWheelError, analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
 
@@ -78,7 +78,12 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
             importlib.reload(lddtree)
 
         winfo = analyze_wheel_abi(
-            Libc.GLIBC, Architecture.x86_64, HERE / file, exclude, False, True
+            Libc.GLIBC,
+            Architecture.x86_64,
+            HERE / file,
+            exclude,
+            disable_isa_ext_check=False,
+            allow_graft=True,
         )
         assert set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs, (
             f"{HERE}, {exclude}, {os.environ}"
@@ -94,8 +99,8 @@ def test_analyze_wheel_abi_pyfpe():
         Architecture.x86_64,
         HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
         frozenset(),
-        False,
-        True,
+        disable_isa_ext_check=False,
+        allow_graft=True,
     )
     # for external symbols, it could get manylinux1
     assert winfo.sym_policy.name == "manylinux_2_5_x86_64"
@@ -115,14 +120,14 @@ def test_show_wheel_abi_pyfpe(monkeypatch, capsys):
 
 
 def test_analyze_wheel_abi_bad_architecture():
-    with pytest.raises(NonPlatformWheel):
+    with pytest.raises(NonPlatformWheelError):
         analyze_wheel_abi(
             Libc.GLIBC,
             Architecture.aarch64,
             HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
             frozenset(),
-            False,
-            True,
+            disable_isa_ext_check=False,
+            allow_graft=True,
         )
 
 
@@ -131,10 +136,10 @@ def test_analyze_wheel_abi_static_exe(caplog):
         None,
         None,
         HERE
-        / "patchelf-0.17.2.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl",
+        / "patchelf-0.17.2.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl",  # noqa: E501
         frozenset(),
-        False,
-        False,
+        disable_isa_ext_check=False,
+        allow_graft=False,
     )
     assert "setting architecture to x86_64" in caplog.text
     assert "couldn't detect wheel libc, defaulting to" in caplog.text
@@ -158,9 +163,7 @@ def test_analyze_wheel_abi_static_exe(caplog):
     ],
 )
 def test_wheel_source_date_epoch(timestamp, tmp_path, monkeypatch):
-    wheel_path = (
-        HERE / "arch-wheels/musllinux_1_2/testsimple-0.0.1-cp312-cp312-linux_x86_64.whl"
-    )
+    wheel_path = HERE / "arch-wheels/musllinux_1_2/testsimple-0.0.1-cp312-cp312-linux_x86_64.whl"
     wheel_output_path = tmp_path / "out"
     args = Namespace(
         LIB_SDIR=".libs",
@@ -207,10 +210,7 @@ def test_libpython(tmp_path, caplog):
         verbose=0,
     )
     main_repair.execute(args, Mock())
-    assert (
-        "Removing libpython3.13.so.1.0 dependency from python_mscl/_mscl.so"
-        in caplog.text
-    )
+    assert "Removing libpython3.13.so.1.0 dependency from python_mscl/_mscl.so" in caplog.text
     assert tuple(path.name for path in tmp_path.glob("*.whl")) == (
         "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_31_aarch64.whl",
     )

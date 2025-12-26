@@ -21,7 +21,7 @@ from packaging.utils import parse_wheel_filename
 
 from auditwheel._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
 from auditwheel.architecture import Architecture
-from auditwheel.error import NonPlatformWheel, WheelToolsError
+from auditwheel.error import NonPlatformWheelError, WheelToolsError
 from auditwheel.libc import Libc
 from auditwheel.tmpdirs import InTemporaryDirectory
 from auditwheel.tools import dir2zip, unique_by_index, walk, zip2dir
@@ -198,7 +198,9 @@ class InWheelCtx(InWheel):
 
 
 def add_platforms(
-    wheel_ctx: InWheelCtx, platforms: list[str], remove_platforms: Iterable[str] = ()
+    wheel_ctx: InWheelCtx,
+    platforms: list[str],
+    remove_platforms: Iterable[str] = (),
 ) -> Path:
     """Add platform tags `platforms` to a wheel
 
@@ -305,12 +307,13 @@ def get_wheel_architecture(filename: str) -> Architecture:
                     found = True
             if not found:
                 logger.warning(
-                    "couldn't guess architecture for platform tag '%s'", tag.platform
+                    "couldn't guess architecture for platform tag '%s'",
+                    tag.platform,
                 )
                 missed = True
     if len(result) == 0:
         if pure:
-            raise NonPlatformWheel(None, None)
+            raise NonPlatformWheelError(None, None)
         msg = "unknown architecture"
         raise WheelToolsError(msg)
     if missed or len(result) > 1:

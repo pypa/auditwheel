@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import subprocess
+import time
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
-    """unique elements in `sequence` in the order in which they occur
+    """Unique elements in `sequence` in the order in which they occur
 
     Parameters
     ----------
@@ -29,6 +30,7 @@ def unique_by_index(sequence: Iterable[_T]) -> list[_T]:
     uniques : list
         unique elements of sequence, ordered by the order in which the element
         occurs in `sequence`
+
     """
     uniques = []
     for element in sequence:
@@ -53,6 +55,7 @@ def walk(topdir: Path) -> Generator[tuple[Path, list[str], list[str]]]:
         List of subdirectory names in `dirpath`
     filenames : list[str]
         List of non-directory file names in `dirpath`
+
     """
     topdir = topdir.resolve(strict=True)
     for dirpath_, dirnames, filenames in os.walk(topdir):
@@ -64,11 +67,11 @@ def walk(topdir: Path) -> Generator[tuple[Path, list[str], list[str]]]:
         if dirpath == topdir:
             subdirs = []
             dist_info = []
-            for dir in dirnames:
-                if dir.endswith(".dist-info"):
-                    dist_info.append(dir)
+            for dir_ in dirnames:
+                if dir_.endswith(".dist-info"):
+                    dist_info.append(dir_)
                 else:
-                    subdirs.append(dir)
+                    subdirs.append(dir_)
             dirnames[:] = subdirs
             dirnames.extend(dist_info)
             del dist_info
@@ -94,8 +97,9 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
         Filename of zip archive to write
     out_dir : str
         Directory path containing files to go in the zip archive
+
     """
-    start = datetime.now()
+    start = time.perf_counter()
     with zipfile.ZipFile(zip_fname, "r") as z:
         for name in z.namelist():
             member = z.getinfo(name)
@@ -109,7 +113,10 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
                 attr |= 6 << 6  # at least read/write for current user
                 extracted_path.chmod(attr)
     logger.debug(
-        "zip2dir from %s to %s takes %s", zip_fname, out_dir, datetime.now() - start
+        "zip2dir from %s to %s takes %s",
+        zip_fname,
+        out_dir,
+        time.perf_counter() - start,
     )
 
 
@@ -137,8 +144,9 @@ def dir2zip(
         zlib.Z_BEST_COMPRESSION (9) for bandwidth-constrained or large amount of downloads
     date_time : Optional[datetime]
         Time stamp to set on each file in the archive
+
     """
-    start = datetime.now()
+    start = time.perf_counter()
     in_dir = in_dir.resolve(strict=True)
     if date_time is None:
         st = in_dir.stat()
@@ -164,7 +172,10 @@ def dir2zip(
                 with fname.open("rb") as fp:
                     z.writestr(zinfo, fp.read(), compresslevel=zip_compression_level)
     logger.debug(
-        "dir2zip from %s to %s takes %s", in_dir, zip_fname, datetime.now() - start
+        "dir2zip from %s to %s takes %s",
+        in_dir,
+        zip_fname,
+        time.perf_counter() - start,
     )
 
 
@@ -178,12 +189,13 @@ class EnvironmentDefault(argparse.Action):
 
     def __init__(
         self,
+        *,
         env: str,
         required: bool = True,
         default: str | None = None,
         choices: Iterable[str] | None = None,
-        type: type | None = None,
-        **kwargs: Any,
+        type: type | None = None,  # noqa: A002
+        **kwargs: Any,  # noqa: ANN401
     ) -> None:
         self.env_default = os.environ.get(env)
         self.env = env
@@ -191,7 +203,7 @@ class EnvironmentDefault(argparse.Action):
             if type:
                 try:
                     self.env_default = type(self.env_default)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     self.option_strings = kwargs["option_strings"]
                     args = {
                         "value": self.env_default,
@@ -204,11 +216,7 @@ class EnvironmentDefault(argparse.Action):
                     )
                     raise argparse.ArgumentError(self, msg % args) from None
             default = self.env_default
-        if (
-            self.env_default is not None
-            and choices is not None
-            and self.env_default not in choices
-        ):
+        if self.env_default is not None and choices is not None and self.env_default not in choices:
             self.option_strings = kwargs["option_strings"]
             args = {
                 "value": self.env_default,
@@ -225,14 +233,18 @@ class EnvironmentDefault(argparse.Action):
             required = False
 
         super().__init__(
-            default=default, required=required, choices=choices, type=type, **kwargs
+            default=default,
+            required=required,
+            choices=choices,
+            type=type,
+            **kwargs,
         )
 
     def __call__(
         self,
         parser: argparse.ArgumentParser,  # noqa: ARG002
         namespace: argparse.Namespace,
-        values: Any,
+        values: Any,  # noqa: ANN401
         option_string: str | None = None,  # noqa: ARG002
     ) -> None:
         setattr(namespace, self.dest, values)

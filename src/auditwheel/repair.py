@@ -34,6 +34,7 @@ def repair_wheel(
     abis: list[str],
     lib_sdir: str,
     out_dir: Path,
+    *,
     update_tags: bool,
     patcher: ElfPatcher,
     strip: bool,
@@ -61,8 +62,9 @@ def repair_wheel(
 
         dest_dir = Path(match.group("name") + lib_sdir)
         dist_info_dirs = list(ctx.path.glob("*.dist-info"))
-        assert len(dist_info_dirs) == 1, (
-            f"Expected exactly one .dist-info directory, found {len(dist_info_dirs)}: {dist_info_dirs}"
+        assert len(dist_info_dirs) == 1, (  # noqa: S101
+            "Expected exactly one .dist-info directory, "
+            f"found {len(dist_info_dirs)}: {dist_info_dirs}"
         )
         sbom_filepaths: list[Path] = []
 
@@ -75,7 +77,8 @@ def repair_wheel(
                 # Handle libpython dependencies by removing them
                 if LIBPYTHON_RE.match(soname):
                     logger.warning(
-                        "Removing %s dependency from %s. Linking with libpython is forbidden for manylinux/musllinux wheels.",
+                        "Removing %s dependency from %s. "
+                        "Linking with libpython is forbidden for manylinux/musllinux wheels.",
                         soname,
                         str(fn),
                     )
@@ -165,10 +168,7 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
 
     src_name = src_path.name
     base, ext = src_name.split(".", 1)
-    if not base.endswith(f"-{shorthash}"):
-        new_soname = f"{base}-{shorthash}.{ext}"
-    else:
-        new_soname = src_name
+    new_soname = f"{base}-{shorthash}.{ext}" if not base.endswith(f"-{shorthash}") else src_name
 
     dest_path = dest_dir / new_soname
     if dest_path.exists():
@@ -190,7 +190,10 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
 
 
 def append_rpath_within_wheel(
-    lib_name: Path, rpath: str, wheel_base_dir: Path, patcher: ElfPatcher
+    lib_name: Path,
+    rpath: str,
+    wheel_base_dir: Path,
+    patcher: ElfPatcher,
 ) -> None:
     """Add a new rpath entry to a file while preserving as many existing
     rpath entries as possible.
@@ -248,11 +251,7 @@ def _resolve_rpath_tokens(rpath: str, lib_base_dir: Path) -> str:
 def _path_is_script(path: Path) -> bool:
     # Looks something like "uWSGI-2.0.21.data/scripts/uwsgi"
     components = path.parts
-    return (
-        len(components) == 3
-        and components[0].endswith(".data")
-        and components[1] == "scripts"
-    )
+    return len(components) == 3 and components[0].endswith(".data") and components[1] == "scripts"
 
 
 def _replace_elf_script_with_shim(package_name: str, orig_path: Path) -> Path:

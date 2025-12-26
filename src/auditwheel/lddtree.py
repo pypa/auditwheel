@@ -28,7 +28,7 @@ from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import NoteSection
 
 from auditwheel.architecture import Architecture
-from auditwheel.error import InvalidLibc
+from auditwheel.error import InvalidLibcError
 from auditwheel.libc import Libc
 
 log = logging.getLogger(__name__)
@@ -50,9 +50,7 @@ class Platform:
 
     def is_compatible(self, other: Platform) -> bool:
         os_abis = frozenset((self._elf_osabi, other._elf_osabi))
-        compat_sets = (
-            frozenset(f"ELFOSABI_{x}" for x in ("NONE", "SYSV", "GNU", "LINUX")),
-        )
+        compat_sets = (frozenset(f"ELFOSABI_{x}" for x in ("NONE", "SYSV", "GNU", "LINUX")),)
         return (
             (len(os_abis) == 1 or any(os_abis.issubset(x) for x in compat_sets))
             and self._elf_class == other._elf_class
@@ -114,7 +112,7 @@ def _get_platform(elf: ELFFile) -> Platform:
     ext_arch: Architecture | None = None
     error_msg: str | None = None
     flags = elf["e_flags"]
-    assert base_arch is None or base_arch.baseline == base_arch
+    assert base_arch is None or base_arch.baseline == base_arch  # noqa: S101
     if base_arch is None:
         error_msg = "Unknown architecture"
     elif base_arch == Architecture.x86_64:
@@ -175,7 +173,7 @@ def normpath(path: str) -> str:
     return os.path.normpath(path).replace("//", "/")
 
 
-def readlink(path: str, root: str, prefixed: bool = False) -> str:
+def readlink(path: str, root: str, *, prefixed: bool = False) -> str:
     """Like os.readlink(), but relative to a ``root``
 
     This does not currently handle the pathological case:
@@ -197,6 +195,7 @@ def readlink(path: str, root: str, prefixed: bool = False) -> str:
     Returns
     -------
     A fully resolved symlink path
+
     """
     root = root.rstrip("/")
     if prefixed:
@@ -234,6 +233,7 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
     Returns
     -------
         list of processed paths
+
     """
     ldpaths: list[str] = []
     for ldpath in str_ldpaths.split(":"):
@@ -249,7 +249,7 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
 
 
 @functools.lru_cache
-def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> list[str]:
+def parse_ld_so_conf(ldso_conf: str, *, root: str = "/", _first: bool = True) -> list[str]:
     """Load all the paths from a given ldso config file
 
     This should handle comments, whitespace, and "include" statements.
@@ -266,6 +266,7 @@ def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> li
     Returns
     -------
     list of paths found
+
     """
     paths: list[str] = []
 
@@ -273,7 +274,7 @@ def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> li
     try:
         log.debug("%sparse_ld_so_conf(%s)", dbg_pfx, ldso_conf)
         with open(ldso_conf) as f:
-            for input_line in f.readlines():
+            for input_line in f:
                 line = input_line.split("#", 1)[0].strip()
                 if not line:
                     continue
@@ -293,7 +294,7 @@ def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> li
             log.warning(e)
 
     if _first:
-        # XXX: Load paths from ldso itself.
+        # TODO: Load paths from ldso itself.
         # Remove duplicate entries to speed things up.
         paths = [p for p in dedupe(paths) if os.path.isdir(p)]
 
@@ -302,7 +303,9 @@ def parse_ld_so_conf(ldso_conf: str, root: str = "/", _first: bool = True) -> li
 
 @functools.lru_cache
 def load_ld_paths(
-    libc: Libc | None, root: str = "/", prefix: str = ""
+    libc: Libc | None,
+    root: str = "/",
+    prefix: str = "",
 ) -> dict[str, list[str]]:
     """Load linker paths from common locations
 
@@ -318,6 +321,7 @@ def load_ld_paths(
     Returns
     -------
     dict containing library paths to search
+
     """
     ldpaths: dict[str, list[str]] = {"conf": [], "env": [], "interp": []}
 
@@ -327,7 +331,7 @@ def load_ld_paths(
         if root != "/":
             log.warning("ignoring LD_LIBRARY_PATH due to ROOT usage")
         else:
-            # XXX: If this contains $ORIGIN, we probably have to parse this
+            # TODO: If this contains $ORIGIN, we probably have to parse this
             # on a per-ELF basis so it can get turned into the right thing.
             ldpaths["env"] = parse_ld_paths(env_ldpath, path="")
 
@@ -336,7 +340,7 @@ def load_ld_paths(
         # /dynlink.c?id=3f701faace7addc75d16dea8a6cd769fa5b3f260#n1063
         root_prefix = Path(root) / prefix
         ld_musl = list((root_prefix / "etc").glob("ld-musl-*.path"))
-        assert len(ld_musl) <= 1
+        assert len(ld_musl) <= 1  # noqa: S101
         if len(ld_musl) == 0:
             ldpaths["conf"] = [
                 root + "/lib",
@@ -360,7 +364,10 @@ def load_ld_paths(
 
 
 def find_lib(
-    platform: Platform, lib: str, ldpaths: list[str], root: str = "/"
+    platform: Platform,
+    lib: str,
+    ldpaths: list[str],
+    root: str = "/",
 ) -> tuple[Path | None, str | None]:
     """Try to locate a ``lib`` that is compatible to ``elf`` in the given
     ``ldpaths``
@@ -379,8 +386,8 @@ def find_lib(
     Returns
     -------
     Tuple of the full path to the desired library and the real path to it
-    """
 
+    """
     for ldpath in ldpaths:
         path = os.path.join(ldpath, lib)
         target = Path(readlink(path, root, prefixed=True))
@@ -442,6 +449,7 @@ def ldd(
         },
       },
     }
+
     """
     _first = _all_libs is None
     if _all_libs is None:
@@ -480,11 +488,11 @@ def ldd(
                 libc = Libc.MUSL if soname.startswith("ld-musl-") else Libc.GLIBC
                 if ldpaths is None:
                     ldpaths = load_ld_paths(libc).copy()
-                # XXX: Should read it and scan for /lib paths.
+                # TODO: Should read it and scan for /lib paths.
                 ldpaths["interp"] = [
                     normpath(root + os.path.dirname(interp)),
                     normpath(
-                        root + prefix + "/usr" + os.path.dirname(interp).lstrip(prefix)
+                        root + prefix + "/usr" + os.path.dirname(interp).lstrip(prefix),
                     ),
                 ]
                 log.debug("  ldpaths[interp]  = %s", ldpaths["interp"])
@@ -505,7 +513,7 @@ def ldd(
                 # If both RPATH and RUNPATH are set, only the latter is used.
                 rpaths = []
 
-            # XXX: We assume there is only one PT_DYNAMIC.  This is
+            # We assume there is only one PT_DYNAMIC.  This is
             # probably fine since the runtime ldso does the same.
             break
 
@@ -519,13 +527,13 @@ def ldd(
                     libc = Libc.MUSL
                 if libc != Libc.MUSL:
                     msg = f"found a dependency on MUSL but the libc is already set to {libc}"
-                    raise InvalidLibc(msg)
+                    raise InvalidLibcError(msg)
             elif soname == "libc.so.6" or soname.startswith(("ld-linux-", "ld64.so.")):
                 if libc is None:
                     libc = Libc.GLIBC
                 if libc != Libc.GLIBC:
                     msg = f"found a dependency on GLIBC but the libc is already set to {libc}"
-                    raise InvalidLibc(msg)
+                    raise InvalidLibcError(msg)
         if libc is None:
             # try the filename as a last resort
             if path.name.endswith(("-arm-linux-musleabihf.so", "-linux-musl.so")):
@@ -546,7 +554,7 @@ def ldd(
         log.debug("  ldpaths[rpath]   = %s", rpaths)
         log.debug("  ldpaths[runpath] = %s", runpaths)
 
-    assert ldpaths is not None
+    assert ldpaths is not None  # noqa: S101
 
     all_ldpaths = (
         ldpaths["rpath"]

@@ -65,7 +65,7 @@ def test_pep600_compliance():
                 },
                 "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
             },
-        ]
+        ],
     )
 
     _validate_pep600_compliance(
@@ -87,7 +87,7 @@ def test_pep600_compliance():
                 },
                 "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
             },
-        ]
+        ],
     )
 
     with pytest.raises(ValueError, match=r"manylinux2010_i686.*CXXABI.*1.3.2"):
@@ -109,7 +109,7 @@ def test_pep600_compliance():
                     },
                     "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
                 },
-            ]
+            ],
         )
 
     with pytest.raises(ValueError, match=r"manylinux2010.*libstdc\+\+\.so\.6"):
@@ -131,7 +131,7 @@ def test_pep600_compliance():
                     },
                     "lib_whitelist": ["libgcc_s.so.1"],
                 },
-            ]
+            ],
         )
 
 
@@ -181,19 +181,25 @@ class TestLddTreeExternalReferences:
             path="/path/to/lib",
             realpath=Path("/path/to/lib"),
             platform=Platform(
-                "", 64, True, "EM_X86_64", Architecture.x86_64, None, None
+                "",
+                64,
+                True,
+                "EM_X86_64",
+                Architecture.x86_64,
+                None,
+                None,
             ),
             needed=tuple(libs),
             libraries={
-                lib: DynamicLibrary(lib, f"/path/to/{lib}", Path(f"/path/to/{lib}"))
-                for lib in libs
+                lib: DynamicLibrary(lib, f"/path/to/{lib}", Path(f"/path/to/{lib}")) for lib in libs
             },
             rpath=(),
             runpath=(),
         )
         policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
         full_external_refs = policies.lddtree_external_references(
-            lddtree, Path("/path/to/wheel")
+            lddtree,
+            Path("/path/to/wheel"),
         )
 
         # Assert that each policy only has the unfiltered libs.

@@ -7,14 +7,14 @@ from unittest.mock import patch
 
 import pytest
 
-from auditwheel.error import InvalidLibc
+from auditwheel.error import InvalidLibcError
 from auditwheel.libc import Libc, LibcVersion, _find_musl_libc, _get_musl_version
 
 
 @patch("auditwheel.libc.Path")
 def test_find_musllinux_not_found(path_mock):
     path_mock.return_value.glob.return_value = []
-    with pytest.raises(InvalidLibc):
+    with pytest.raises(InvalidLibcError):
         _find_musl_libc()
     assert Libc.detect() != Libc.MUSL
 
@@ -28,14 +28,14 @@ def test_find_musllinux_found(path_mock):
 
 
 def test_get_musl_version_invalid_path():
-    with pytest.raises(InvalidLibc):
-        _get_musl_version(Path("/tmp/no/executable/here"))
+    with pytest.raises(InvalidLibcError):
+        _get_musl_version(Path("/tmp/no/executable/here"))  # noqa: S108
 
 
 @patch("auditwheel.libc.subprocess.run")
 def test_get_musl_version_invalid_version(run_mock):
     run_mock.return_value = subprocess.CompletedProcess([], 1, None, "Version 1.1")
-    with pytest.raises(InvalidLibc):
+    with pytest.raises(InvalidLibcError):
         _get_musl_version(Path("anything"))
 
 
@@ -79,5 +79,5 @@ def test_glibc_version(monkeypatch, confstr):
 )
 def test_bad_glibc_version(monkeypatch, confstr):
     monkeypatch.setattr(os, "confstr", lambda _: confstr)
-    with pytest.raises(InvalidLibc):
+    with pytest.raises(InvalidLibcError):
         Libc.GLIBC.get_current_version()

@@ -18,7 +18,9 @@ def main() -> int | None:
 
     location = pathlib.Path(auditwheel.__file__).parent.resolve()
     version = "auditwheel {} installed at {} (python {}.{})".format(
-        metadata.version("auditwheel"), location, *sys.version_info
+        metadata.version("auditwheel"),
+        location,
+        *sys.version_info,
     )
 
     p = argparse.ArgumentParser(description="Cross-distro Python wheels.")

@@ -9,7 +9,8 @@ from auditwheel.libc import Libc, LibcVersion
 from auditwheel.main import main
 
 on_supported_platform = pytest.mark.skipif(
-    sys.platform != "linux", reason="requires Linux system"
+    sys.platform != "linux",
+    reason="requires Linux system",
 )
 
 
@@ -59,24 +60,30 @@ def test_unexisting_wheel(monkeypatch, capsys, tmp_path, function):
             Libc.GLIBC,
             "foo-1.0-py3-none-manylinux1_aarch64.whl",
             "manylinux_2_28_x86_64",
-            "can't repair wheel foo-1.0-py3-none-manylinux1_aarch64.whl with aarch64 architecture to a wheel targeting x86_64",
+            "can't repair wheel foo-1.0-py3-none-manylinux1_aarch64.whl with aarch64 architecture to a wheel targeting x86_64",  # noqa: E501
         ),
         (
             Libc.GLIBC,
             "foo-1.0-py3-none-musllinux_1_1_x86_64.whl",
             "manylinux_2_28_x86_64",
-            "can't repair wheel foo-1.0-py3-none-musllinux_1_1_x86_64.whl with MUSL libc to a wheel targeting GLIBC",
+            "can't repair wheel foo-1.0-py3-none-musllinux_1_1_x86_64.whl with MUSL libc to a wheel targeting GLIBC",  # noqa: E501
         ),
         (
             Libc.MUSL,
             "foo-1.0-py3-none-manylinux1_x86_64.whl",
             "musllinux_1_1_x86_64",
-            "can't repair wheel foo-1.0-py3-none-manylinux1_x86_64.whl with GLIBC libc to a wheel targeting MUSL",
+            "can't repair wheel foo-1.0-py3-none-manylinux1_x86_64.whl with GLIBC libc to a wheel targeting MUSL",  # noqa: E501
         ),
     ],
 )
 def test_repair_wheel_mismatch(
-    monkeypatch, capsys, tmp_path, libc, filename, plat, message
+    monkeypatch,
+    capsys,
+    tmp_path,
+    libc,
+    filename,
+    plat,
+    message,
 ):
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
@@ -85,7 +92,9 @@ def test_repair_wheel_mismatch(
     wheel = tmp_path / filename
     wheel.write_text("")
     monkeypatch.setattr(
-        sys, "argv", ["auditwheel", "repair", "--plat", plat, str(wheel)]
+        sys,
+        "argv",
+        ["auditwheel", "repair", "--plat", plat, str(wheel)],
     )
 
     with pytest.raises(SystemExit):

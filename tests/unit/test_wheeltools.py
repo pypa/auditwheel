@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from auditwheel.architecture import Architecture
-from auditwheel.error import NonPlatformWheel
+from auditwheel.error import NonPlatformWheelError
 from auditwheel.libc import Libc
 from auditwheel.wheeltools import (
     InWheelCtx,
@@ -35,7 +35,7 @@ def test_get_wheel_architecture_unknown() -> None:
 
 
 def test_get_wheel_architecture_pure() -> None:
-    with pytest.raises(NonPlatformWheel):
+    with pytest.raises(NonPlatformWheelError):
         get_wheel_architecture("foo-1.0-py3-none-any.whl")
 
 
@@ -67,7 +67,8 @@ def test_get_wheel_libc(filename: str, expected: Libc) -> None:
 
 
 @pytest.mark.parametrize(
-    "filename", ["foo-1.0-py3-none-any.whl", "foo-1.0-py3-none-something.whl"]
+    "filename",
+    ["foo-1.0-py3-none-any.whl", "foo-1.0-py3-none-something.whl"],
 )
 def test_get_wheel_libc_unknown(filename: str) -> None:
     with pytest.raises(WheelToolsError, match=re.escape("unknown libc used")):
@@ -75,7 +76,8 @@ def test_get_wheel_libc_unknown(filename: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "filename", ["foo-1.0-py3-none-manylinux1_x86_64.musllinux_1_1_x86_64.whl"]
+    "filename",
+    ["foo-1.0-py3-none-manylinux1_x86_64.musllinux_1_1_x86_64.whl"],
 )
 def test_get_wheel_libc_multiple(filename: str) -> None:
     match = re.escape("multiple libc are not supported")
@@ -85,8 +87,7 @@ def test_get_wheel_libc_multiple(filename: str) -> None:
 
 def test_inwheel_tmpdir(tmp_path, monkeypatch):
     wheel_path = (
-        HERE
-        / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
+        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
     )
     tmp_path = tmp_path.resolve(strict=True)
     tmpdir = tmp_path / "tmpdir"
