@@ -966,7 +966,7 @@ class TestManylinux(Anylinux):
     def any_manylinux_img(self, request):
         """Each manylinux image, with auditwheel installed.
 
-        Plus up-to-date pip, setuptools and pytest-cov
+        Plus up-to-date pip, setuptools and coverage
         """
         policy = request.param
         check_set = {
@@ -1161,14 +1161,14 @@ class TestMusllinux(Anylinux):
     def any_manylinux_img(self, request):
         """Each musllinux image, with auditwheel installed.
 
-        Plus up-to-date pip, setuptools and pytest-cov
+        Plus up-to-date pip, setuptools and coverage
         """
         policy = request.param
         base = MUSLLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
         commands = [
             'git config --global --add safe.directory "/auditwheel_src"',
-            "pip install -U pip setuptools pytest-cov",
+            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
         with tmp_docker_image(base, commands, env) as img_id:
