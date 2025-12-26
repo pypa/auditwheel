@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import pathlib
 import sys
 from importlib import metadata
+from pathlib import Path
 
 import auditwheel
 
@@ -23,7 +23,7 @@ def main() -> int | None:
     )
 
     p = argparse.ArgumentParser(description="Cross-distro Python wheels.")
-    p.set_defaults(prog=os.path.basename(sys.argv[0]))
+    p.set_defaults(prog=Path(sys.argv[0]).name)
     p.add_argument("-V", "--version", action="version", version=version)
     p.add_argument(
         "-v",

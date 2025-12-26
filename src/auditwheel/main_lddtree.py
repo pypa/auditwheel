@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-import argparse
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import argparse
 
 logger = logging.getLogger(__name__)
 

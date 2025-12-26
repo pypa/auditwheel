@@ -5,10 +5,12 @@ import logging
 import os
 import subprocess
 import zipfile
-from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
 
 _T = TypeVar("_T")
 
@@ -97,15 +99,15 @@ def zip2dir(zip_fname: Path, out_dir: Path) -> None:
     with zipfile.ZipFile(zip_fname, "r") as z:
         for name in z.namelist():
             member = z.getinfo(name)
-            extracted_path = z.extract(member, out_dir)
+            extracted_path = Path(z.extract(member, out_dir))
             attr = member.external_attr >> 16
             if member.is_dir():
                 # this is always rebuilt as 755 by dir2zip
-                os.chmod(extracted_path, 0o755)
+                extracted_path.chmod(0o755)
             elif attr != 0:
                 attr &= 511  # only keep permission bits
                 attr |= 6 << 6  # at least read/write for current user
-                os.chmod(extracted_path, attr)
+                extracted_path.chmod(attr)
     logger.debug(
         "zip2dir from %s to %s takes %s", zip_fname, out_dir, datetime.now() - start
     )
@@ -159,7 +161,7 @@ def dir2zip(
                 zinfo = zipfile.ZipInfo.from_file(fname, out_fname)
                 zinfo.date_time = date_time_args
                 zinfo.compress_type = compression
-                with open(fname, "rb") as fp:
+                with fname.open("rb") as fp:
                     z.writestr(zinfo, fp.read(), compresslevel=zip_compression_level)
     logger.debug(
         "dir2zip from %s to %s takes %s", in_dir, zip_fname, datetime.now() - start

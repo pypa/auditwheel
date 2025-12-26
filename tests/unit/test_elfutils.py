@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -28,22 +27,25 @@ class MockSymbol(dict[str, Any]):
         return self._name
 
 
-@patch("auditwheel.elfutils.open")
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfReadDt:
-    def test_missing_section(self, elffile_mock, open_mock):
+    def test_missing_section(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+
         # GIVEN
-        open_mock.return_value.__enter__.return_value = Mock()
+        fake.touch()
         elffile_mock.return_value.get_section_by_name.return_value = None
 
         # THEN
         with pytest.raises(ValueError, match=r"^Could not find soname.*"):
             # WHEN
-            elf_read_dt_needed(Path("/fake.so"))
+            elf_read_dt_needed(fake)
 
-    def test_needed_libs(self, elffile_mock, open_mock):
+    def test_needed_libs(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+
         # GIVEN
-        open_mock.return_value.__enter__.return_value = Mock()
+        fake.touch()
         section_mock = Mock()
         tag1 = Mock(needed="libz.so")
         tag1.entry.d_tag = "DT_NEEDED"
@@ -53,7 +55,7 @@ class TestElfReadDt:
         elffile_mock.return_value.get_section_by_name.return_value = section_mock
 
         # WHEN
-        needed = elf_read_dt_needed(Path("/fake.so"))
+        needed = elf_read_dt_needed(fake)
 
         # THEN
         assert len(needed) == 2
@@ -61,23 +63,37 @@ class TestElfReadDt:
         assert "libfoo.so" in needed
 
 
-@patch("auditwheel.elfutils.open")
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfFileFilter:
-    def test_filter(self, elffile_mock, open_mock):  # noqa: ARG002
-        result = elf_file_filter([Path("file1.so"), Path("file2.so")])
+    def test_filter(self, elffile_mock, tmp_path):  # noqa: ARG002
+        file1 = tmp_path / "file1.so"
+        file2 = tmp_path / "file2.so"
+        file1.touch()
+        file2.touch()
+        result = elf_file_filter([file1, file2])
         assert len(list(result)) == 2
 
-    def test_some_py_files(self, elffile_mock, open_mock):  # noqa: ARG002
-        result = elf_file_filter([Path("file1.py"), Path("file2.so"), Path("file3.py")])
+    def test_some_py_files(self, elffile_mock, tmp_path):  # noqa: ARG002
+        file1 = tmp_path / "file1.py"
+        file2 = tmp_path / "file2.so"
+        file3 = tmp_path / "file3.py"
+        file1.touch()
+        file2.touch()
+        file3.touch()
+        result = elf_file_filter([file1, file2, file3])
         assert len(list(result)) == 1
 
-    def test_not_elf(self, elffile_mock, open_mock):  # noqa: ARG002
+    def test_not_elf(self, elffile_mock, tmp_path):
+        file1 = tmp_path / "file1.notelf"
+        file2 = tmp_path / "file2.notelf"
+
         # GIVEN
+        file1.touch()
+        file2.touch()
         elffile_mock.side_effect = ELFError
 
         # WHEN
-        result = elf_file_filter([Path("file1.notelf"), Path("file2.notelf")])
+        result = elf_file_filter([file1, file2])
 
         # THEN
         assert len(list(result)) == 0

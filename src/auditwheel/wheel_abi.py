@@ -4,14 +4,12 @@ import functools
 import itertools
 import logging
 from collections import defaultdict
-from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from . import json
-from .architecture import Architecture
 from .elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
@@ -24,6 +22,11 @@ from .genericpkgctx import InGenericPkgCtx
 from .lddtree import DynamicExecutable, ldd
 from .libc import Libc
 from .policy import ExternalReference, Policy, WheelPolicies
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from .architecture import Architecture
 
 log = logging.getLogger(__name__)
 

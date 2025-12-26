@@ -109,9 +109,11 @@ extend-select = [
   "PIE",         # flake8-pie
   "PL",          # pylint
   "PT",          # flake8-pytest-style
+  "PTH",         # flake8-use-pathlib
   "RET",         # flake8-return
   "RUF",         # Ruff-specific
   "SIM",         # flake8-simplify
+  "TC",          # flake8-type-checking
   "TID251",      # flake8-tidy-imports.banned-api
   "UP",          # pyupgrade
   "YTT",         # flake8-2020
@@ -124,6 +126,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"scripts/calculate_symbol_versions.py" = ["PTH"]
+"src/auditwheel/lddtree.py" = ["PTH"]
 "src/auditwheel/main_lddtree.py" = ["PLC0415"]
 "src/auditwheel/main_repair.py" = ["PLC0415"]
 "src/auditwheel/main_show.py" = ["PLC0415"]
+"tests/**.py" = ["TC002", "TC003"]  # conditional type-checking imports
+"tests/integration/**.py" = ["PTH"]

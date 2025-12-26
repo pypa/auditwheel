@@ -3,11 +3,14 @@ from __future__ import annotations
 import hashlib
 import typing
 from importlib import metadata
-from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from auditwheel._vendor.whichprovides import whichprovides
 from auditwheel.wheeltools import WHEEL_INFO_RE
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def create_sbom_for_wheel(

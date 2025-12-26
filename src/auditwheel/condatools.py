@@ -4,10 +4,13 @@ conda packages.
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .tmpdirs import InTemporaryDirectory
 from .tools import tarbz2todir
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class InCondaPkg(InTemporaryDirectory):
@@ -35,5 +38,5 @@ class InCondaPkgCtx(InCondaPkg):
             msg = "This function should be called from context manager"
             raise ValueError(msg)
         files = self.path / "info" / "files"
-        with open(files) as f:
+        with files.open() as f:
             return [line.strip() for line in f.readlines()]

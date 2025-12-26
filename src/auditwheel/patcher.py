@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import re
 from itertools import chain
-from pathlib import Path
 from shutil import which
 from subprocess import CalledProcessError, check_call, check_output
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ElfPatcher:
