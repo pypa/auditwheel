@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from .error import InvalidLibc
+from auditwheel.error import InvalidLibc
 
 logger = logging.getLogger(__name__)
 

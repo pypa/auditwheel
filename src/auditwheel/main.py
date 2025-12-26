@@ -8,8 +8,7 @@ from importlib import metadata
 from pathlib import Path
 
 import auditwheel
-
-from . import main_lddtree, main_repair, main_show
+from auditwheel import main_lddtree, main_repair, main_show
 
 
 def main() -> int | None:

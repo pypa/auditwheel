@@ -9,24 +9,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
-from . import json
-from .elfutils import (
+from auditwheel import json
+from auditwheel.elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
     elf_is_python_extension,
     elf_references_PyFPE_jbuf,
 )
-from .error import InvalidLibc, NonPlatformWheel
-from .genericpkgctx import InGenericPkgCtx
-from .lddtree import DynamicExecutable, ldd
-from .libc import Libc
-from .policy import ExternalReference, Policy, WheelPolicies
+from auditwheel.error import InvalidLibc, NonPlatformWheel
+from auditwheel.genericpkgctx import InGenericPkgCtx
+from auditwheel.lddtree import DynamicExecutable, ldd
+from auditwheel.libc import Libc
+from auditwheel.policy import ExternalReference, Policy, WheelPolicies
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from .architecture import Architecture
+    from auditwheel.architecture import Architecture
 
 log = logging.getLogger(__name__)
 

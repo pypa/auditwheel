@@ -11,14 +11,13 @@ from pathlib import Path
 from subprocess import check_call
 from typing import TYPE_CHECKING
 
+from auditwheel.elfutils import elf_read_dt_needed, elf_read_rpaths
+from auditwheel.hashfile import hashfile
+from auditwheel.lddtree import LIBPYTHON_RE
+from auditwheel.policy import get_replace_platforms
 from auditwheel.sboms import create_sbom_for_wheel
-
-from .elfutils import elf_read_dt_needed, elf_read_rpaths
-from .hashfile import hashfile
-from .lddtree import LIBPYTHON_RE
-from .policy import get_replace_platforms
-from .tools import is_subdir, unique_by_index
-from .wheeltools import WHEEL_INFO_RE, InWheelCtx, add_platforms
+from auditwheel.tools import is_subdir, unique_by_index
+from auditwheel.wheeltools import WHEEL_INFO_RE, InWheelCtx, add_platforms
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

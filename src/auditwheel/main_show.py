@@ -32,10 +32,10 @@ def printp(text: str) -> None:
 
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    from . import json
-    from .error import NonPlatformWheel, WheelToolsError
-    from .wheel_abi import analyze_wheel_abi
-    from .wheeltools import get_wheel_architecture, get_wheel_libc
+    from auditwheel import json
+    from auditwheel.error import NonPlatformWheel, WheelToolsError
+    from auditwheel.wheel_abi import analyze_wheel_abi
+    from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
 
     wheel_file: Path = args.WHEEL_FILE
     fn = wheel_file.name

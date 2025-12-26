@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
 
-from .lddtree import parse_ld_paths
+from auditwheel.lddtree import parse_ld_paths
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -13,18 +13,16 @@ if TYPE_CHECKING:
 
 
 def elf_read_dt_needed(fn: Path) -> list[str]:
-    needed = []
+    needed: list[str] = []
     with fn.open("rb") as f:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynamic")
         if section is None:
             msg = f"Could not find soname in {fn}"
             raise ValueError(msg)
-
-        for t in section.iter_tags():
-            if t.entry.d_tag == "DT_NEEDED":
-                needed.append(t.needed)
-
+        needed.extend(
+            t.needed for t in section.iter_tags() if t.entry.d_tag == "DT_NEEDED"
+        )
     return needed
 
 

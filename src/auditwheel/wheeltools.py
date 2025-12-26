@@ -19,12 +19,12 @@ from typing import TYPE_CHECKING
 
 from packaging.utils import parse_wheel_filename
 
-from ._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
-from .architecture import Architecture
-from .error import NonPlatformWheel, WheelToolsError
-from .libc import Libc
-from .tmpdirs import InTemporaryDirectory
-from .tools import dir2zip, unique_by_index, walk, zip2dir
+from auditwheel._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
+from auditwheel.architecture import Architecture
+from auditwheel.error import NonPlatformWheel, WheelToolsError
+from auditwheel.libc import Libc
+from auditwheel.tmpdirs import InTemporaryDirectory
+from auditwheel.tools import dir2zip, unique_by_index, walk, zip2dir
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable

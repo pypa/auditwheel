@@ -182,8 +182,7 @@ class AnyLinuxContainer:
         if strip:
             args.append("--strip")
         if excludes:
-            for exclude in excludes:
-                args.append(f"--exclude={exclude}")
+            args.extend(f"--exclude={exclude}" for exclude in excludes)
         args.append(f"/io/{wheel}")
         cmd = ["bash", "-c", " ".join(args)]
         return self.exec(cmd, expected_retcode=expected_retcode)

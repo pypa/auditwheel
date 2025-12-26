@@ -8,16 +8,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..architecture import Architecture
-from ..elfutils import filter_undefined_symbols
-from ..error import InvalidLibc
-from ..libc import Libc
-from ..tools import is_subdir
+from auditwheel.architecture import Architecture
+from auditwheel.elfutils import filter_undefined_symbols
+from auditwheel.error import InvalidLibc
+from auditwheel.libc import Libc
+from auditwheel.tools import is_subdir
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
 
-    from ..lddtree import DynamicExecutable
+    from auditwheel.lddtree import DynamicExecutable
 
 _HERE = Path(__file__).parent
 _MUSL_POLICY_RE = re.compile(r"^musllinux_\d+_\d+$")
