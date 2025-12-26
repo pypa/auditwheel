@@ -12,12 +12,10 @@ import os
 import re
 import zlib
 from base64 import urlsafe_b64encode
-from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from itertools import product
-from os.path import splitext
 from pathlib import Path
-from types import TracebackType
+from typing import TYPE_CHECKING
 
 from packaging.utils import parse_wheel_filename
 
@@ -27,6 +25,10 @@ from .error import NonPlatformWheel, WheelToolsError
 from .libc import Libc
 from .tmpdirs import InTemporaryDirectory
 from .tools import dir2zip, unique_by_index, walk, zip2dir
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+    from types import TracebackType
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +86,7 @@ def rewrite_record(bdist_dir: Path) -> None:
         """Wheel hashes every possible file."""
         return path == record_relpath
 
-    with open(record_path, "w+", newline="", encoding="utf-8") as record_file:
+    with record_path.open("w+", newline="", encoding="utf-8") as record_file:
         writer = csv.writer(record_file)
         for path in files():
             relative_path = path.relative_to(bdist_dir)
@@ -252,7 +254,7 @@ def add_platforms(
     fparts = {
         "prefix": wheel_fname.rsplit("-", maxsplit=1)[0],
         "plat": ".".join(sorted(fname_tags)),
-        "ext": splitext(wheel_fname)[1],
+        "ext": Path(wheel_fname).suffix,
     }
     out_wheel_fname = "{prefix}-{plat}{ext}".format(**fparts)
     out_wheel = out_dir / out_wheel_fname

@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-import glob
 import itertools
 import json
 import logging
-import os
 import platform
 import shutil
 import stat
-from collections.abc import Iterable
-from os.path import isabs
 from pathlib import Path
 from subprocess import check_call
+from typing import TYPE_CHECKING
 
-from auditwheel.patcher import ElfPatcher
 from auditwheel.sboms import create_sbom_for_wheel
 
 from .elfutils import elf_read_dt_needed, elf_read_rpaths
@@ -21,8 +17,13 @@ from .hashfile import hashfile
 from .lddtree import LIBPYTHON_RE
 from .policy import get_replace_platforms
 from .tools import is_subdir, unique_by_index
-from .wheel_abi import WheelAbIInfo
 from .wheeltools import WHEEL_INFO_RE, InWheelCtx, add_platforms
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from auditwheel.patcher import ElfPatcher
+    from auditwheel.wheel_abi import WheelAbIInfo
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ def repair_wheel(
             raise ValueError(msg)
 
         dest_dir = Path(match.group("name") + lib_sdir)
-        dist_info_dirs = glob.glob(str(ctx.path / "*.dist-info"))
+        dist_info_dirs = list(ctx.path.glob("*.dist-info"))
         assert len(dist_info_dirs) == 1, (
             f"Expected exactly one .dist-info directory, found {len(dist_info_dirs)}: {dist_info_dirs}"
         )
@@ -102,9 +103,8 @@ def repair_wheel(
                 if _path_is_script(fn):
                     new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
 
-                new_rpath = os.path.relpath(dest_dir, new_fn.parent)
-                new_rpath = os.path.join("$ORIGIN", new_rpath)
-                append_rpath_within_wheel(new_fn, new_rpath, ctx.name, patcher)
+                new_rpath = Path("$ORIGIN") / dest_dir.relative_to(new_fn.parent)
+                append_rpath_within_wheel(new_fn, str(new_rpath), ctx.name, patcher)
 
         # we grafted in a bunch of libraries and modified their sonames, but
         # they may have internal dependencies (DT_NEEDED) on one another, so
@@ -161,7 +161,7 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
     # if the library has a RUNPATH/RPATH we clear it and set RPATH to point to
     # its new location.
 
-    with open(src_path, "rb") as f:
+    with src_path.open("rb") as f:
         shorthash = hashfile(f)[:8]
 
     src_name = src_path.name
@@ -180,7 +180,7 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
     shutil.copy2(src_path, dest_path)
     statinfo = dest_path.stat()
     if not statinfo.st_mode & stat.S_IWRITE:
-        os.chmod(dest_path, statinfo.st_mode | stat.S_IWRITE)
+        dest_path.chmod(statinfo.st_mode | stat.S_IWRITE)
 
     patcher.set_soname(dest_path, new_soname)
 
@@ -218,7 +218,7 @@ def append_rpath_within_wheel(
 
 def _is_valid_rpath(rpath: str, lib_dir: Path, wheel_base_dir: Path) -> bool:
     full_rpath_entry = _resolve_rpath_tokens(rpath, lib_dir)
-    if not isabs(full_rpath_entry):
+    if not Path(full_rpath_entry).is_absolute():
         logger.debug(
             "rpath entry %s could not be resolved to an absolute path -- discarding it.",
             rpath,
@@ -274,11 +274,11 @@ def _replace_elf_script_with_shim(package_name: str, orig_path: Path) -> Path:
     scripts_dir.mkdir(exist_ok=True)
 
     new_path = scripts_dir / orig_path.name
-    os.rename(orig_path, new_path)
+    orig_path.rename(new_path)
 
-    with open(orig_path, "w", newline="\n") as f:
+    with orig_path.open("w", newline="\n") as f:
         f.write(_script_shim(new_path))
-    os.chmod(orig_path, os.stat(new_path).st_mode)
+    orig_path.chmod(new_path.stat().st_mode)
 
     return new_path
 

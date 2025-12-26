@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .condatools import InCondaPkgCtx
 from .wheeltools import InWheelCtx
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def InGenericPkgCtx(

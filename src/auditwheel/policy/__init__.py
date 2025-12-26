@@ -4,17 +4,20 @@ import json
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..architecture import Architecture
 from ..elfutils import filter_undefined_symbols
 from ..error import InvalidLibc
-from ..lddtree import DynamicExecutable
 from ..libc import Libc
 from ..tools import is_subdir
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+
+    from ..lddtree import DynamicExecutable
 
 _HERE = Path(__file__).parent
 _MUSL_POLICY_RE = re.compile(r"^musllinux_\d+_\d+$")

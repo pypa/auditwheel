@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
 
 from .lddtree import parse_ld_paths
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+    from pathlib import Path
+
 
 def elf_read_dt_needed(fn: Path) -> list[str]:
     needed = []
-    with open(fn, "rb") as f:
+    with fn.open("rb") as f:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynamic")
         if section is None:
@@ -35,7 +38,7 @@ def elf_file_filter(paths: Iterable[Path]) -> Iterator[tuple[Path, ELFFile]]:
             continue
         else:
             try:
-                with open(path, "rb") as f:
+                with path.open("rb") as f:
                     candidate = ELFFile(f)
                     yield path, candidate
             except ELFError:
@@ -111,7 +114,7 @@ def elf_is_python_extension(fn: Path, elf: ELFFile) -> tuple[bool, int | None]:
 def elf_read_rpaths(fn: Path) -> dict[str, list[str]]:
     result: dict[str, list[str]] = {"rpaths": [], "runpaths": []}
 
-    with open(fn, "rb") as f:
+    with fn.open("rb") as f:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynamic")
         if section is None:
@@ -128,7 +131,7 @@ def elf_read_rpaths(fn: Path) -> dict[str, list[str]]:
 
 def get_undefined_symbols(path: Path) -> set[str]:
     undef_symbols = set()
-    with open(path, "rb") as f:
+    with path.open("rb") as f:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynsym")
         if section is not None:
