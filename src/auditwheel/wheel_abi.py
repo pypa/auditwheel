@@ -41,6 +41,7 @@ class WheelAbIInfo:
     pyfpe_policy: Policy
     blacklist_policy: Policy
     machine_policy: Policy
+    graft_policy: Policy
 
 
 @dataclass(frozen=True)
@@ -286,12 +287,37 @@ def _get_machine_policy(
     elftree_by_fn: dict[Path, DynamicExecutable],
     external_so_names: frozenset[str],
 ) -> Policy:
+    """
+    Determine the most appropriate machine policy for the wheel based on ELF
+    architectures and whitelisted external dependencies.
+    The function inspects the extended architecture of each top-level ELF file
+    in ``elftree_by_fn`` and of any library dependencies whose SONAME appears in
+    ``external_so_names``. If an ELF file requires instructions that are not
+    covered by ``policies.architecture``, the overall policy is downgraded to
+    reflect that requirement.
+    If the offending ELF file corresponds to an external shared object
+    (i.e. its SONAME is in ``external_so_names``), the function looks for a
+    policy whose whitelist contains that SONAME and uses the highest-priority
+    such policy instead of unconditionally falling back to the baseline
+    ``policies.linux`` policy. Informational or warning logs are emitted to
+    record any such downgrades.
+    :param policies: Collection of available wheel policies, including the
+        target architecture, the baseline ``linux`` policy, and the highest
+        (most permissive) default policy.
+    :param elftree_by_fn: Mapping from ELF file paths to their corresponding
+        :class:`DynamicExecutable` objects, used to inspect platforms and
+        dependency graphs.
+    :param external_so_names: Set of SONAMEs that are treated as external
+        references and may be whitelisted by individual policies.
+    :return: The selected :class:`Policy` after considering all relevant ELF
+        files and their dependencies.
+    """
     result = policies.highest
-    machine_to_check = {}
+    machine_to_check: dict[Path, tuple[str | None, Architecture | None]] = {}
     for fn, dynamic_executable in elftree_by_fn.items():
         if fn in machine_to_check:
             continue
-        machine_to_check[fn] = dynamic_executable.platform.extended_architecture
+        machine_to_check[fn] = (None, dynamic_executable.platform.extended_architecture)
         for dependency in dynamic_executable.libraries.values():
             if dependency.soname not in external_so_names:
                 continue
@@ -301,14 +327,30 @@ def _get_machine_policy(
             if dependency.realpath in machine_to_check:
                 continue
             machine_to_check[dependency.realpath] = (
-                dependency.platform.extended_architecture
+                dependency.soname,
+                dependency.platform.extended_architecture,
             )
 
-    for fn, extended_architecture in machine_to_check.items():
+    for fn, (soname, extended_architecture) in machine_to_check.items():
         if extended_architecture is None:
             continue
         if policies.architecture.is_superset(extended_architecture):
             continue
+        if soname is not None:
+            found_policy = policies.linux
+            for policy in policies:
+                if soname in policy.whitelist:
+                    found_policy = max(found_policy, policy)
+            if policies.linux.priority < found_policy.priority:
+                log.info(
+                    "ELF file %r requires %r instruction set, not in %r, whitelisted in %r",
+                    fn,
+                    extended_architecture.value,
+                    policies.architecture.value,
+                    found_policy.name,
+                )
+                result = min(result, found_policy)
+                continue
         log.warning(
             "ELF file %r requires %r instruction set, not in %r",
             fn,
@@ -327,6 +369,7 @@ def analyze_wheel_abi(
     exclude: frozenset[str],
     disable_isa_ext_check: bool,
     allow_graft: bool,
+    requested_policy_base_name: str | None = None,
 ) -> WheelAbIInfo:
     data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude)
     policies = data.policies
@@ -367,6 +410,27 @@ def analyze_wheel_abi(
         default=policies.linux,
     )
 
+    # don't allow highest priority policies with more grafted libraries
+    # than the requested policy
+    if requested_policy_base_name is None or requested_policy_base_name == "auto":
+        graft_lib_count = min(
+            (len(e.libs) for e in external_refs.values() if e.policy != policies.linux),
+            default=0,
+        )
+    else:
+        graft_lib_count = min(
+            (
+                len(e.libs)
+                for e in external_refs.values()
+                if e.policy.name.startswith(f"{requested_policy_base_name}_")
+            ),
+            default=0,
+        )
+    graft_policy = max(
+        (e.policy for e in external_refs.values() if len(e.libs) <= graft_lib_count),
+        default=policies.linux,
+    )
+
     if disable_isa_ext_check:
         machine_policy = policies.highest
     else:
@@ -384,6 +448,10 @@ def analyze_wheel_abi(
         blacklist_policy,
         machine_policy,
     )
+
+    if requested_policy_base_name is not None:
+        overall_policy = min(overall_policy, graft_policy)
+
     if not allow_graft:
         overall_policy = min(overall_policy, ref_policy)
 
@@ -399,6 +467,7 @@ def analyze_wheel_abi(
         pyfpe_policy,
         blacklist_policy,
         machine_policy,
+        graft_policy,
     )
 
 
