@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 import logging
+import os
 import platform
 import shutil
 import stat
@@ -102,8 +103,7 @@ def repair_wheel(
                 new_fn = fn
                 if _path_is_script(fn):
                     new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
-
-                new_rpath = Path("$ORIGIN") / dest_dir.relative_to(new_fn.parent)
+                new_rpath = Path("$ORIGIN") / os.path.relpath(dest_dir, new_fn.parent)
                 append_rpath_within_wheel(new_fn, str(new_rpath), ctx.name, patcher)
 
         # we grafted in a bunch of libraries and modified their sonames, but
