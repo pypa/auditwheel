@@ -272,7 +272,7 @@ def get_symbol_policies(
             ext_symbols = external_versioned_symbols[soname]
             for k in iter(ext_symbols):
                 policy_symbols[k].update(ext_symbols[k])
-        # if the whitelist policy changed, we don't want to allow highest priority policy
+        # if the white-list policy changed, we don't want to allow highest priority policy
         # than the current one, that is, only restrict to a lower priority policy
         found_policy = min(
             external_ref.policy, policies.versioned_symbols_policy(policy_symbols)
