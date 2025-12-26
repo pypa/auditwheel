@@ -112,45 +112,24 @@ log_cli_level = 20
 
 [tool.ruff]
 target-version = "py310"
+line-length = 100
+lint.select = ["ALL"]
+lint.ignore = [
+  "C901",
+  "D",  # TODO add doc
+  "FIX002", # TODO
+  "PLR",    # Design related pylint codes
+  "S6",     # TODO flake8-bandit subprocess related
+  "TD",
+]
 exclude = ["src/auditwheel/_vendor"]
 
-[tool.ruff.lint]
-extend-select = [
-  "B",           # flake8-bugbear
-  "I",           # isort
-  "ARG",         # flake8-unused-arguments
-  "C4",          # flake8-comprehensions
-  "EM",          # flake8-errmsg
-  "ICN",         # flake8-import-conventions
-  "ISC",         # flake8-implicit-str-concat
-  "G",           # flake8-logging-format
-  "PGH",         # pygrep-hooks
-  "PIE",         # flake8-pie
-  "PL",          # pylint
-  "PT",          # flake8-pytest-style
-  "PTH",         # flake8-use-pathlib
-  "RET",         # flake8-return
-  "RUF",         # Ruff-specific
-  "SIM",         # flake8-simplify
-  "TC",          # flake8-type-checking
-  "TID",         # flake8-tidy-imports
-  "UP",          # pyupgrade
-  "YTT",         # flake8-2020
-  "EXE",         # flake8-executable
-  "PYI",         # flake8-pyi
-  "PERF",
-]
-ignore = [
-  "ISC001", # Conflicts with formatter
-  "PLR",    # Design related pylint codes
-]
-
 [tool.ruff.lint.per-file-ignores]
-"scripts/calculate_symbol_versions.py" = ["PTH"]
+"scripts/calculate_symbol_versions.py" = ["ANN", "INP001", "PTH", "T201"]
 "src/auditwheel/lddtree.py" = ["PTH"]
-"src/auditwheel/main_lddtree.py" = ["PLC0415"]
-"src/auditwheel/main_repair.py" = ["PLC0415"]
-"src/auditwheel/main_show.py" = ["PLC0415"]
-"tests/**.py" = ["TC002", "TC003"]  # conditional type-checking imports
+"src/auditwheel/main*.py" = ["PLC0415", "T201"]
+"src/auditwheel/condatools.py" = ["ANN204"]
+"src/auditwheel/wheeltools.py" = ["ANN204"]
+"tests/**.py" = ["ANN", "ERA001", "FBT", "FIX002", "S101", "SLF001", "T201", "TC002", "TC003", "TD"]
 "tests/integration/**.py" = ["PTH"]
-"tests/integration/*/**.py" = ["PERF"]
+"tests/integration/*/**.py" = ["INP001", "PERF"]

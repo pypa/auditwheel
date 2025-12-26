@@ -53,7 +53,8 @@ class Architecture(Enum):
         machine = platform.machine()
         if sys.platform.startswith("win"):
             machine = {"AMD64": "x86_64", "ARM64": "aarch64", "x86": "i686"}.get(
-                machine, machine
+                machine,
+                machine,
             )
         elif sys.platform.startswith("darwin"):
             machine = {"arm64": "aarch64"}.get(machine, machine)

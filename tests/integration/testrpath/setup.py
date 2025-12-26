@@ -17,10 +17,8 @@ class BuildExt(build_ext):
             "-Ib a/a.c -Lb -lb"
         ).format(
             dtags_flag=(
-                "--enable-new-dtags"
-                if os.getenv("DTAG") == "runpath"
-                else "--disable-new-dtags"
-            )
+                "--enable-new-dtags" if os.getenv("DTAG") == "runpath" else "--disable-new-dtags"
+            ),
         )
         subprocess.check_call(cmd.split())
         super().run()
@@ -39,6 +37,6 @@ setup(
             include_dirs=["a"],
             libraries=["a"],
             library_dirs=["a"],
-        )
+        ),
     ],
 )

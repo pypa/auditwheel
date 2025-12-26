@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 
-class AuditwheelException(Exception):
-    def __init__(self, msg: str):
+class AuditwheelError(Exception):
+    def __init__(self, msg: str) -> None:
         super().__init__(msg)
 
     @property
     def message(self) -> str:
-        assert isinstance(self.args[0], str)
+        assert isinstance(self.args[0], str)  # noqa: S101
         return self.args[0]
 
 
-class InvalidLibc(AuditwheelException):
+class InvalidLibcError(AuditwheelError):
     pass
 
 
-class WheelToolsError(AuditwheelException):
+class WheelToolsError(AuditwheelError):
     pass
 
 
-class NonPlatformWheel(AuditwheelException):
+class NonPlatformWheelError(AuditwheelError):
     """No ELF binaries in the wheel"""
 
     def __init__(self, architecture: str | None, libraries: list[str] | None) -> None:

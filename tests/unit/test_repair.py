@@ -21,7 +21,7 @@ class TestRepair:
         full_lib_name = lib_name.absolute()
         append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
         check_output_expected_args = [
-            call(["patchelf", "--print-rpath", full_lib_name])
+            call(["patchelf", "--print-rpath", full_lib_name]),
         ]
         # Then that entry is preserved when updating the RPATH
         check_call_expected_args = [
@@ -33,7 +33,7 @@ class TestRepair:
                     "--set-rpath",
                     f"{existing_rpath.decode()}:$ORIGIN/.lib",
                     full_lib_name,
-                ]
+                ],
             ),
         ]
 
@@ -50,7 +50,7 @@ class TestRepair:
         full_lib_name = lib_name.absolute()
         append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
         check_output_expected_args = [
-            call(["patchelf", "--print-rpath", full_lib_name])
+            call(["patchelf", "--print-rpath", full_lib_name]),
         ]
         # Then that entry is eliminated when updating the RPATH
         check_call_expected_args = [
@@ -62,7 +62,7 @@ class TestRepair:
                     "--set-rpath",
                     "$ORIGIN/.lib",
                     full_lib_name,
-                ]
+                ],
             ),
         ]
 
@@ -79,13 +79,13 @@ class TestRepair:
         full_lib_name = lib_name.absolute()
         append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
         check_output_expected_args = [
-            call(["patchelf", "--print-rpath", full_lib_name])
+            call(["patchelf", "--print-rpath", full_lib_name]),
         ]
         # Then that entry is ignored when updating the RPATH
         check_call_expected_args = [
             call(["patchelf", "--remove-rpath", full_lib_name]),
             call(
-                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN", full_lib_name]
+                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN", full_lib_name],
             ),
         ]
 
@@ -103,13 +103,13 @@ class TestRepair:
         full_lib_name = lib_name.absolute()
         append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
         check_output_expected_args = [
-            call(["patchelf", "--print-rpath", full_lib_name])
+            call(["patchelf", "--print-rpath", full_lib_name]),
         ]
         # Then that entry is ignored when updating the RPATH
         check_call_expected_args = [
             call(["patchelf", "--remove-rpath", full_lib_name]),
             call(
-                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN", full_lib_name]
+                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN", full_lib_name],
             ),
         ]
 

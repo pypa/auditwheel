@@ -33,17 +33,22 @@ class TestGetWheelElfdata:
         ],
     )
     def test_finds_shared_library_in_purelib(
-        self, filenames: list[Path], message: str, monkeypatch: pytest.MonkeyPatch
+        self,
+        filenames: list[Path],
+        message: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         entered_context = pretend.stub(iter_files=lambda: filenames)
         context = pretend.stub(
-            __enter__=lambda: entered_context, __exit__=lambda *_: None
+            __enter__=lambda: entered_context,
+            __exit__=lambda *_: None,
         )
-        InGenericPkgCtx = pretend.stub(__call__=lambda _: context)
 
-        monkeypatch.setattr(wheel_abi, "InGenericPkgCtx", InGenericPkgCtx)
+        monkeypatch.setattr(wheel_abi, "InGenericPkgCtx", pretend.stub(__call__=lambda _: context))
         monkeypatch.setattr(
-            wheel_abi, "elf_is_python_extension", lambda fn, elf: (fn, elf)
+            wheel_abi,
+            "elf_is_python_extension",
+            lambda fn, elf: (fn, elf),
         )
         monkeypatch.setattr(
             wheel_abi,
@@ -53,7 +58,10 @@ class TestGetWheelElfdata:
 
         with pytest.raises(RuntimeError) as exec_info:
             wheel_abi.get_wheel_elfdata(
-                Libc.GLIBC, Architecture.x86_64, Path("/fakepath"), frozenset()
+                Libc.GLIBC,
+                Architecture.x86_64,
+                Path("/fakepath"),
+                frozenset(),
             )
 
         assert exec_info.value.args == (message,)
@@ -66,7 +74,7 @@ def test_get_symbol_policies() -> None:
         "libmvec.so.1": {
             "libc.so.6": {"GLIBC_2.2.5"},
             "libm.so.6": {"GLIBC_2.15", "GLIBC_2.2.5"},
-        }
+        },
     }
     external_refs = {}
     for policy in policies:
@@ -81,7 +89,10 @@ def test_get_symbol_policies() -> None:
         blacklist = {}
         external_refs[policy.name] = ExternalReference(libs, blacklist, policy)
     symbol_policies = wheel_abi.get_symbol_policies(
-        policies, versioned_symbols, external_versioned_symbols, external_refs
+        policies,
+        versioned_symbols,
+        external_versioned_symbols,
+        external_refs,
     )
     max_policy = max(symbol_policy[0] for symbol_policy in symbol_policies)
     assert max_policy.name == "manylinux_2_17_x86_64"

@@ -4,9 +4,10 @@ import argparse
 import logging
 import zlib
 from pathlib import Path
+from typing import Any
 
 from auditwheel.architecture import Architecture
-from auditwheel.error import NonPlatformWheel, WheelToolsError
+from auditwheel.error import NonPlatformWheelError, WheelToolsError
 from auditwheel.libc import Libc
 from auditwheel.patcher import Patchelf
 from auditwheel.policy import WheelPolicies
@@ -16,7 +17,7 @@ from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
 logger = logging.getLogger(__name__)
 
 
-def configure_parser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
+def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
     policies = WheelPolicies(libc=Libc.detect(), arch=Architecture.detect())
     policy_names = [p.name for p in policies if p != policies.linux]
     policy_names += [alias for p in policies for alias in p.aliases]
@@ -31,14 +32,14 @@ below.
         if len(p.aliases) > 0:
             epilog += f" (aliased by {', '.join(p.aliases)})"
         epilog += "\n"
-    help = """Vendor in external shared library dependencies of a wheel.
+    help_ = """Vendor in external shared library dependencies of a wheel.
 If multiple wheels are specified, an error processing one
 wheel will abort processing of subsequent wheels.
 """
     parser = sub_parsers.add_parser(
         "repair",
-        help=help,
-        description=help,
+        help=help_,
+        description=help_,
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -153,11 +154,14 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         try:
             arch = get_wheel_architecture(wheel_filename)
             if requested_architecture is not None and requested_architecture != arch:
-                msg = f"can't repair wheel {wheel_filename} with {arch.value} architecture to a wheel targeting {requested_architecture.value}"
+                msg = (
+                    f"can't repair wheel {wheel_filename} with {arch.value} architecture to a "
+                    f"wheel targeting {requested_architecture.value}"
+                )
                 parser.error(msg)
-        except (WheelToolsError, NonPlatformWheel):
+        except (WheelToolsError, NonPlatformWheelError):
             logger.warning(
-                "The architecture could not be deduced from the wheel filename"
+                "The architecture could not be deduced from the wheel filename",
             )
 
         try:
@@ -170,13 +174,19 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             if libc is None:
                 libc = Libc.GLIBC
             if libc != Libc.GLIBC:
-                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting GLIBC"
+                msg = (
+                    f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel "
+                    "targeting GLIBC"
+                )
                 parser.error(msg)
         elif plat_base.startswith("musllinux"):
             if libc is None:
                 libc = Libc.MUSL
             if libc != Libc.MUSL:
-                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting MUSL"
+                msg = (
+                    f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel "
+                    "targeting MUSL"
+                )
                 parser.error(msg)
 
         logger.info("Repairing %s", wheel_filename)
@@ -190,11 +200,11 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 arch,
                 wheel_file,
                 exclude,
-                args.DISABLE_ISA_EXT_CHECK,
-                True,
-                plat_base,
+                disable_isa_ext_check=args.DISABLE_ISA_EXT_CHECK,
+                allow_graft=True,
+                requested_policy_base_name=plat_base,
             )
-        except NonPlatformWheel as e:
+        except NonPlatformWheelError as e:
             logger.info(e.message)
             return 1
 

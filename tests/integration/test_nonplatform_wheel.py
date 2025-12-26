@@ -45,7 +45,8 @@ def test_non_platform_wheel_unknown_arch(mode, arch, tmp_path):
 
 @pytest.mark.parametrize("mode", ["repair", "show"])
 @pytest.mark.parametrize(
-    "arch", ["aarch64", "armv7l", "i686", "x86_64", "ppc64le", "s390x"]
+    "arch",
+    ["aarch64", "armv7l", "i686", "x86_64", "ppc64le", "s390x"],
 )
 def test_non_platform_wheel_bad_arch(mode, arch, tmp_path):
     host_arch = Architecture.detect().value

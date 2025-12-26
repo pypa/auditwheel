@@ -15,9 +15,9 @@ from auditwheel.elfutils import (
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
     elf_is_python_extension,
-    elf_references_PyFPE_jbuf,
+    elf_references_pyfpe_jbuf,
 )
-from auditwheel.error import InvalidLibc, NonPlatformWheel
+from auditwheel.error import InvalidLibcError, NonPlatformWheelError
 from auditwheel.genericpkgctx import InGenericPkgCtx
 from auditwheel.lddtree import DynamicExecutable, ldd
 from auditwheel.libc import Libc
@@ -54,7 +54,7 @@ class WheelElfData:
     full_external_refs: dict[Path, dict[str, ExternalReference]]
     versioned_symbols: dict[str, set[str]]
     uses_ucs2_symbols: bool
-    uses_PyFPE_jbuf: bool
+    uses_pyfpe_jbuf: bool
 
 
 @functools.lru_cache
@@ -69,7 +69,7 @@ def get_wheel_elfdata(
     full_external_refs: dict[Path, dict[str, ExternalReference]] = {}
     versioned_symbols: dict[str, set[str]] = defaultdict(set)
     uses_ucs2_symbols = False
-    uses_PyFPE_jbuf = False
+    uses_pyfpe_jbuf = False
     policies: WheelPolicies | None = None
 
     with InGenericPkgCtx(wheel_fn) as ctx:
@@ -130,18 +130,17 @@ def get_wheel_elfdata(
                 # include its external dependencies.
                 if is_py_ext:
                     if policies is None:
-                        assert architecture is not None
-                        assert libc is None
+                        assert architecture is not None  # noqa: S101
+                        assert libc is None  # noqa: S101
                         msg = f"couldn't detect libc for python extension {fn}"
-                        raise InvalidLibc(msg)
+                        raise InvalidLibcError(msg)
                     full_elftree[fn] = elftree
-                    uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
+                    uses_pyfpe_jbuf |= elf_references_pyfpe_jbuf(elf)
                     if py_ver == 2:
-                        uses_ucs2_symbols |= any(
-                            True for _ in elf_find_ucs2_symbols(elf)
-                        )
+                        uses_ucs2_symbols |= any(True for _ in elf_find_ucs2_symbols(elf))
                     full_external_refs[fn] = policies.lddtree_external_references(
-                        elftree, ctx.path
+                        elftree,
+                        ctx.path,
                     )
                 else:
                     # If the ELF is not a Python extension, it might be
@@ -163,7 +162,7 @@ def get_wheel_elfdata(
 
         if not platform_wheel:
             arch = None if architecture is None else architecture.value
-            raise NonPlatformWheel(arch, shared_libraries_with_invalid_machine)
+            raise NonPlatformWheelError(arch, shared_libraries_with_invalid_machine)
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
@@ -176,8 +175,8 @@ def get_wheel_elfdata(
             # we have no python extensions, either we have shared libraries with
             # no dependencies on libc (unlikely) or a statically linked executable
             # let's fallback to the host libc
-            assert architecture is not None
-            assert libc is None
+            assert architecture is not None  # noqa: S101
+            assert libc is None  # noqa: S101
             libc = Libc.detect()
             log.warning("couldn't detect wheel libc, defaulting to %s", str(libc))
             policies = WheelPolicies(libc=libc, arch=architecture)
@@ -193,12 +192,14 @@ def get_wheel_elfdata(
             # should include it as an external reference, because
             # it might require additional external libraries.
             full_external_refs[fn] = policies.lddtree_external_references(
-                elf_tree, ctx.path
+                elf_tree,
+                ctx.path,
             )
 
     log.debug("full_elftree:\n%s", json.dumps(full_elftree))
     log.debug(
-        "full_external_refs (will be repaired):\n%s", json.dumps(full_external_refs)
+        "full_external_refs (will be repaired):\n%s",
+        json.dumps(full_external_refs),
     )
 
     return WheelElfData(
@@ -207,7 +208,7 @@ def get_wheel_elfdata(
         full_external_refs,
         versioned_symbols,
         uses_ucs2_symbols,
-        uses_PyFPE_jbuf,
+        uses_pyfpe_jbuf,
     )
 
 
@@ -239,8 +240,7 @@ def get_versioned_symbols(libs: dict[Path, str]) -> dict[str, dict[str, set[str]
     """
     result = {}
     for path, elf in elf_file_filter(libs.keys()):
-        # {depname: set(symbol_version)}, e.g.
-        # {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
+        # {depname: set(symbol_version)}, e.g. {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
         elf_versioned_symbols: dict[str, set[str]] = defaultdict(set)
         for key, value in elf_find_versioned_symbols(elf):
             log.debug("path %s, key %s, value %s", path, key, value)
@@ -279,7 +279,8 @@ def get_symbol_policies(
         # if the white-list policy changed, we don't want to allow highest priority policy
         # than the current one, that is, only restrict to a lower priority policy
         found_policy = min(
-            external_ref.policy, policies.versioned_symbols_policy(policy_symbols)
+            external_ref.policy,
+            policies.versioned_symbols_policy(policy_symbols),
         )
         result.append((found_policy, policy_symbols))
     return result
@@ -326,7 +327,7 @@ def _get_machine_policy(
                 continue
             if dependency.realpath is None:
                 continue
-            assert dependency.platform is not None
+            assert dependency.platform is not None  # noqa: S101
             if dependency.realpath in machine_to_check:
                 continue
             machine_to_check[dependency.realpath] = (
@@ -370,6 +371,7 @@ def analyze_wheel_abi(
     architecture: Architecture | None,
     wheel_fn: Path,
     exclude: frozenset[str],
+    *,
     disable_isa_ext_check: bool,
     allow_graft: bool,
     requested_policy_base_name: str | None = None,
@@ -393,14 +395,19 @@ def analyze_wheel_abi(
     external_libs = get_external_libs(external_refs)
     external_versioned_symbols = get_versioned_symbols(external_libs)
     symbol_policies = get_symbol_policies(
-        policies, versioned_symbols, external_versioned_symbols, external_refs
+        policies,
+        versioned_symbols,
+        external_versioned_symbols,
+        external_refs,
     )
     symbol_policy = policies.versioned_symbols_policy(versioned_symbols)
 
     # let's keep the highest priority policy and
     # corresponding versioned_symbols
     symbol_policy, versioned_symbols = max(
-        symbol_policies, key=lambda x: x[0], default=(symbol_policy, versioned_symbols)
+        symbol_policies,
+        key=lambda x: x[0],
+        default=(symbol_policy, versioned_symbols),
     )
 
     ref_policy = max(
@@ -438,11 +445,13 @@ def analyze_wheel_abi(
         machine_policy = policies.highest
     else:
         machine_policy = _get_machine_policy(
-            policies, elftree_by_fn, frozenset(external_libs.values())
+            policies,
+            elftree_by_fn,
+            frozenset(external_libs.values()),
         )
 
     ucs_policy = policies.linux if data.uses_ucs2_symbols else policies.highest
-    pyfpe_policy = policies.linux if data.uses_PyFPE_jbuf else policies.highest
+    pyfpe_policy = policies.linux if data.uses_pyfpe_jbuf else policies.highest
 
     overall_policy = min(
         symbol_policy,
@@ -480,21 +489,21 @@ _T = TypeVar("_T", ExternalReference, Path | None)
 def update(d: dict[str, _T], u: Mapping[str, _T]) -> None:
     for k, v in u.items():
         if isinstance(v, ExternalReference):
-            assert k in d
-            assert isinstance(d[k], ExternalReference)
-            assert d[k].policy == v.policy
+            assert k in d  # noqa: S101
+            assert isinstance(d[k], ExternalReference)  # noqa: S101
+            assert d[k].policy == v.policy  # noqa: S101
             # update blacklist
             for lib, symbols in v.blacklist.items():
                 if lib not in d[k].blacklist:
                     d[k].blacklist[lib] = sorted(symbols)
                 else:
                     d[k].blacklist[lib] = sorted(
-                        set(d[k].blacklist[lib]) | set(symbols)
+                        set(d[k].blacklist[lib]) | set(symbols),
                     )
             # libs
             update(d[k].libs, v.libs)
         elif isinstance(v, (Path, type(None))):
-            d[k] = u[k]
+            d[k] = v
         else:
             msg = f"can't update {d} with {k}:{v}"
-            raise RuntimeError(msg)
+            raise TypeError(msg)

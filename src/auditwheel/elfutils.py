@@ -20,9 +20,7 @@ def elf_read_dt_needed(fn: Path) -> list[str]:
         if section is None:
             msg = f"Could not find soname in {fn}"
             raise ValueError(msg)
-        needed.extend(
-            t.needed for t in section.iter_tags() if t.entry.d_tag == "DT_NEEDED"
-        )
+        needed.extend(t.needed for t in section.iter_tags() if t.entry.d_tag == "DT_NEEDED")
     return needed
 
 
@@ -30,7 +28,6 @@ def elf_file_filter(paths: Iterable[Path]) -> Iterator[tuple[Path, ELFFile]]:
     """Filter through an iterator of filenames and load up only ELF
     files
     """
-
     for path in paths:
         if path.name.endswith(".py"):
             continue
@@ -71,7 +68,7 @@ def elf_find_ucs2_symbols(elf: ELFFile) -> Iterator[str]:
                 yield sym.name
 
 
-def elf_references_PyFPE_jbuf(elf: ELFFile) -> bool:
+def elf_references_pyfpe_jbuf(elf: ELFFile) -> bool:
     offending_symbol_names = ("PyFPE_jbuf", "PyFPE_dummy", "PyFPE_counter")
     section = elf.get_section_by_name(".dynsym")
     if section is not None:
@@ -141,7 +138,8 @@ def get_undefined_symbols(path: Path) -> set[str]:
 
 
 def filter_undefined_symbols(
-    path: Path, symbols: dict[str, frozenset[str]]
+    path: Path,
+    symbols: dict[str, frozenset[str]],
 ) -> dict[str, list[str]]:
     if not symbols:
         return {}

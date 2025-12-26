@@ -12,19 +12,19 @@ if TYPE_CHECKING:
 
 class ElfPatcher:
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def remove_needed(self, file_name: Path, *sonames: str) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def set_soname(self, file_name: Path, new_so_name: str) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def set_rpath(self, file_name: Path, rpath: str) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_rpath(self, file_name: Path) -> str:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 def _verify_patchelf() -> None:
@@ -56,11 +56,9 @@ class Patchelf(ElfPatcher):
         check_call(
             [
                 "patchelf",
-                *chain.from_iterable(
-                    ("--replace-needed", *pair) for pair in old_new_pairs
-                ),
+                *chain.from_iterable(("--replace-needed", *pair) for pair in old_new_pairs),
                 file_name,
-            ]
+            ],
         )
 
     def remove_needed(self, file_name: Path, *sonames: str) -> None:
@@ -69,7 +67,7 @@ class Patchelf(ElfPatcher):
                 "patchelf",
                 *chain.from_iterable(("--remove-needed", soname) for soname in sonames),
                 file_name,
-            ]
+            ],
         )
 
     def set_soname(self, file_name: Path, new_so_name: str) -> None:
@@ -80,8 +78,4 @@ class Patchelf(ElfPatcher):
         check_call(["patchelf", "--force-rpath", "--set-rpath", rpath, file_name])
 
     def get_rpath(self, file_name: Path) -> str:
-        return (
-            check_output(["patchelf", "--print-rpath", file_name])
-            .decode("utf-8")
-            .strip()
-        )
+        return check_output(["patchelf", "--print-rpath", file_name]).decode("utf-8").strip()

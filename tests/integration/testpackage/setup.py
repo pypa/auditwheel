@@ -12,10 +12,10 @@ subprocess.check_call(
         "-lgslcblas",
         "-o",
         "testpackage/testprogram",
-    )
+    ),
 )
 subprocess.check_call(
-    ("gcc", "testpackage/testprogram_nodeps.c", "-o", "testpackage/testprogram_nodeps")
+    ("gcc", "testpackage/testprogram_nodeps.c", "-o", "testpackage/testprogram_nodeps"),
 )
 
 setup(
@@ -30,6 +30,6 @@ setup(
     # Note that using scripts=[] doesn't work here since setuptools expects the
     # scripts to be text and tries to decode them using UTF-8.
     data_files=[
-        ("../scripts", ["testpackage/testprogram", "testpackage/testprogram_nodeps"])
+        ("../scripts", ["testpackage/testprogram", "testpackage/testprogram_nodeps"]),
     ],
 )
