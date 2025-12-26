@@ -300,11 +300,12 @@ def docker_start(
     logger.info("Starting container with image %r", image)
     con = client.containers.run(
         image,
-        ["sleep", "10000"],
+        ["tail", "-f", "/dev/null"],
         detach=True,
         volumes=dvolumes,
         environment=env_variables,
         platform=f"linux/{goarch}",
+        working_dir="/auditwheel_src" if "/auditwheel_src" in volumes else None,
     )
     assert isinstance(con.id, str)
     logger.info("Started container %s", con.id[:12])
@@ -325,12 +326,6 @@ def docker_container_ctx(
     vols = {"/auditwheel_src": str(src_folder)}
     if io_dir is not None:
         vols["/io"] = str(io_dir)
-
-    for key in env_variables:
-        if key.startswith("COV_CORE_"):
-            env_variables[key] = env_variables[key].replace(
-                str(src_folder), "/auditwheel_src"
-            )
 
     container = docker_start(image, vols, env_variables)
     try:
@@ -471,9 +466,11 @@ class Anylinux:
     ) -> Generator[AnyLinuxContainer, None, None]:
         policy, manylinux_img = any_manylinux_img
         env = {"PATH": PATH[policy]}
-        for key in os.environ:
-            if key.startswith("COV_CORE_"):
-                env[key] = os.environ[key]
+        # coverage is too slow with QEMU, even more so on ppc64le & s390x which lack a
+        # C extension.
+        # only enable coverage when QEMU is not enabled.
+        if os.environ.get("AUDITWHEEL_QEMU", "") != "true":
+            env["COVERAGE_PROCESS_START"] = "/auditwheel_src/pyproject.toml"
 
         with docker_container_ctx(manylinux_img, io_folder, env) as container:
             platform_tag = ".".join(
@@ -971,7 +968,7 @@ class TestManylinux(Anylinux):
     def any_manylinux_img(self, request):
         """Each manylinux image, with auditwheel installed.
 
-        Plus up-to-date pip, setuptools and pytest-cov
+        Plus up-to-date pip, setuptools and coverage
         """
         policy = request.param
         check_set = {
@@ -984,7 +981,7 @@ class TestManylinux(Anylinux):
         env = {"PATH": PATH[policy]}
         commands = [
             'git config --global --add safe.directory "/auditwheel_src"',
-            "pip install -U pip setuptools pytest-cov",
+            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
@@ -1166,14 +1163,14 @@ class TestMusllinux(Anylinux):
     def any_manylinux_img(self, request):
         """Each musllinux image, with auditwheel installed.
 
-        Plus up-to-date pip, setuptools and pytest-cov
+        Plus up-to-date pip, setuptools and coverage
         """
         policy = request.param
         base = MUSLLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
         commands = [
             'git config --global --add safe.directory "/auditwheel_src"',
-            "pip install -U pip setuptools pytest-cov",
+            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
         with tmp_docker_image(base, commands, env) as img_id:
