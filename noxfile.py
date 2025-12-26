@@ -89,7 +89,7 @@ def tests(session: nox.Session) -> None:
         "patchelf==0.17.2.1",
     )
     if RUNNING_CI:
-        posargs.extend(["--cov", "auditwheel", "--cov-branch"])
+        posargs.extend(["--cov", "auditwheel", "--cov-config", "pyproject.toml"])
         # pull manylinux images that will be used.
         # this helps passing tests which would otherwise timeout.
         for image in _docker_images(session):

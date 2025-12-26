@@ -42,7 +42,7 @@ Homepage = "https://github.com/pypa/auditwheel"
 
 [dependency-groups]
 test = ["pytest>=3.4", "jsonschema", "patchelf", "pretend", "docker"]
-coverage = ["pytest-cov", {include-group = "test"}]
+coverage = ["pytest-cov>=7", "coverage[toml]>=7.13", {include-group = "test"}]
 dev = [{include-group = "test"}, {include-group = "coverage"}]
 
 [tool.setuptools]
@@ -58,6 +58,25 @@ auditwheel = ["*.json"]
 
 [tool.setuptools_scm]
 # enable version inference
+
+[tool.coverage.run]
+branch = true
+parallel = true
+patch = ["subprocess"]
+omit = [
+  "*/_vendor/*",
+]
+
+[tool.coverage.paths]
+source = [
+    "src/auditwheel/",
+    "/auditwheel_src/src/auditwheel/",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    "raise NotImplementedError",
+]
 
 [tool.mypy]
 check_untyped_defs = true
