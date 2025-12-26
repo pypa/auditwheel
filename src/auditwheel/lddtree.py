@@ -27,9 +27,9 @@ from elftools.elf.constants import E_FLAGS
 from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import NoteSection
 
-from .architecture import Architecture
-from .error import InvalidLibc
-from .libc import Libc
+from auditwheel.architecture import Architecture
+from auditwheel.error import InvalidLibc
+from auditwheel.libc import Libc
 
 log = logging.getLogger(__name__)
 __all__ = ["LIBPYTHON_RE", "DynamicExecutable", "DynamicLibrary", "ldd"]

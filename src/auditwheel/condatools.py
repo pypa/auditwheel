@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .tmpdirs import InTemporaryDirectory
-from .tools import tarbz2todir
+from auditwheel.tmpdirs import InTemporaryDirectory
+from auditwheel.tools import tarbz2todir
 
 if TYPE_CHECKING:
     from pathlib import Path

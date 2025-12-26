@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .condatools import InCondaPkgCtx
-from .wheeltools import InWheelCtx
+from auditwheel.condatools import InCondaPkgCtx
+from auditwheel.wheeltools import InWheelCtx
 
 if TYPE_CHECKING:
     from pathlib import Path

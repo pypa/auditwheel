@@ -9,10 +9,9 @@ from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheel, WheelToolsError
 from auditwheel.libc import Libc
 from auditwheel.patcher import Patchelf
+from auditwheel.policy import WheelPolicies
+from auditwheel.tools import EnvironmentDefault
 from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
-
-from .policy import WheelPolicies
-from .tools import EnvironmentDefault
 
 logger = logging.getLogger(__name__)
 
@@ -128,8 +127,8 @@ wheel will abort processing of subsequent wheels.
 
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    from .repair import repair_wheel
-    from .wheel_abi import analyze_wheel_abi
+    from auditwheel.repair import repair_wheel
+    from auditwheel.wheel_abi import analyze_wheel_abi
 
     exclude: frozenset[str] = frozenset(args.EXCLUDE)
     wheel_dir: Path = args.WHEEL_DIR.absolute()
