@@ -465,10 +465,12 @@ class Anylinux:
         self, any_manylinux_img: tuple[str, str], io_folder: Path
     ) -> Generator[AnyLinuxContainer, None, None]:
         policy, manylinux_img = any_manylinux_img
-        env = {
-            "PATH": PATH[policy],
-            "COVERAGE_PROCESS_START": "/auditwheel_src/pyproject.toml",
-        }
+        env = {"PATH": PATH[policy]}
+        # coverage is too slow with QEMU, even more so on ppc64le & s390x which lack a
+        # C extension.
+        # only enable coverage when QEMU is not enabled.
+        if os.environ.get("AUDITWHEEL_QEMU", "") != "true":
+            env["COVERAGE_PROCESS_START"] = "/auditwheel_src/pyproject.toml"
 
         with docker_container_ctx(manylinux_img, io_folder, env) as container:
             platform_tag = ".".join(
