@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from auditwheel.condatools import InCondaPkg, InCondaPkgCtx
 
@@ -25,3 +28,13 @@ def test_in_condapkg_context(_):  # noqa: PT019
         assert len(files) == 3
         assert "file1" in files
         assert "file2" in files
+
+
+@patch("auditwheel.condatools.tarbz2todir")
+def test_in_condapkg_context_no_manager(_):  # noqa: PT019
+    conda_pkg = InCondaPkgCtx(Path("/fakepath"))
+    with pytest.raises(
+        ValueError,
+        match=re.escape("This function should be called from context manager"),
+    ):
+        conda_pkg.iter_files()

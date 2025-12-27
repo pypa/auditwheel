@@ -185,12 +185,8 @@ class InWheelCtx(InWheel):
         if self.path is None:
             msg = "This function should be called from context manager"
             raise ValueError(msg)
-        record_names = list(self.path.glob("*.dist-info/RECORD"))
-        if len(record_names) != 1:
-            msg = "Should be exactly one `*.dist_info` directory"
-            raise ValueError(msg)
-
-        record = record_names[0].read_text()
+        record_name = _dist_info_dir(self.path) / "RECORD"
+        record = record_name.read_text()
         reader = csv.reader(r for r in record.splitlines())
         for row in reader:
             filename = row[0]

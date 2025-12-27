@@ -11,7 +11,9 @@ from auditwheel.elfutils import (
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
     elf_read_dt_needed,
+    elf_read_rpaths,
     elf_references_pyfpe_jbuf,
+    get_undefined_symbols,
 )
 
 
@@ -144,6 +146,15 @@ class TestElfFindVersionedSymbols:
 
 
 class TestFindUcs2Symbols:
+    def test_missing_dynsym_section(self):
+        # GIVEN
+        elf = Mock()
+        elf.get_section_by_name.return_value = None
+
+        # THEN
+        result = list(elf_find_ucs2_symbols(elf))
+        assert result == []
+
     def test_elf_find_ucs2_symbols(self):
         # GIVEN
         elf = Mock()
@@ -218,3 +229,31 @@ class TestElfReferencesPyPFE:
 
         # WHEN/THEN
         assert elf_references_pyfpe_jbuf(elf) is False
+
+
+@patch("auditwheel.elfutils.ELFFile")
+class TestElfReadRpaths:
+    def test_missing_dynamic_section(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+
+        # GIVEN
+        fake.touch()
+        elffile_mock.return_value.get_section_by_name.return_value = None
+
+        # THEN
+        result = elf_read_rpaths(fake)
+        assert result == {"rpaths": [], "runpaths": []}
+
+
+@patch("auditwheel.elfutils.ELFFile")
+class TestGetUndefinedSymbols:
+    def test_missing_dynsym_section(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+
+        # GIVEN
+        fake.touch()
+        elffile_mock.return_value.get_section_by_name.return_value = None
+
+        # THEN
+        result = get_undefined_symbols(fake)
+        assert result == set()
