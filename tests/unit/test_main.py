@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from importlib import metadata
 
 import pytest
 
@@ -105,10 +106,13 @@ def test_repair_wheel_mismatch(
     assert message in captured.err
 
 
-def test_main_lddtree() -> None:
+@on_supported_platform
+def test_main_module() -> None:
+    version = metadata.version("auditwheel")
     result = subprocess.run(
-        [sys.executable, "-m", "auditwheel", "lddtree", sys.executable],
-        check=False,
+        [sys.executable, "-m", "auditwheel", "-V"],
+        check=True,
+        capture_output=True,
+        text=True,
     )
-    expected_returncode = 0 if sys.platform == "linux" else 1
-    assert result.returncode == expected_returncode
+    assert result.stdout.startswith(f"auditwheel {version}")
