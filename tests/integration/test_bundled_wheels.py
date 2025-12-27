@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import os
 import sys
 import zipfile
@@ -8,6 +9,7 @@ from argparse import Namespace
 from datetime import datetime, timezone
 from os.path import isabs
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -214,3 +216,45 @@ def test_libpython(tmp_path, caplog):
     assert tuple(path.name for path in tmp_path.glob("*.whl")) == (
         "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_31_aarch64.whl",
     )
+
+
+def test_main_lddtree(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    wheel_path = (
+        HERE
+        / "patchelf-0.17.2.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl"  # noqa: E501
+    )
+    patchelf_path = tmp_path / "patchelf-0.17.2.1.data/scripts/patchelf"
+    with zipfile.ZipFile(wheel_path) as f:
+        f.extract(str(patchelf_path.relative_to(tmp_path)), tmp_path)
+    patchelf_path = patchelf_path.resolve(strict=True)
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
+    monkeypatch.setattr(sys, "argv", ["auditwheel", "lddtree", str(patchelf_path)])
+    assert main() == 0
+    assert len(caplog.messages) == 1
+    actual_json = json.loads(caplog.messages[0])
+    expected_json: Any = {
+        "interpreter": None,
+        "libc": None,
+        "path": str(patchelf_path),
+        "realpath": str(patchelf_path),
+        "platform": {
+            "_elf_osabi": "ELFOSABI_SYSV",
+            "_elf_class": 64,
+            "_elf_little_endian": True,
+            "_elf_machine": "EM_X86_64",
+            "_base_arch": "<Architecture.x86_64: 'x86_64'>",
+            "_ext_arch": None,
+            "_error_msg": None,
+        },
+        "needed": [],
+        "rpath": [],
+        "runpath": [],
+        "libraries": {},
+    }
+    assert expected_json == actual_json
