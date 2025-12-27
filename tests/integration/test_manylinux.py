@@ -1202,7 +1202,7 @@ class TestManylinux(Anylinux):
         output = anylinux.show(orig_wheel, verbose=True)
         output = output.replace("\n", " ")
         assert "black-listed symbol dependencies" in output
-        # glibc moves symbol from libray to library so libc.so.6 is used as a catch all
+        # glibc moves symbol from library to library so libc.so.6 is used as a catch all
         # as it's more likely to be needed
         needle = (
             "From libc.so.6: __cxa_thread_atexit_impl, __issignaling, __issignalingf, "
