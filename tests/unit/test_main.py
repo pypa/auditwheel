@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 
 import pytest
@@ -102,3 +103,12 @@ def test_repair_wheel_mismatch(
 
     captured = capsys.readouterr()
     assert message in captured.err
+
+
+def test_main_lddtree() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "auditwheel", "lddtree", sys.executable],
+        check=False,
+    )
+    expected_returncode = 0 if sys.platform == "linux" else 1
+    assert result.returncode == expected_returncode

@@ -91,7 +91,6 @@ def tests(session: nox.Session) -> None:
 
     session.run("pytest", "-s", *posargs)
     if RUNNING_CI:
-        session.run("auditwheel", "lddtree", sys.executable)
         session.run("coverage", "xml", "-ocoverage.xml")
 
 
