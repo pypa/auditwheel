@@ -1176,6 +1176,54 @@ class TestManylinux(Anylinux):
         output = anylinux.show(orig_wheel, verbose=True)
         assert "black-listed symbol dependencies" in output.replace("\n", " ")
 
+    @pytest.mark.skipif(PLATFORM != "aarch64", reason="glibc blacklist only for aarch64")
+    def test_glibc_blacklist(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
+        # https://github.com/pypa/auditwheel/issues/647
+        policy = anylinux.policy
+        if policy.startswith("manylinux_2_17_"):
+            pytest.skip(f"{policy} image can't build this test")
+
+        test_path = "/auditwheel_src/tests/integration/test_aarch64_glibc_blacklist"
+        orig_wheel = anylinux.build_wheel(test_path, check_filename=False)
+        assert orig_wheel.startswith("test_aarch64_glibc_blacklist-0.0.1-")
+
+        # Repair the wheel using the appropriate manylinux container
+        anylinux.repair(orig_wheel, only_plat=not policy.startswith("manylinux_2_28_"))
+        platform_tag = policy
+        if policy.startswith("manylinux_2_28_"):
+            platform_tag = f"manylinux_2_24_aarch64.{platform_tag}"
+        repaired_wheel = anylinux.check_wheel(
+            "test_aarch64_glibc_blacklist",
+            python_abi="py3-none",
+            platform_tag=platform_tag,
+        )
+
+        # Check auditwheel show warns about the black listed symbols
+        output = anylinux.show(orig_wheel, verbose=True)
+        output = output.replace("\n", " ")
+        assert "black-listed symbol dependencies" in output
+        # glibc moves symbol from libray to library so libc.so.6 is used as a catch all
+        # as it's more likely to be needed
+        needle = (
+            "From libc.so.6: __cxa_thread_atexit_impl, __issignaling, __issignalingf, "
+            "__issignalingl, pthread_getattr_default_np, pthread_setattr_default_np"
+        )
+        assert needle in output
+        needle = "From libm.so.6: __issignaling, __issignalingf, __issignalingl"
+        assert needle in output
+        needle = "From libpthread.so.0: pthread_getattr_default_np, pthread_setattr_default_np"
+        if policy.startswith("manylinux_2_28_"):
+            assert needle in output
+        else:
+            assert needle not in output
+
+        # Test the resulting wheel outside the manylinux container
+        python.install_wheel(repaired_wheel)
+        python.exec("test_signaling")
+        python.exec("test_signalingf")
+        python.exec("test_signalingl")
+        python.exec("test_pthread")
+
 
 class TestMusllinux(Anylinux):
     @pytest.fixture(scope="session")
