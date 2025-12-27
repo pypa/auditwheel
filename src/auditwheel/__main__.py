@@ -4,5 +4,5 @@ import sys
 
 from auditwheel.main import main
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no branch
     sys.exit(main())

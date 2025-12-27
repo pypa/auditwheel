@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from auditwheel.libc import Libc
 from auditwheel.wheeltools import (
     InWheelCtx,
     WheelToolsError,
+    add_platforms,
     get_wheel_architecture,
     get_wheel_libc,
 )
@@ -98,3 +100,35 @@ def test_inwheel_tmpdir(tmp_path, monkeypatch):
     with InWheelCtx(wheel_path, tmp_path / wheel_path.name) as context:
         Path(context._tmpdir.name).relative_to(tmpdir_symlink)
         context.name.relative_to(tmpdir)
+
+
+def test_inwheel_no_manager(tmp_path):
+    wheel_path = (
+        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
+    )
+    context = InWheelCtx(wheel_path, tmp_path / wheel_path.name)
+    with pytest.raises(
+        ValueError,
+        match=re.escape("This function should be called from context manager"),
+    ):
+        next(context.iter_files())
+    with pytest.raises(
+        ValueError,
+        match=re.escape("This function should be called from wheel_ctx context manager"),
+    ):
+        add_platforms(context, [], [])
+
+
+def test_inwheel_no_distinfo():
+    wheel_path = (
+        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
+    )
+    with InWheelCtx(wheel_path, None) as context:
+        dist_info = list(context.path.glob("*.dist-info"))
+        assert len(dist_info) == 1
+        shutil.rmtree(dist_info[0])
+        with pytest.raises(
+            WheelToolsError,
+            match=re.escape("Should be exactly one `*.dist_info` directory"),
+        ):
+            next(context.iter_files())

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 import nox
@@ -91,7 +90,6 @@ def tests(session: nox.Session) -> None:
 
     session.run("pytest", "-s", *posargs)
     if RUNNING_CI:
-        session.run("auditwheel", "lddtree", sys.executable)
         session.run("coverage", "xml", "-ocoverage.xml")
 
 

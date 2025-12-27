@@ -70,6 +70,7 @@ def test_glibc_version(monkeypatch, confstr):
 @pytest.mark.parametrize(
     "confstr",
     [
+        None,
         "glibc",
         "glibc 42.42 test",
         "glibc 42",

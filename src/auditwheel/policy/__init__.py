@@ -187,8 +187,8 @@ class WheelPolicies:
                 return p
 
         # the base policy (generic linux) should always match
-        msg = "Internal error"
-        raise RuntimeError(msg)
+        msg = "Internal error"  # pragma: no cover
+        raise RuntimeError(msg)  # pragma: no cover
 
     def lddtree_external_references(
         self,
