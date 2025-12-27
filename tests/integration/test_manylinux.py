@@ -140,6 +140,7 @@ class AnyLinuxContainer:
         expected_retcode: int = 0,
         cwd: str | None = None,
         env: dict[str, str] | None = None,
+        coverage: bool = False,
     ) -> str:
         return docker_exec(
             self._container,
@@ -147,6 +148,7 @@ class AnyLinuxContainer:
             expected_retcode=expected_retcode,
             cwd=cwd,
             env=env,
+            coverage=coverage,
         )
 
     def show(
@@ -160,7 +162,7 @@ class AnyLinuxContainer:
         isa_ext_check_arg = "" if isa_ext_check else "--disable-isa-ext-check"
         verbose_arg = "-v" if verbose else ""
         cmd = f"auditwheel {verbose_arg} show {isa_ext_check_arg} /io/{wheel}"
-        return self.exec(cmd, expected_retcode=expected_retcode)
+        return self.exec(cmd, expected_retcode=expected_retcode, coverage=True)
 
     def repair(
         self,
@@ -190,7 +192,7 @@ class AnyLinuxContainer:
             args.extend(f"--exclude={exclude}" for exclude in excludes)
         args.append(f"/io/{wheel}")
         cmd = ["bash", "-c", " ".join(args)]
-        return self.exec(cmd, expected_retcode=expected_retcode)
+        return self.exec(cmd, expected_retcode=expected_retcode, coverage=True)
 
     def build_wheel(
         self,
@@ -345,9 +347,16 @@ def docker_exec(
     expected_retcode: int = 0,
     cwd: str | None = None,
     env: dict[str, str] | None = None,
+    coverage: bool = False,
 ) -> str:
     assert isinstance(container.id, str)
     logger.info("docker exec %s: %r", container.id[:12], cmd)
+    # coverage is too slow with QEMU, even more so on ppc64le & s390x which lack a
+    # C extension.
+    # only enable coverage when QEMU is not enabled.
+    if coverage and os.environ.get("AUDITWHEEL_QEMU", "") != "true":
+        env = env.copy() if env is not None else {}
+        env["COVERAGE_PROCESS_START"] = "/auditwheel_src/pyproject.toml"
     ec, output = container.exec_run(cmd, workdir=cwd, environment=env)
     output = output.decode("utf-8")
     if ec != expected_retcode:
@@ -476,12 +485,6 @@ class Anylinux:
     ) -> Generator[AnyLinuxContainer, None, None]:
         policy, manylinux_img = any_manylinux_img
         env = {"PATH": PATH[policy]}
-        # coverage is too slow with QEMU, even more so on ppc64le & s390x which lack a
-        # C extension.
-        # only enable coverage when QEMU is not enabled.
-        if os.environ.get("AUDITWHEEL_QEMU", "") != "true":
-            env["COVERAGE_PROCESS_START"] = "/auditwheel_src/pyproject.toml"
-
         with docker_container_ctx(manylinux_img, io_folder, env) as container:
             platform_tag = ".".join(
                 sorted(
