@@ -2,6 +2,24 @@
 
 ## HEAD
 
+## 6.5.1
+
+Released December 28, 2025
+
+### User-facing changes
+- [BUGFIX] Only restrict to lower priority policies in `get_symbol_policies` ([#648](https://github.com/pypa/auditwheel/pull/648))
+- [BUGFIX] Take whitelisted libraries into account in `_get_machine_policy` ([#649](https://github.com/pypa/auditwheel/pull/649), [#645](https://github.com/pypa/auditwheel/issues/645))
+- [BUGFIX] Don't allow highest priority policies with more grafted libraries than the requested policy ([#649](https://github.com/pypa/auditwheel/pull/649))
+- [BUGFIX] Blacklist symbols from glibc 2.18 in earlier policies ([#655](https://github.com/pypa/auditwheel/pull/655), [#647](https://github.com/pypa/auditwheel/issues/647))
+
+### Housekeeping
+- Move away from Travis CI ([#633](https://github.com/pypa/auditwheel/pull/633))
+- Add tests using manylinux_2_35_armv7l image ([#635](https://github.com/pypa/auditwheel/pull/635))
+- Fix architecture tests on i686 ([#640](https://github.com/pypa/auditwheel/pull/640))
+- Enable all ruff linters ([#653](https://github.com/pypa/auditwheel/pull/653))
+- Add trusted publishing workflow ([#658](https://github.com/pypa/auditwheel/pull/658))
+- And more...
+
 ## 6.5.0
 
 Released November 2, 2025
