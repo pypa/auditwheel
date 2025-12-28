@@ -25,7 +25,7 @@ def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
         "--allow-pure-python-wheel",
         dest="ALLOW_PURE_PY_WHEEL",
         action="store_true",
-        help="Allow pure python wheel",
+        help="Allow processing of pure Python wheels (no platform-specific binaries) without error",
         default=False,
     )
     p.set_defaults(func=execute)

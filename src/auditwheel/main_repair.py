@@ -129,7 +129,7 @@ wheel will abort processing of subsequent wheels.
         "--allow-pure-python-wheel",
         dest="ALLOW_PURE_PY_WHEEL",
         action="store_true",
-        help="Allow pure python wheel",
+        help="Allow processing of pure Python wheels (no platform-specific binaries) without error",
         default=False,
     )
     parser.set_defaults(func=execute)
@@ -220,7 +220,8 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 dest_fname = wheel_dir / wheel_file.name
                 if not dest_fname.is_file() or not dest_fname.samefile(wheel_file):
                     shutil.copy2(wheel_file, dest_fname)
-                return 0
+                # process next wheel
+                continue
             return 1
 
         policies = wheel_abi.policies

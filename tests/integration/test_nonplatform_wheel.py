@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pathlib
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,7 +8,7 @@ import pytest
 
 from auditwheel.architecture import Architecture
 
-HERE = pathlib.Path(__file__).parent.resolve()
+HERE = Path(__file__).parent.resolve()
 
 
 @pytest.mark.parametrize("mode", ["repair", "show"])
@@ -50,6 +49,40 @@ def test_non_platform_wheel_pure_allow(mode: str, samefile: bool, tmp_path: Path
     if mode == "repair":
         assert dest_wheel.is_file()
         assert dest_wheel.read_bytes() == wheel.read_bytes()
+
+
+def test_non_platform_wheel_pure_allow_multiple(tmp_path: Path) -> None:
+    wheel = HERE / "plumbum-1.6.8-py2.py3-none-any.whl"
+    src_wheels = tmp_path / "src"
+    src_wheels.mkdir()
+    src_wheel1 = src_wheels / "plumbum-1.6.8-py2-none-any.whl"
+    src_wheel2 = src_wheels / "plumbum-1.6.8-py3-none-any.whl"
+    shutil.copy2(wheel, src_wheel1)
+    shutil.copy2(wheel, src_wheel2)
+    dst_wheels = tmp_path / "dst"
+    dst_wheel1 = dst_wheels / src_wheel1.name
+    dst_wheel2 = dst_wheels / src_wheel2.name
+
+    args = [
+        "auditwheel",
+        "repair",
+        "-w",
+        str(dst_wheels),
+        "--allow-pure-python-wheel",
+        str(src_wheel1),
+        str(src_wheel2),
+    ]
+    proc = subprocess.run(
+        args,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+    assert "This does not look like a platform wheel" in proc.stderr
+    assert "AttributeError" not in proc.stderr
+    for dst_wheel in [dst_wheel1, dst_wheel2]:
+        assert dst_wheel.is_file()
+        assert dst_wheel.read_bytes() == wheel.read_bytes()
 
 
 @pytest.mark.parametrize("mode", ["repair", "show"])
