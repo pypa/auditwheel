@@ -30,6 +30,8 @@ jobs:
         fetch-depth: 0  # required for setuptools_scm to find tags
         persist-credentials: false
     - name: Build dist
+      # This action builds the distributions and uploads them as an artifact named "Packages",
+      # which is later downloaded in the `publish` job via actions/download-artifact.
       uses: hynek/build-and-inspect-python-package@efb823f52190ad02594531168b7a2d5790e66516 # v2.14.0
 
   publish:
