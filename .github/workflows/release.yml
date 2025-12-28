@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+    # allow manual runs on branches without a PR
+  release:
+    types:
+      - published
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  dist:
+    name: Build dist
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0  # required for setuptools_scm to find tags
+        persist-credentials: false
+    - name: Build dist
+      # This action builds the distributions and uploads them as an artifact named "Packages",
+      # which is later downloaded in the `publish` job via actions/download-artifact.
+      uses: hynek/build-and-inspect-python-package@efb823f52190ad02594531168b7a2d5790e66516 # v2.14.0
+
+  publish:
+    name: Publish to PyPI
+    needs: [dist]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/auditwheel
+    permissions:
+      attestations: write  # for attestation generation
+      id-token: write  # for trusted publishing
+
+    steps:
+    - name: Download dist artefacts
+      uses: actions/download-artifact@v7
+      with:
+        name: Packages
+        path: dist
+
+    - name: Generate artifact attestation for sdist and wheel
+      uses: actions/attest-build-provenance@00014ed6ed5efc5b1ab7f7f34a39eb55d41aa4f8 # v3.1.0
+      with:
+        subject-path: "dist/auditwheel-*"
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+      with:
+        attestations: true
