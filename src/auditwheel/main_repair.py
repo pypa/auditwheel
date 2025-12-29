@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import shutil
 import zlib
 from pathlib import Path
 from typing import Any
@@ -124,6 +125,13 @@ wheel will abort processing of subsequent wheels.
         help="Do not check for extended ISA compatibility (e.g. x86_64_v2)",
         default=False,
     )
+    parser.add_argument(
+        "--allow-pure-python-wheel",
+        dest="ALLOW_PURE_PY_WHEEL",
+        action="store_true",
+        help="Allow processing of pure Python wheels (no platform-specific binaries) without error",
+        default=False,
+    )
     parser.set_defaults(func=execute)
 
 
@@ -151,6 +159,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
         wheel_filename = wheel_file.name
         arch = requested_architecture
+        is_pure_python = False
         try:
             arch = get_wheel_architecture(wheel_filename)
             if requested_architecture is not None and requested_architecture != arch:
@@ -159,10 +168,11 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                     f"wheel targeting {requested_architecture.value}"
                 )
                 parser.error(msg)
-        except (WheelToolsError, NonPlatformWheelError):
+        except (WheelToolsError, NonPlatformWheelError) as e:
             logger.warning(
                 "The architecture could not be deduced from the wheel filename",
             )
+            is_pure_python = isinstance(e, NonPlatformWheelError)
 
         try:
             libc = get_wheel_libc(wheel_filename)
@@ -206,6 +216,12 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             )
         except NonPlatformWheelError as e:
             logger.info(e.message)
+            if is_pure_python and args.ALLOW_PURE_PY_WHEEL:
+                dest_fname = wheel_dir / wheel_file.name
+                if not dest_fname.is_file() or not dest_fname.samefile(wheel_file):
+                    shutil.copy2(wheel_file, dest_fname)
+                # process next wheel
+                continue
             return 1
 
         policies = wheel_abi.policies

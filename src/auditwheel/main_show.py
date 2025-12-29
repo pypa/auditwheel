@@ -21,6 +21,13 @@ def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
         help="Do not check for extended ISA compatibility (e.g. x86_64_v2)",
         default=False,
     )
+    p.add_argument(
+        "--allow-pure-python-wheel",
+        dest="ALLOW_PURE_PY_WHEEL",
+        action="store_true",
+        help="Allow processing of pure Python wheels (no platform-specific binaries) without error",
+        default=False,
+    )
     p.set_defaults(func=execute)
 
 
@@ -44,10 +51,12 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         parser.error(f"cannot access {wheel_file}. No such file")
 
     fn = wheel_file.name
+    is_pure_python = False
     try:
         arch = get_wheel_architecture(fn)
-    except (WheelToolsError, NonPlatformWheelError):
+    except (WheelToolsError, NonPlatformWheelError) as e:
         logger.warning("The architecture could not be deduced from the wheel filename")
+        is_pure_python = isinstance(e, NonPlatformWheelError)
         arch = None
 
     try:
@@ -67,6 +76,8 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         )
     except NonPlatformWheelError as e:
         logger.info("%s", e.message)
+        if is_pure_python and args.ALLOW_PURE_PY_WHEEL:
+            return 0
         return 1
 
     policies = winfo.policies
