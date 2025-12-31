@@ -31,6 +31,7 @@ def test_unsupported_platform(monkeypatch):
 def test_help(monkeypatch, capsys):
     # GIVEN
     monkeypatch.setattr(sys, "argv", ["auditwheel"])
+    monkeypatch.delattr(sys.modules.get("__main__"), "__spec__", raising=False)
 
     # WHEN
     retval = main()
