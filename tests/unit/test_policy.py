@@ -139,6 +139,10 @@ class TestPolicyAccess:
     def test_get_by_name(self):
         arch = Architecture.detect()
         policies = WheelPolicies(libc=Libc.GLIBC, arch=arch)
+        assert policies.get_policy_by_name(f"manylinux_2_41_{arch}").priority == 51
+        assert policies.get_policy_by_name(f"manylinux_2_31_{arch}").priority == 61
+        if arch == Architecture.riscv64:
+            return
         assert policies.get_policy_by_name(f"manylinux_2_27_{arch}").priority == 65
         assert policies.get_policy_by_name(f"manylinux_2_24_{arch}").priority == 70
         assert policies.get_policy_by_name(f"manylinux2014_{arch}").priority == 80
