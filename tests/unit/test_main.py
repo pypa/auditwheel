@@ -31,6 +31,8 @@ def test_unsupported_platform(monkeypatch):
 def test_help(monkeypatch, capsys):
     # GIVEN
     monkeypatch.setattr(sys, "argv", ["auditwheel"])
+    # handle running tests using 'python -m pytest' rather than just 'pytest' on Python 3.14+
+    monkeypatch.delattr(sys.modules.get("__main__"), "__spec__", raising=False)
 
     # WHEN
     retval = main()
