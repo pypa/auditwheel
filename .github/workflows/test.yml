@@ -21,13 +21,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "3.10"
-      - uses: pre-commit/action@v3.0.1
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
 
   test-dist:
     name: Test SDist & wheel
@@ -37,11 +37,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
       - name: Install CPython 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "3.10"
           architecture: x64
@@ -78,29 +78,29 @@ jobs:
             qemu: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
       - name: Setup cache
-        uses: actions/cache@v5
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: ~/.cache/auditwheel_tests
           key: python${{ matrix.python }}-${{ matrix.platform[0] }}-${{ hashFiles('**/test_manylinux.py') }}
           restore-keys: python${{ matrix.python }}-${{ matrix.platform[0] }}-
       - name: Install CPython ${{ matrix.python }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "${{ matrix.python }}"
           allow-prereleases: true
       - name: Set up QEMU
         if: matrix.qemu
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
         env:
           AUDITWHEEL_ARCH: ${{ matrix.platform[0] }}
           AUDITWHEEL_QEMU: ${{ matrix.qemu }}
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
