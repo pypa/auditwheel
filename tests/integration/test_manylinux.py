@@ -1002,16 +1002,13 @@ class TestManylinux(Anylinux):
             'git config --global --add safe.directory "/auditwheel_src"',
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
+            "pipx install -f patchelf==0.18.1.0a1",
         ]
         if policy in {"manylinux_2_28", "manylinux_2_34", "manylinux_2_39"}:
             commands.append(
                 "dnf install -y "
                 "gcc-toolset-15-binutils gcc-toolset-15-gcc gcc-toolset-15-gcc-c++ "
                 "gcc-toolset-15-gcc-gfortran gcc-toolset-15-libatomic-devel",
-            )
-            commands.append("git clone https://github.com/NixOS/patchelf.git /tmp/patchelf")
-            commands.append(
-                "bash -cxe 'cd /tmp/patchelf && ./bootstrap.sh && ./configure && make install'",
             )
 
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
