@@ -82,7 +82,7 @@ MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
-    "manylinux_2_28": "gcc-toolset-14",
+    "manylinux_2_28": "gcc-toolset-15",
     "manylinux_2_31": "devtoolset-not-present",
     "manylinux_2_34": "gcc-toolset-14",
     "manylinux_2_35": "devtoolset-not-present",
@@ -1003,6 +1003,17 @@ class TestManylinux(Anylinux):
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
+        if policy in {"manylinux_2_28"}:
+            commands.append(
+                "dnf install -y "
+                "gcc-toolset-15-binutils gcc-toolset-15-gcc gcc-toolset-15-gcc-c++ "
+                "gcc-toolset-15-gcc-gfortran gcc-toolset-15-libatomic-devel",
+            )
+            commands.append("git clone https://github.com/NixOS/patchelf.git /tmp/patchelf")
+            commands.append(
+                "bash -cxe 'cd /tmp/patchelf && ./bootstrap.sh && ./configure && make install'",
+            )
+
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
         with tmp_docker_image(base, commands, env) as img_id:
