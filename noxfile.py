@@ -59,6 +59,27 @@ Path(r"{images_file}").write_text(images)
     return images_file.read_text().splitlines()
 
 
+def _download_wheels_for_tests(session: nox.Session) -> None:
+    wheels = [
+        # for tests/integration/test_bundled_wheels.py::test_analyze_wheel_abi_static_exe
+        ("patchelf==0.17.2.1", "py38", "manylinux1_x86_64"),
+        # for tests/integration/test_bundled_wheels.py::test_analyze_wheel_abi_static_exe
+        ("cryptography==46.0.3", "cp38", "manylinux_2_17_x86_64")
+    ]
+    for package, python_tag, platform in wheels:
+        session.run(
+            "pip",
+            "download",
+            "--only-binary=:all:",
+            "--no-deps",
+            "--dest=./tests/integration/",
+            f"--platform={platform}",
+            f"--implementation={python_tag[:2]}",
+            f"--python-version={python_tag[2:]}",
+            package,
+        )
+
+
 @nox.session(python=PYTHON_ALL_VERSIONS, default=False)
 def tests(session: nox.Session) -> None:
     """Run tests."""
@@ -68,19 +89,8 @@ def tests(session: nox.Session) -> None:
     deps = nox.project.dependency_groups(pyproject, dep_group)
     session.install("-U", "pip")
     session.install("-e", ".", *deps)
-    # for tests/integration/test_bundled_wheels.py::test_analyze_wheel_abi_static_exe
-    session.run(
-        "pip",
-        "download",
-        "--only-binary",
-        ":all:",
-        "--no-deps",
-        "--platform",
-        "manylinux1_x86_64",
-        "-d",
-        "./tests/integration/",
-        "patchelf==0.17.2.1",
-    )
+    _download_wheels_for_tests(session)
+
     if RUNNING_CI:
         posargs.extend(["--cov", "auditwheel", "--cov-config", "pyproject.toml"])
         # pull manylinux images that will be used.
@@ -135,6 +145,7 @@ def develop(session: nox.Session) -> None:
     pyproject = nox.project.load_toml("pyproject.toml")
     deps = nox.project.dependency_groups(pyproject, "dev")
     session.install("-e", ".", *deps)
+    _download_wheels_for_tests(session)
 
 
 if __name__ == "__main__":
