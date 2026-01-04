@@ -131,8 +131,9 @@ def get_undefined_symbols(path: Path) -> set[str]:
         section = elf.get_section_by_name(".dynsym")
         if section is not None:
             # look for all undef symbols
+            # if the symbol is weak don't consider it as undefined, it's "optional"
             for sym in section.iter_symbols():
-                if sym["st_shndx"] == "SHN_UNDEF":
+                if sym["st_shndx"] == "SHN_UNDEF" and sym["st_info"]["bind"] != "STB_WEAK":
                     undef_symbols.add(sym.name)
     return undef_symbols
 

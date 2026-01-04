@@ -258,3 +258,20 @@ def test_main_lddtree(
         "libraries": {},
     }
     assert expected_json == actual_json
+
+
+def test_weak_symbols_not_blacklisted() -> None:
+    # https://github.com/pypa/auditwheel/issues/663
+    # the cryptography wheel overall policy was misclassified as manylinux_2_24_x86_64
+    # in auditwheel 6.5.1 because it uses the undefined weak symbol '__cxa_thread_atexit_impl'
+    result = analyze_wheel_abi(
+        None,
+        None,
+        HERE / "cryptography-46.0.3-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        frozenset(),
+        disable_isa_ext_check=False,
+        allow_graft=False,
+    )
+    assert result.policies.libc == Libc.GLIBC
+    assert result.policies.architecture == Architecture.x86_64
+    assert result.overall_policy.name == "manylinux_2_17_x86_64"
