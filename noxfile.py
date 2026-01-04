@@ -63,8 +63,8 @@ def _download_wheels_for_tests(session: nox.Session) -> None:
     wheels = [
         # for tests/integration/test_bundled_wheels.py::test_analyze_wheel_abi_static_exe
         ("patchelf==0.17.2.1", "py38", "manylinux1_x86_64"),
-        # for tests/integration/test_bundled_wheels.py::test_analyze_wheel_abi_static_exe
-        ("cryptography==46.0.3", "cp38", "manylinux_2_17_x86_64")
+        # for tests/integration/test_bundled_wheels.py::test_weak_symbols_not_blacklisted
+        ("cryptography==46.0.3", "cp38", "manylinux_2_17_x86_64"),
     ]
     for package, python_tag, platform in wheels:
         session.run(
