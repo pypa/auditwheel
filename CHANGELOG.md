@@ -2,6 +2,19 @@
 
 ## HEAD
 
+## 6.6.0
+
+Released January 4, 2026
+
+### User-facing changes
+- [BUGFIX] ignore weak symbols when checking blacklisted symbols ([#665](https://github.com/pypa/auditwheel/pull/665), [#663](https://github.com/pypa/auditwheel/issues/663))
+- [FEATURE] Allow "repairing" pure python wheel ([#660](https://github.com/pypa/auditwheel/pull/660))
+
+### Housekeeping
+- Fix running tests with `python -m pytest` in Python 3.14+ ([#661](https://github.com/pypa/auditwheel/pull/661))
+- Fix TestPolicyAccess::test_get_by_name when running on `loongarch64` or `riscv64`  ([#662](https://github.com/pypa/auditwheel/pull/662))
+- Pin all actions and enable zizmor in pre-commit ([#666](https://github.com/pypa/auditwheel/pull/666))
+
 ## 6.5.1
 
 Released December 28, 2025
