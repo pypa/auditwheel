@@ -213,7 +213,12 @@ def dedupe(items: list[str]) -> list[str]:
     return [seen.setdefault(x, x) for x in items if x not in seen]
 
 
-def parse_ld_paths(str_ldpaths: str, path: str, root: str = "", keep_non_exist=False) -> list[str]:
+def parse_ld_paths(
+    str_ldpaths: str,
+    path: str,
+    root: str = "",
+    keep_non_exist: bool = False,  # noqa: FBT001, FBT002
+) -> list[str]:
     """Parse the colon-delimited list of paths and apply ldso rules to each
 
     Note the special handling as dictated by the ldso:
@@ -229,6 +234,8 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "", keep_non_exist=F
         The path to prepend to all paths found
     path
         The object actively being parsed (used for $ORIGIN)
+    keep_non_exist
+        If to eliminate non-exist rpath from result
 
     Returns
     -------
