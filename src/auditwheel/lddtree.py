@@ -235,7 +235,7 @@ def parse_ld_paths(
     path
         The object actively being parsed (used for $ORIGIN)
     keep_non_exist
-        If to eliminate non-exist rpath from result
+        Do not eliminate non-exist rpath from result
 
     Returns
     -------
