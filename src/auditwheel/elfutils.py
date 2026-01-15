@@ -117,9 +117,9 @@ def elf_read_rpaths(fn: Path) -> dict[str, list[str]]:
 
         for t in section.iter_tags():
             if t.entry.d_tag == "DT_RPATH":
-                result["rpaths"] = parse_ld_paths(t.rpath, root="/", path=str(fn))
+                result["rpaths"] = parse_ld_paths(t.rpath, root="/", path=str(fn), keep_non_exist=True)
             elif t.entry.d_tag == "DT_RUNPATH":
-                result["runpaths"] = parse_ld_paths(t.runpath, root="/", path=str(fn))
+                result["runpaths"] = parse_ld_paths(t.runpath, root="/", path=str(fn), keep_non_exist=True)
 
     return result
 

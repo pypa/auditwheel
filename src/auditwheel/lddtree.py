@@ -213,7 +213,7 @@ def dedupe(items: list[str]) -> list[str]:
     return [seen.setdefault(x, x) for x in items if x not in seen]
 
 
-def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
+def parse_ld_paths(str_ldpaths: str, path: str, root: str = "", keep_non_exist=False) -> list[str]:
     """Parse the colon-delimited list of paths and apply ldso rules to each
 
     Note the special handling as dictated by the ldso:
@@ -245,7 +245,7 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
         else:
             ldpath_ = root + ldpath
         ldpaths.append(normpath(ldpath_))
-    return [p for p in dedupe(ldpaths) if os.path.isdir(p)]
+    return [p for p in dedupe(ldpaths) if keep_non_exist or os.path.isdir(p)]
 
 
 @functools.lru_cache
