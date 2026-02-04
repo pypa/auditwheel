@@ -68,3 +68,4 @@ tests/integration/sample_extension/src/sample_extension.c
 
 # Downloaded by test script
 tests/integration/patchelf-0.17.2.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl
+tests/integration/cryptography-46.0.3-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl

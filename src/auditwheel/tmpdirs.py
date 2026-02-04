@@ -5,7 +5,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import TracebackType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 
 class InTemporaryDirectory:
@@ -23,6 +26,7 @@ class InTemporaryDirectory:
     False
     >>> Path.cwd() == my_cwd
     True
+
     """
 
     def __init__(self) -> None:
@@ -81,6 +85,7 @@ class InGivenDirectory:
         path : None or Path, optional
             path to change directory to, for duration of ``with`` block.
             Defaults to ``Path.cwd()`` if None
+
         """
         if path is None:
             path = Path.cwd()

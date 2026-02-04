@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 import nox
@@ -21,18 +20,14 @@ sdist = ""
 
 @nox.session(reuse_venv=True)
 def lint(session: nox.Session) -> None:
-    """
-    Run linters on the codebase.
-    """
+    """Run linters on the codebase."""
     session.install("pre-commit")
     session.run("pre-commit", "run", "--all-files")
 
 
 @nox.session(default=False)
 def coverage(session: nox.Session) -> None:
-    """
-    Run coverage using unit tests.
-    """
+    """Run coverage using unit tests."""
     pyproject = nox.project.load_toml("pyproject.toml")
     deps = nox.project.dependency_groups(pyproject, "coverage")
     session.install("-e", ".", *deps)
@@ -58,38 +53,46 @@ sys.path.append("./tests/integration")
 from test_manylinux import MANYLINUX_IMAGES
 images = "\n".join(MANYLINUX_IMAGES.values())
 Path(r"{images_file}").write_text(images)
-"""
+""",
     )
     session.run("python", str(script), silent=True)
     return images_file.read_text().splitlines()
 
 
+def _download_wheels_for_tests(session: nox.Session) -> None:
+    wheels = [
+        # for tests/integration/test_bundled_wheels.py::test_analyze_wheel_abi_static_exe
+        ("patchelf==0.17.2.1", "py38", "manylinux1_x86_64"),
+        # for tests/integration/test_bundled_wheels.py::test_weak_symbols_not_blacklisted
+        ("cryptography==46.0.3", "cp38", "manylinux_2_17_x86_64"),
+    ]
+    for package, python_tag, platform in wheels:
+        session.run(
+            "pip",
+            "download",
+            "--only-binary=:all:",
+            "--no-deps",
+            "--dest=./tests/integration/",
+            f"--platform={platform}",
+            f"--implementation={python_tag[:2]}",
+            f"--python-version={python_tag[2:]}",
+            package,
+        )
+
+
 @nox.session(python=PYTHON_ALL_VERSIONS, default=False)
 def tests(session: nox.Session) -> None:
-    """
-    Run tests.
-    """
+    """Run tests."""
     posargs = session.posargs
     dep_group = "coverage" if RUNNING_CI else "test"
     pyproject = nox.project.load_toml("pyproject.toml")
     deps = nox.project.dependency_groups(pyproject, dep_group)
     session.install("-U", "pip")
     session.install("-e", ".", *deps)
-    # for tests/integration/test_bundled_wheels.py::test_analyze_wheel_abi_static_exe
-    session.run(
-        "pip",
-        "download",
-        "--only-binary",
-        ":all:",
-        "--no-deps",
-        "--platform",
-        "manylinux1_x86_64",
-        "-d",
-        "./tests/integration/",
-        "patchelf==0.17.2.1",
-    )
+    _download_wheels_for_tests(session)
+
     if RUNNING_CI:
-        posargs.extend(["--cov", "auditwheel", "--cov-branch"])
+        posargs.extend(["--cov", "auditwheel", "--cov-config", "pyproject.toml"])
         # pull manylinux images that will be used.
         # this helps passing tests which would otherwise timeout.
         for image in _docker_images(session):
@@ -97,7 +100,6 @@ def tests(session: nox.Session) -> None:
 
     session.run("pytest", "-s", *posargs)
     if RUNNING_CI:
-        session.run("auditwheel", "lddtree", sys.executable)
         session.run("coverage", "xml", "-ocoverage.xml")
 
 
@@ -127,17 +129,13 @@ def _test_dist(session: nox.Session, path: str) -> None:
 
 @nox.session(name="test-sdist", python=PYTHON_ALL_VERSIONS, requires=["build"])
 def test_sdist(session: nox.Session) -> None:
-    """
-    Do not run explicitly.
-    """
+    """Do not run explicitly."""
     _test_dist(session, sdist)
 
 
 @nox.session(name="test-wheel", python=PYTHON_ALL_VERSIONS, requires=["build"])
 def test_wheel(session: nox.Session) -> None:
-    """
-    Do not run explicitly.
-    """
+    """Do not run explicitly."""
     _test_dist(session, wheel)
 
 
@@ -147,6 +145,7 @@ def develop(session: nox.Session) -> None:
     pyproject = nox.project.load_toml("pyproject.toml")
     deps = nox.project.dependency_groups(pyproject, "dev")
     session.install("-e", ".", *deps)
+    _download_wheels_for_tests(session)
 
 
 if __name__ == "__main__":

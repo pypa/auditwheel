@@ -3,15 +3,19 @@ from __future__ import annotations
 import hashlib
 import typing
 from importlib import metadata
-from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from auditwheel._vendor.whichprovides import whichprovides
 from auditwheel.wheeltools import WHEEL_INFO_RE
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 def create_sbom_for_wheel(
-    wheel_fname: str, sbom_filepaths: list[Path]
+    wheel_fname: str,
+    sbom_filepaths: list[Path],
 ) -> None | dict[str, typing.Any]:
     # If there aren't any files then we bail.
     if not sbom_filepaths:
@@ -45,7 +49,7 @@ def create_sbom_for_wheel(
             "name": wheel_name,
             "version": wheel_version,
             "purl": wheel_purl,
-        }
+        },
     ]
     sbom_dependencies = [{"ref": wheel_purl, "dependsOn": []}]
     sbom_data = {
@@ -55,7 +59,7 @@ def create_sbom_for_wheel(
         "metadata": {
             "component": sbom_components[0],
             "tools": [
-                {"name": "auditwheel", "version": metadata.version("auditwheel")}
+                {"name": "auditwheel", "version": metadata.version("auditwheel")},
             ],
         },
         # These are mutated below through the variables.
@@ -65,8 +69,7 @@ def create_sbom_for_wheel(
 
     for filepath, provided_by in sbom_packages.items():
         bom_ref = (
-            provided_by.purl
-            + f"#{hashlib.sha256(filepath.encode(errors='ignore')).hexdigest()}"
+            provided_by.purl + f"#{hashlib.sha256(filepath.encode(errors='ignore')).hexdigest()}"
         )
         sbom_components.append(
             {
@@ -75,7 +78,7 @@ def create_sbom_for_wheel(
                 "name": provided_by.package_name,
                 "version": provided_by.package_version,
                 "purl": provided_by.purl,
-            }
+            },
         )
         sbom_dependencies[0]["dependsOn"].append(bom_ref)  # type: ignore[attr-defined]
         sbom_dependencies.append({"ref": bom_ref})

@@ -21,7 +21,7 @@ def test_create_sbom(whichprovides):
             package_name="python3",
             package_version="3.10.6",
             distro="ubuntu",
-        )
+        ),
     }
 
     auditwheel_version = metadata.version("auditwheel")
@@ -53,7 +53,7 @@ def test_create_sbom(whichprovides):
             },
             {
                 "type": "library",
-                "bom-ref": "pkg:deb/ubuntu/python3@3.10.6#a0af9f865bf637e6736817f4ce552e4cdf7b8c36ea75bc254c1d1f0af744b5bf",
+                "bom-ref": "pkg:deb/ubuntu/python3@3.10.6#a0af9f865bf637e6736817f4ce552e4cdf7b8c36ea75bc254c1d1f0af744b5bf",  # noqa: E501
                 "name": "python3",
                 "version": "3.10.6",
                 "purl": "pkg:deb/ubuntu/python3@3.10.6",
@@ -63,11 +63,11 @@ def test_create_sbom(whichprovides):
             {
                 "ref": f"pkg:pypi/testpackage@0.0.1?file_name={wheel_fname}",
                 "dependsOn": [
-                    "pkg:deb/ubuntu/python3@3.10.6#a0af9f865bf637e6736817f4ce552e4cdf7b8c36ea75bc254c1d1f0af744b5bf"
+                    "pkg:deb/ubuntu/python3@3.10.6#a0af9f865bf637e6736817f4ce552e4cdf7b8c36ea75bc254c1d1f0af744b5bf",
                 ],
             },
             {
-                "ref": "pkg:deb/ubuntu/python3@3.10.6#a0af9f865bf637e6736817f4ce552e4cdf7b8c36ea75bc254c1d1f0af744b5bf"
+                "ref": "pkg:deb/ubuntu/python3@3.10.6#a0af9f865bf637e6736817f4ce552e4cdf7b8c36ea75bc254c1d1f0af744b5bf",  # noqa: E501
             },
         ],
     }

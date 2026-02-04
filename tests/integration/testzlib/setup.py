@@ -14,6 +14,6 @@ setup(
             sources=["testzlib.c"],
             define_macros=define_macros,
             libraries=libraries,
-        )
+        ),
     ],
 )

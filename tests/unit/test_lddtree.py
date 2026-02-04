@@ -36,10 +36,7 @@ def test_libpython_re_nomatch(soname: str) -> None:
 
 def test_libpython(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     wheel = (
-        HERE
-        / ".."
-        / "integration"
-        / "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.whl"
+        HERE / ".." / "integration" / "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.whl"
     )
     so = tmp_path / "python_mscl" / "_mscl.so"
     zip2dir(wheel, tmp_path)

@@ -42,6 +42,6 @@ setup(
             define_macros=define_macros,
             libraries=libraries,
             library_dirs=library_dirs,
-        )
+        ),
     ],
 )
