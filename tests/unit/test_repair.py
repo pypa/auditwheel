@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import call, patch
 
+from auditwheel.libc import Libc
 from auditwheel.patcher import Patchelf
 from auditwheel.repair import append_rpath_within_wheel
 
@@ -12,7 +13,7 @@ from auditwheel.repair import append_rpath_within_wheel
 @patch("auditwheel.patcher.check_call")
 class TestRepair:
     def test_append_rpath(self, check_call, check_output, _):  # noqa: PT019
-        patcher = Patchelf()
+        patcher = Patchelf(Libc.GLIBC)
         # When a library has an existing RPATH entry within wheel_dir
         existing_rpath = b"$ORIGIN/.existinglibdir"
         check_output.return_value = existing_rpath
@@ -41,7 +42,7 @@ class TestRepair:
         assert check_call.call_args_list == check_call_expected_args
 
     def test_append_rpath_reject_outside_wheel(self, check_call, check_output, _):  # noqa: PT019
-        patcher = Patchelf()
+        patcher = Patchelf(Libc.GLIBC)
         # When a library has an existing RPATH entry outside wheel_dir
         existing_rpath = b"/outside/wheel/dir"
         check_output.return_value = existing_rpath
@@ -70,7 +71,7 @@ class TestRepair:
         assert check_call.call_args_list == check_call_expected_args
 
     def test_append_rpath_ignore_duplicates(self, check_call, check_output, _):  # noqa: PT019
-        patcher = Patchelf()
+        patcher = Patchelf(Libc.GLIBC)
         # When a library has an existing RPATH entry and we try and append it again
         existing_rpath = b"$ORIGIN"
         check_output.return_value = existing_rpath
@@ -93,7 +94,7 @@ class TestRepair:
         assert check_call.call_args_list == check_call_expected_args
 
     def test_append_rpath_ignore_relative(self, check_call, check_output, _):  # noqa: PT019
-        patcher = Patchelf()
+        patcher = Patchelf(Libc.GLIBC)
         # When a library has an existing RPATH entry but it cannot be resolved
         # to an absolute path, it is eliminated
         existing_rpath = b"not/absolute"

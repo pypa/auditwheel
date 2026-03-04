@@ -6,6 +6,7 @@ from unittest.mock import call, patch
 
 import pytest
 
+from auditwheel.libc import Libc
 from auditwheel.patcher import Patchelf
 
 
@@ -13,7 +14,7 @@ from auditwheel.patcher import Patchelf
 def test_patchelf_unavailable(which):
     which.return_value = False
     with pytest.raises(ValueError, match="Cannot find required utility"):
-        Patchelf()
+        Patchelf(Libc.GLIBC)
 
 
 @patch("auditwheel.patcher.which")
@@ -22,7 +23,7 @@ def test_patchelf_check_output_fail(check_output, which):
     which.return_value = True
     check_output.side_effect = CalledProcessError(1, "patchelf --version")
     with pytest.raises(ValueError, match="Could not call"):
-        Patchelf()
+        Patchelf(Libc.GLIBC)
 
 
 @patch("auditwheel.patcher.which")
@@ -31,7 +32,7 @@ def test_patchelf_check_output_fail(check_output, which):
 def test_patchelf_version_check(check_output, which, version):
     which.return_value = True
     check_output.return_value.decode.return_value = f"patchelf {version}"
-    Patchelf()
+    Patchelf(Libc.GLIBC)
 
 
 @patch("auditwheel.patcher.which")
@@ -41,17 +42,18 @@ def test_patchelf_version_check_fail(check_output, which, version):
     which.return_value = True
     check_output.return_value.decode.return_value = f"patchelf {version}"
     with pytest.raises(ValueError, match=f"patchelf {version} found"):
-        Patchelf()
+        Patchelf(Libc.GLIBC)
 
 
+@pytest.mark.parametrize("libc", [Libc.GLIBC, Libc.MUSL, Libc.ANDROID])
 @patch("auditwheel.patcher._verify_patchelf")
 @patch("auditwheel.patcher.check_output")
 @patch("auditwheel.patcher.check_call")
 class TestPatchElf:
     """ "Validate that patchelf is invoked with the correct arguments."""
 
-    def test_replace_needed_one(self, check_call, _0, _1):  # noqa: PT019
-        patcher = Patchelf()
+    def test_replace_needed_one(self, check_call, _0, _1, libc):  # noqa: PT019
+        patcher = Patchelf(libc)
         filename = Path("test.so")
         soname_old = "TEST_OLD"
         soname_new = "TEST_NEW"
@@ -60,8 +62,8 @@ class TestPatchElf:
             ["patchelf", "--replace-needed", soname_old, soname_new, filename],
         )
 
-    def test_replace_needed_multple(self, check_call, _0, _1):  # noqa: PT019
-        patcher = Patchelf()
+    def test_replace_needed_multple(self, check_call, _0, _1, libc):  # noqa: PT019
+        patcher = Patchelf(libc)
         filename = Path("test.so")
         replacements = [
             ("TEST_OLD1", "TEST_NEW1"),
@@ -79,8 +81,8 @@ class TestPatchElf:
             ],
         )
 
-    def test_set_soname(self, check_call, _0, _1):  # noqa: PT019
-        patcher = Patchelf()
+    def test_set_soname(self, check_call, _0, _1, libc):  # noqa: PT019
+        patcher = Patchelf(libc)
         filename = Path("test.so")
         soname_new = "TEST_NEW"
         patcher.set_soname(filename, soname_new)
@@ -88,21 +90,23 @@ class TestPatchElf:
             ["patchelf", "--set-soname", soname_new, filename],
         )
 
-    def test_set_rpath(self, check_call, _0, _1):  # noqa: PT019
-        patcher = Patchelf()
+    def test_set_rpath(self, check_call, _0, _1, libc):  # noqa: PT019
+        patcher = Patchelf(libc)
         filename = Path("test.so")
         patcher.set_rpath(filename, "$ORIGIN/.lib")
         check_call_expected_args = [
             call(["patchelf", "--remove-rpath", filename]),
             call(
-                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN/.lib", filename],
+                ["patchelf"]
+                + ([] if libc == Libc.ANDROID else ["--force-rpath"])
+                + ["--set-rpath", "$ORIGIN/.lib", filename],
             ),
         ]
 
         assert check_call.call_args_list == check_call_expected_args
 
-    def test_get_rpath(self, _0, check_output, _1):  # noqa: PT019
-        patcher = Patchelf()
+    def test_get_rpath(self, _0, check_output, _1, libc):  # noqa: PT019
+        patcher = Patchelf(libc)
         filename = Path("test.so")
         check_output.return_value = b"existing_rpath"
         result = patcher.get_rpath(filename)
@@ -111,8 +115,8 @@ class TestPatchElf:
         assert result == check_output.return_value.decode()
         assert check_output.call_args_list == check_output_expected_args
 
-    def test_remove_needed(self, check_call, _0, _1):  # noqa: PT019
-        patcher = Patchelf()
+    def test_remove_needed(self, check_call, _0, _1, libc):  # noqa: PT019
+        patcher = Patchelf(libc)
         filename = Path("test.so")
         soname_1 = "TEST_REM_1"
         soname_2 = "TEST_REM_2"

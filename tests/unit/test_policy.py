@@ -58,6 +58,7 @@ def test_android_api_level(tag, expected):
         ("manylinux1_ppc64le", ["linux_ppc64le"]),
         ("manylinux2014_x86_64", ["linux_x86_64"]),
         ("manylinux_2_24_x86_64", ["linux_x86_64"]),
+        ("android_21_arm64_v8a", [re.compile(r"android_.+")]),
     ],
 )
 def test_replacement_platform(name, expected):

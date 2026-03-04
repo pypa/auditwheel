@@ -64,7 +64,7 @@ def get_wheel_elfdata(
     architecture: Architecture | None,
     wheel_fn: Path,
     exclude: frozenset[str],
-    ldpaths: tuple[str, ...] | None = None,
+    args_ldpaths: str,
 ) -> WheelElfData:
     full_elftree: dict[Path, DynamicExecutable] = {}
     nonpy_elftree: dict[Path, DynamicExecutable] = {}
@@ -98,13 +98,10 @@ def get_wheel_elfdata(
                     exclude=exclude,
                     ldpaths=(
                         None
-                        if ldpaths is None
+                        if args_ldpaths == ""
                         else {
-                            "conf": list(ldpaths),
-                            "env": parse_ld_paths(
-                                os.environ.get("LD_LIBRARY_PATH", ""),
-                                path="",
-                            ),
+                            "conf": parse_ld_paths(args_ldpaths),
+                            "env": parse_ld_paths(os.environ.get("LD_LIBRARY_PATH", "")),
                             "interp": [],
                         }
                     ),
@@ -392,9 +389,9 @@ def analyze_wheel_abi(
     disable_isa_ext_check: bool,
     allow_graft: bool,
     requested_policy_base_name: str | None = None,
-    ldpaths: tuple[str, ...] | None = None,
+    args_ldpaths: str = "",
 ) -> WheelAbIInfo:
-    data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude, ldpaths)
+    data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude, args_ldpaths)
     policies = data.policies
     elftree_by_fn = data.full_elftree
     external_refs_by_fn = data.full_external_refs

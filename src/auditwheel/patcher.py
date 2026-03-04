@@ -51,7 +51,7 @@ def _verify_patchelf() -> None:
 
 
 class Patchelf(ElfPatcher):
-    def __init__(self, libc: Libc | None = None) -> None:
+    def __init__(self, libc: Libc) -> None:
         self.libc = libc
         _verify_patchelf()
 

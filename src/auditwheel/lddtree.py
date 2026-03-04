@@ -219,12 +219,12 @@ def dedupe(items: list[str]) -> list[str]:
     return [seen.setdefault(x, x) for x in items if x not in seen]
 
 
-def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
+def parse_ld_paths(str_ldpaths: str, path: str = "", root: str = "") -> list[str]:
     """Parse the colon-delimited list of paths and apply ldso rules to each
 
     Note the special handling as dictated by the ldso:
     - Empty paths are equivalent to $PWD
-    - $ORIGIN is expanded to the path of the given file
+    - $ORIGIN is expanded to the directory containing the given file
     - (TODO) $LIB and friends
 
     Parameters
@@ -241,12 +241,18 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
         list of processed paths
 
     """
+    if not str_ldpaths:
+        return []
+
     ldpaths: list[str] = []
     for ldpath in str_ldpaths.split(":"):
         if ldpath == "":
             # The ldso treats "" paths as $PWD.
             ldpath_ = os.getcwd()
         elif re.search(ORIGIN_RE, ldpath):
+            if not path:
+                msg = "can't expand $ORIGIN without a path"
+                raise ValueError(msg)
             ldpath_ = re.sub(ORIGIN_RE, os.path.dirname(os.path.abspath(path)), ldpath)
         else:
             ldpath_ = root + ldpath

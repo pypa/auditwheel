@@ -61,6 +61,7 @@ def test_get_wheel_architecture_multiple(filename: str) -> None:
         ("foo-1.0-py3-none-manylinux1_x86_64.whl", Libc.GLIBC),
         ("foo-1.0-py3-none-manylinux1_x86_64.manylinux2010_x86_64.whl", Libc.GLIBC),
         ("foo-1.0-py3-none-musllinux_1_1_x86_64.whl", Libc.MUSL),
+        ("foo-1.0-py3-none-android_24_arm64_v8a.whl", Libc.ANDROID),
     ],
 )
 def test_get_wheel_libc(filename: str, expected: Libc) -> None:
