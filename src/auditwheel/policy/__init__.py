@@ -132,17 +132,17 @@ class WheelPolicies:
             if len(plats) != 1:
                 msg = "Android wheels must have exactly one platform tag"
                 raise ValueError(msg)
-            api_level = tag_api_level(plats[0])
+            api_level = android_api_level(plats[0])
 
             valid_policies = [
                 p
                 for p in self._policies
-                if p.name.startswith("android") and tag_api_level(p.name) <= api_level
+                if p.name.startswith("android") and android_api_level(p.name) <= api_level
             ]
             if not valid_policies:
                 msg = f"minimum supported platform tag is {self.lowest.name}"
                 raise ValueError(msg)
-            best_policy = max(valid_policies, key=lambda p: tag_api_level(p.name))
+            best_policy = max(valid_policies, key=lambda p: android_api_level(p.name))
 
             # It's unsafe to reduce the API level of the existing tag, so rename the
             # policy to match it.
@@ -360,7 +360,7 @@ def _fixup_musl_libc_soname(
     return frozenset(new_whitelist)
 
 
-def tag_api_level(tag: str) -> int:
+def android_api_level(tag: str) -> int:
     match = re.match(r"android_(\d+)", tag)
     assert match is not None  # noqa: S101
     return int(match[1])

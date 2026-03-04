@@ -13,6 +13,7 @@ from auditwheel.policy import (
     Policy,
     WheelPolicies,
     _validate_pep600_compliance,
+    android_api_level,
     get_replace_platforms,
 )
 
@@ -31,6 +32,23 @@ def raises(exception, match=None, escape=True):
     if escape and match is not None:
         match = re.escape(match)
     return pytest.raises(exception, match=match)
+
+
+@pytest.mark.parametrize(
+    ("tag", "expected"),
+    [
+        ("android_21_arm64_v8a", 21),
+        ("android_21_x86_64", 21),
+        ("android_9_x86_64", 9),
+        ("linux_aarch64", None),
+    ],
+)
+def test_android_api_level(tag, expected):
+    if expected is None:
+        with pytest.raises(AssertionError):
+            android_api_level(tag)
+    else:
+        assert android_api_level(tag) == expected
 
 
 @pytest.mark.parametrize(

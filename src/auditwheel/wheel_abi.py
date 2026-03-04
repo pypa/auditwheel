@@ -22,7 +22,7 @@ from auditwheel.error import InvalidLibcError, NonPlatformWheelError
 from auditwheel.genericpkgctx import InGenericPkgCtx
 from auditwheel.lddtree import DynamicExecutable, ldd, parse_ld_paths
 from auditwheel.libc import Libc
-from auditwheel.policy import ExternalReference, Policy, WheelPolicies, tag_api_level
+from auditwheel.policy import ExternalReference, Policy, WheelPolicies, android_api_level
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -490,7 +490,7 @@ def analyze_wheel_abi(
         overall_policy = min(overall_policy, ref_policy)
 
     # https://android.googlesource.com/platform/bionic/+/refs/heads/main/android-changes-for-ndk-developers.md
-    if libc == Libc.ANDROID and external_libs and tag_api_level(overall_policy.name) < 24:
+    if libc == Libc.ANDROID and external_libs and android_api_level(overall_policy.name) < 24:
         log.warning(
             "%s requires external libraries, which requires DT_RUNPATH; "
             "increasing its API level to 24.",
