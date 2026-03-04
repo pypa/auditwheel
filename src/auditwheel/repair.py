@@ -79,8 +79,8 @@ def repair_wheel(
                 if LIBPYTHON_RE.match(soname):
                     if wheel_abi.policies.libc in [Libc.GLIBC, Libc.MUSL]:
                         logger.warning(
-                            "Removing %s dependency from %s. Linking with libpython is "
-                            "forbidden for manylinux/musllinux wheels.",
+                            "Removing %s dependency from %s. "
+                            "Linking with libpython is forbidden for manylinux/musllinux wheels.",
                             soname,
                             str(fn),
                         )

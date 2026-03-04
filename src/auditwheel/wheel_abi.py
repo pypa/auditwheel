@@ -133,11 +133,7 @@ def get_wheel_elfdata(
                         continue
 
                 if policies is None and libc is not None and architecture is not None:
-                    policies = WheelPolicies(
-                        libc=libc,
-                        arch=architecture,
-                        wheel_fn=wheel_fn,
-                    )
+                    policies = WheelPolicies(libc=libc, arch=architecture, wheel_fn=wheel_fn)
 
                 platform_wheel = True
 

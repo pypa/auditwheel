@@ -192,8 +192,8 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                     libc = lc
                 if libc != lc:
                     msg = (
-                        f"can't repair wheel {wheel_filename} with {libc.name} libc "
-                        f"to a wheel targeting {lc.name}"
+                        f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel "
+                        f"targeting {lc.name}"
                     )
                     parser.error(msg)
 
