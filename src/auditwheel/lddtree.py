@@ -37,6 +37,7 @@ __all__ = ["LIBPYTHON_RE", "DynamicExecutable", "DynamicLibrary", "ldd"]
 # Regex to match libpython shared library names
 LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(\.\d)*$")
 
+# Regex to match ORIGIN references in rpaths.
 ORIGIN_RE = re.compile(r"\$(ORIGIN|\{ORIGIN\})")
 
 
@@ -152,10 +153,6 @@ def _get_platform(elf: ELFFile) -> Platform:
             error_msg = "armv7l shall use hard-float"
         if error_msg is not None:
             base_arch = None
-    elif base_arch == Architecture.aarch64:  # noqa: SIM102
-        # Android uses a different platform tag for this architecture.
-        if elf.get_section_by_name(".note.android.ident"):
-            base_arch = Architecture.arm64_v8a
 
     return Platform(
         elf_osabi,
@@ -594,20 +591,12 @@ def ldd(
             continue
 
         # special case for libpython, see https://github.com/pypa/auditwheel/issues/589
-        # On Linux we want to return the dependency to be able to remove it later on.
-        #
-        # On Android linking with libpython is normal, but we don't want to return it as
-        # this will make the wheel appear to have external references, requiring it to
-        # have an API level of at least 24 (see wheel_abi.analyze_wheel_abi).
-        #
-        # Either way, we don't want to analyze it for symbol versions, nor do we want to
-        # analyze its dependencies.
+        # we want to return the dependency to be able to remove it later on but
+        # we don't want to analyze it for symbol versions nor do we want to analyze its
+        # dependencies as it will be removed.
         if LIBPYTHON_RE.match(soname):
-            if libc == Libc.ANDROID:
-                _excluded_libs.add(soname)
-            else:
-                log.info("Skip %s resolution", soname)
-                _all_libs[soname] = DynamicLibrary(soname, None, None)
+            log.info("Skip %s resolution", soname)
+            _all_libs[soname] = DynamicLibrary(soname, None, None)
             continue
 
         realpath, fullpath = find_lib(platform, soname, all_ldpaths, root)

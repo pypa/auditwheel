@@ -9,11 +9,12 @@ from typing import Any
 
 from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheelError, WheelToolsError
+from auditwheel.lddtree import LIBPYTHON_RE
 from auditwheel.libc import Libc
 from auditwheel.patcher import Patchelf
 from auditwheel.policy import WheelPolicies
 from auditwheel.tools import EnvironmentDefault
-from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
+from auditwheel.wheeltools import android_api_level, get_wheel_architecture, get_wheel_libc
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,17 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         else:
             plat = f"{plat_base}_{policies.architecture.value}"
         requested_policy = policies.get_policy_by_name(plat)
+
+        # On Android, grafted libraries are only supported on API level 24 or higher
+        # (https://android.googlesource.com/platform/bionic/+/refs/heads/main/android-changes-for-ndk-developers.md).
+        if libc == Libc.ANDROID and android_api_level(plat) < 24:
+            for soname in wheel_abi.external_refs[plat].libs:
+                if not LIBPYTHON_RE.match(soname):
+                    msg = (
+                        "grafting external libraries requires RUNPATH, which requires "
+                        "API level 24 or higher."
+                    )
+                    parser.error(msg)
 
         if requested_policy > wheel_abi.sym_policy:
             msg = (

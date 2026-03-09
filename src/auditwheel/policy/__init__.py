@@ -8,13 +8,12 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from packaging.utils import parse_wheel_filename
-
 from auditwheel.architecture import Architecture
 from auditwheel.elfutils import filter_undefined_symbols
 from auditwheel.error import InvalidLibcError
 from auditwheel.libc import Libc
 from auditwheel.tools import is_subdir
+from auditwheel.wheeltools import android_api_level, get_wheel_platforms
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
@@ -29,8 +28,6 @@ logger = logging.getLogger(__name__)
 _POLICY_JSON_MAP = {
     Libc.GLIBC: _HERE / "manylinux-policy.json",
     Libc.MUSL: _HERE / "musllinux-policy.json",
-    # Android whitelists are based on
-    # https://developer.android.com/ndk/guides/stable_apis.
     Libc.ANDROID: _HERE / "android-policy.json",
 }
 
@@ -125,40 +122,36 @@ class WheelPolicies:
             assert len(self._policies) == 2, self._policies  # noqa: S101
 
         elif self._libc_variant == Libc.ANDROID:
-            # Pick the policy with the highest API level that's less than or equal to
-            # the wheel's existing tag.
+            # Every Android API level has its own platform tag. One or two new levels are created
+            # every year, so the policy file doesn't list them all. Instead, it only lists the
+            # levels in which the set of available libraries changed
+            # (https://developer.android.com/ndk/guides/stable_apis).
+            #
+            # Determine the wheel's API level.
             assert wheel_fn is not None  # noqa: S101
-            plats = list({t.platform for t in parse_wheel_filename(wheel_fn.name)[3]})
-            if len(plats) != 1:
-                msg = "Android wheels must have exactly one platform tag"
+            platforms = get_wheel_platforms(wheel_fn.name)
+            if len(platforms) != 1:
+                msg = f"Android wheels must have exactly one platform tag, got {platforms}"
                 raise ValueError(msg)
-            api_level = android_api_level(plats[0])
+            platform = platforms.pop()
+            api_level = android_api_level(platform)
 
-            valid_policies = [
-                p
-                for p in self._policies
-                if p.name.startswith("android") and android_api_level(p.name) <= api_level
-            ]
-            if not valid_policies:
-                msg = f"minimum supported platform tag is {self.lowest.name}"
+            # Pick the policy with the highest API level that's less than or equal to the wheel's
+            # existing tag.
+            for p in self._policies:
+                if p.name.startswith("android") and android_api_level(p.name) <= api_level:
+                    # Rename the policy to match the existing tag, and remove all other policies.
+                    self._policies = [self.linux, replace(p, name=platform)]
+                    break
+            else:
+                msg = (
+                    f"no Android policies match the platform tag {platform!r}. The minimum "
+                    f"supported API level is {android_api_level(self.highest.name)}."
+                )
                 raise ValueError(msg)
-            best_policy = max(valid_policies, key=lambda p: android_api_level(p.name))
-
-            # It's unsafe to reduce the API level of the existing tag, so rename the
-            # policy to match it.
-            self._policies = [self.linux, replace(best_policy, name=plats[0])]
 
     def __iter__(self) -> Generator[Policy]:
         yield from self._policies
-
-    def __len__(self) -> int:
-        return len(self._policies)
-
-    def __getitem__(self, index: int) -> Policy:
-        return self._policies[index]
-
-    def __setitem__(self, index: int, p: Policy) -> None:
-        self._policies[index] = p
 
     @property
     def libc(self) -> Libc:
@@ -360,13 +353,7 @@ def _fixup_musl_libc_soname(
     return frozenset(new_whitelist)
 
 
-def android_api_level(tag: str) -> int:
-    match = re.match(r"android_(\d+)", tag)
-    assert match is not None  # noqa: S101
-    return int(match[1])
-
-
-def get_replace_platforms(name: str) -> list[str | re.Pattern[str]]:
+def get_replace_platforms(name: str) -> list[str]:
     """Extract platform tag replacement rules from policy
 
     >>> get_replace_platforms('linux_x86_64')
@@ -385,9 +372,6 @@ def get_replace_platforms(name: str) -> list[str | re.Pattern[str]]:
         return ["linux_" + "_".join(name.split("_")[3:])]
     if name.startswith("musllinux_"):
         return ["linux_" + "_".join(name.split("_")[3:])]
-    if name.startswith("android_"):
-        # On Android it only makes sense to have one platform tag at a time.
-        return [re.compile(r"android_.+")]
     return ["linux_" + "_".join(name.split("_")[1:])]
 
 
