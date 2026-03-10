@@ -52,6 +52,7 @@ jobs:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}
     needs: test-dist
     runs-on: ${{ matrix.platform[1] }}
+    environment: codecov
     permissions:
       contents: read
     strategy:

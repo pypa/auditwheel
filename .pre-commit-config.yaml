@@ -21,7 +21,7 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.14.11
+  rev: v0.15.5
   hooks:
   - id: ruff-check
     args: ["--fix", "--show-fixes"]
@@ -42,6 +42,6 @@ repos:
       - types-requests
 
 - repo: https://github.com/zizmorcore/zizmor-pre-commit
-  rev: v1.20.0
+  rev: v1.23.1
   hooks:
   - id: zizmor
