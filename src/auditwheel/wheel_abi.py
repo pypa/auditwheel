@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 import itertools
 import logging
-import os
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
@@ -20,7 +19,7 @@ from auditwheel.elfutils import (
 )
 from auditwheel.error import InvalidLibcError, NonPlatformWheelError
 from auditwheel.genericpkgctx import InGenericPkgCtx
-from auditwheel.lddtree import DynamicExecutable, ldd, parse_ld_paths
+from auditwheel.lddtree import DynamicExecutable, ld_paths_from_arg, ldd
 from auditwheel.libc import Libc
 from auditwheel.policy import ExternalReference, Policy, WheelPolicies
 
@@ -64,7 +63,7 @@ def get_wheel_elfdata(
     architecture: Architecture | None,
     wheel_fn: Path,
     exclude: frozenset[str],
-    args_ldpaths: str,
+    args_ldpaths: str | None,
 ) -> WheelElfData:
     full_elftree: dict[Path, DynamicExecutable] = {}
     nonpy_elftree: dict[Path, DynamicExecutable] = {}
@@ -93,19 +92,7 @@ def get_wheel_elfdata(
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
-                elftree = ldd(
-                    fn,
-                    exclude=exclude,
-                    ldpaths=(
-                        None
-                        if args_ldpaths == ""
-                        else {
-                            "conf": parse_ld_paths(args_ldpaths),
-                            "env": parse_ld_paths(os.environ.get("LD_LIBRARY_PATH", "")),
-                            "interp": [],
-                        }
-                    ),
-                )
+                elftree = ldd(fn, exclude=exclude, ldpaths=ld_paths_from_arg(args_ldpaths))
 
                 try:
                     elf_arch = elftree.platform.baseline_architecture
@@ -389,7 +376,7 @@ def analyze_wheel_abi(
     disable_isa_ext_check: bool,
     allow_graft: bool,
     requested_policy_base_name: str | None = None,
-    args_ldpaths: str = "",
+    args_ldpaths: str | None = None,
 ) -> WheelAbIInfo:
     data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude, args_ldpaths)
     policies = data.policies

@@ -7,6 +7,7 @@ import zlib
 from pathlib import Path
 from typing import Any
 
+from auditwheel import main_options
 from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheelError, WheelToolsError
 from auditwheel.lddtree import LIBPYTHON_RE
@@ -113,33 +114,16 @@ wheel will abort processing of subsequent wheels.
         default=[],
     )
     parser.add_argument(
-        "--ldpaths",
-        dest="LDPATHS",
-        help="Colon-delimited list of directories to search for external libraries. "
-        "This replaces the default list; to add to the default, use LD_LIBRARY_PATH.",
-        default="",
-    )
-    parser.add_argument(
         "--only-plat",
         dest="ONLY_PLAT",
         action="store_true",
         help="Do not check for higher policy compatibility",
         default=False,
     )
-    parser.add_argument(
-        "--disable-isa-ext-check",
-        dest="DISABLE_ISA_EXT_CHECK",
-        action="store_true",
-        help="Do not check for extended ISA compatibility (e.g. x86_64_v2)",
-        default=False,
-    )
-    parser.add_argument(
-        "--allow-pure-python-wheel",
-        dest="ALLOW_PURE_PY_WHEEL",
-        action="store_true",
-        help="Allow processing of pure Python wheels (no platform-specific binaries) without error",
-        default=False,
-    )
+    main_options.disable_isa_check(parser)
+    main_options.allow_pure_python_wheel(parser)
+    main_options.ldpaths(parser)
+
     parser.set_defaults(func=execute)
 
 

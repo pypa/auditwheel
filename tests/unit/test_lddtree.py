@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from auditwheel.architecture import Architecture
-from auditwheel.lddtree import LIBPYTHON_RE, ldd, parse_ld_paths
+from auditwheel.lddtree import LIBPYTHON_RE, ld_paths_from_arg, ldd, load_ld_paths, parse_ld_paths
 from auditwheel.libc import Libc
 from auditwheel.tools import zip2dir
 
@@ -108,3 +108,32 @@ def test_parse_ld_paths_origin(origin):
 
     # Relative paths are made absolute.
     assert parse_ld_paths(origin, path=os.path.relpath(__file__)) == [here]
+
+
+@pytest.mark.parametrize("libc", [Libc.ANDROID, None])
+def test_load_ld_paths_invalid(libc):
+    with pytest.raises(
+        ValueError,
+        match=f"can't load linker paths for libc {libc}: use the --ldpaths option",
+    ):
+        load_ld_paths(libc)
+
+
+@pytest.mark.parametrize(
+    ("arg", "env", "expected"),
+    [
+        (None, "", None),
+        (None, str(HERE.parent), None),
+        ("", "", {"conf": [], "env": [], "interp": []}),
+        (str(HERE), "", {"conf": [str(HERE)], "env": [], "interp": []}),
+        ("", str(HERE), {"conf": [], "env": [str(HERE)], "interp": []}),
+        (
+            str(HERE),
+            str(HERE.parent),
+            {"conf": [str(HERE)], "env": [str(HERE.parent)], "interp": []},
+        ),
+    ],
+)
+def test_ld_paths_from_arg(arg, env, expected, monkeypatch):
+    monkeypatch.setitem(os.environ, "LD_LIBRARY_PATH", env)
+    assert ld_paths_from_arg(arg) == expected

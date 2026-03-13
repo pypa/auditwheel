@@ -290,7 +290,7 @@ def test_android(wheel_level, policy_level, arch):
     assert ("libaaudio.so" in whitelist) == (policy_level >= 26)
     assert ("libneuralnetworks.so" in whitelist) == (policy_level >= 27)
 
-    platform = f"android_{wheel_level}_{arch.value}"
+    platform = f"android_{wheel_level}_{arch}"
     policies = WheelPolicies(
         libc=Libc.ANDROID,
         arch=arch.baseline,

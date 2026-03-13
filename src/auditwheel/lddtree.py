@@ -363,13 +363,30 @@ def load_ld_paths(
                 if ldpath_stripped == "":
                     continue
                 ldpaths["conf"].append(root + ldpath_stripped)
-    else:
+    elif libc == Libc.GLIBC:
         # Load up /etc/ld.so.conf.
         ldpaths["conf"] = parse_ld_so_conf(root + prefix + "/etc/ld.so.conf", root=root)
         # the trusted directories are not necessarily in ld.so.conf
         ldpaths["conf"].extend(["/lib", "/lib64/", "/usr/lib", "/usr/lib64"])
+    else:
+        msg = f"can't load linker paths for libc {libc}: use the --ldpaths option"
+        raise ValueError(msg)
+
     log.debug("linker ldpaths: %s", ldpaths)
     return ldpaths
+
+
+def ld_paths_from_arg(args_ldpaths: str | None) -> dict[str, list[str]] | None:
+    """Load linker paths from the --ldpaths option and the LD_LIBRARY_PATH env var."""
+    if args_ldpaths is None:
+        # The option was not provided, so fall back on load_ld_paths.
+        return None
+
+    return {
+        "conf": parse_ld_paths(args_ldpaths),
+        "env": parse_ld_paths(os.environ.get("LD_LIBRARY_PATH", "")),
+        "interp": [],
+    }
 
 
 def find_lib(
@@ -530,22 +547,19 @@ def ldd(
 
     if _first:
         # get the libc based on dependencies
-        def set_libc(new_libc: Libc) -> None:
-            nonlocal libc
-            if libc is None:
-                libc = new_libc
-            if libc != new_libc:
-                msg = f"found a dependency on {new_libc} but the libc is already set to {libc}"
-                raise InvalidLibcError(msg)
-
         for soname in needed:
             if soname.startswith(("libc.musl-", "ld-musl-")):
-                set_libc(Libc.MUSL)
+                if libc is None:
+                    libc = Libc.MUSL
+                if libc != Libc.MUSL:
+                    msg = f"found a dependency on MUSL but the libc is already set to {libc}"
+                    raise InvalidLibcError(msg)
             elif soname == "libc.so.6" or soname.startswith(("ld-linux-", "ld64.so.")):
-                set_libc(Libc.GLIBC)
-            elif soname == "libc.so":
-                set_libc(Libc.ANDROID)
-
+                if libc is None:
+                    libc = Libc.GLIBC
+                if libc != Libc.GLIBC:
+                    msg = f"found a dependency on GLIBC but the libc is already set to {libc}"
+                    raise InvalidLibcError(msg)
         if libc is None:
             # try the filename as a last resort
             if path.name.endswith(("-arm-linux-musleabihf.so", "-linux-musl.so")):
@@ -556,8 +570,6 @@ def ldd(
                 valid_python = tuple(f"3{minor}" for minor in range(11, 100))
                 if soabi[0] == "cpython" and soabi[1].startswith(valid_python):
                     libc = Libc.GLIBC
-            elif path.name.endswith("-linux-android.so"):
-                libc = Libc.ANDROID
 
         if ldpaths is None:
             ldpaths = load_ld_paths(libc).copy()

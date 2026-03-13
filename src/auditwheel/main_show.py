@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from auditwheel import main_options
+
 if TYPE_CHECKING:
     import argparse
 
@@ -14,20 +16,9 @@ def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
     help_ = "Audit a wheel for external shared library dependencies."
     p = sub_parsers.add_parser("show", help=help_, description=help_)
     p.add_argument("WHEEL_FILE", type=Path, help="Path to wheel file.")
-    p.add_argument(
-        "--disable-isa-ext-check",
-        dest="DISABLE_ISA_EXT_CHECK",
-        action="store_true",
-        help="Do not check for extended ISA compatibility (e.g. x86_64_v2)",
-        default=False,
-    )
-    p.add_argument(
-        "--allow-pure-python-wheel",
-        dest="ALLOW_PURE_PY_WHEEL",
-        action="store_true",
-        help="Allow processing of pure Python wheels (no platform-specific binaries) without error",
-        default=False,
-    )
+    main_options.disable_isa_check(p)
+    main_options.allow_pure_python_wheel(p)
+    main_options.ldpaths(p)
     p.set_defaults(func=execute)
 
 
@@ -73,6 +64,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             frozenset(),
             disable_isa_ext_check=args.DISABLE_ISA_EXT_CHECK,
             allow_graft=False,
+            args_ldpaths=args.LDPATHS,
         )
     except NonPlatformWheelError as e:
         logger.info("%s", e.message)
