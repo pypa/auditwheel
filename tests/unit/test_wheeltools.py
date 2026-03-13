@@ -97,13 +97,14 @@ def test_get_wheel_libc_multiple(filename: str) -> None:
 @pytest.mark.parametrize(
     ("filename", "expected"),
     [
-        ("foo-1.0-py3-none-manylinux1_x86_64.whl", {"manylinux1_x86_64"}),
-        ("foo-1.0-py3-none-any.any.whl", {"any"}),
-        ("foo-1.0-py3-none-linux_x86_64.any.whl", {"linux_x86_64", "any"}),
-        ("foo-1.0-py2.py3-none-linux_x86_64.any.whl", {"linux_x86_64", "any"}),
+        ("foo-1.0-py3-none-manylinux1_x86_64.whl", ["manylinux1_x86_64"]),
+        ("foo-1.0-py3-none-any.any.whl", ["any"]),
+        ("foo-1.0-py3-none-linux_x86_64.any.whl", ["any", "linux_x86_64"]),
+        ("foo-1.0-py3-none-any.linux_x86_64.whl", ["any", "linux_x86_64"]),
+        ("foo-1.0-py2.py3-none-linux_x86_64.any.whl", ["any", "linux_x86_64"]),
     ],
 )
-def test_get_wheel_platforms(filename: str, expected: set[str]) -> None:
+def test_get_wheel_platforms(filename: str, expected: list[str]) -> None:
     assert get_wheel_platforms(filename) == expected
 
 

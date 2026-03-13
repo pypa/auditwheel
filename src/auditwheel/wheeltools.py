@@ -232,7 +232,7 @@ def add_platforms(
         out_dir = Path.cwd()
         wheel_fname = wheel_ctx.in_wheel.name
 
-    original_fname_tags = sorted(get_wheel_platforms(wheel_fname))
+    original_fname_tags = get_wheel_platforms(wheel_fname)
     logger.info("Previous filename tags: %s", ", ".join(original_fname_tags))
     fname_tags = [tag for tag in original_fname_tags if tag not in to_remove]
     fname_tags = unique_by_index(fname_tags + platforms)
@@ -334,9 +334,9 @@ def get_wheel_libc(filename: str) -> Libc:
     return result.pop()
 
 
-def get_wheel_platforms(filename: str) -> set[str]:
+def get_wheel_platforms(filename: str) -> list[str]:
     _, _, _, in_tags = parse_wheel_filename(filename)
-    return {tag.platform for tag in in_tags}
+    return sorted({tag.platform for tag in in_tags})
 
 
 def android_api_level(tag: str) -> int:

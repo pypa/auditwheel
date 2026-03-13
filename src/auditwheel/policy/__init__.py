@@ -122,32 +122,29 @@ class WheelPolicies:
             assert len(self._policies) == 2, self._policies  # noqa: S101
 
         elif self._libc_variant == Libc.ANDROID:
-            # Every Android API level has its own platform tag. One or two new levels are created
-            # every year, so the policy file doesn't list them all. Instead, it only lists the
-            # levels in which the set of available libraries changed
-            # (https://developer.android.com/ndk/guides/stable_apis).
-            #
-            # Determine the wheel's API level.
+            # Android wheels always have a platform tag with an API level (OS version). We won't
+            # change that tag, we'll only use it to determine which libraries need to be grafted.
             assert wheel_fn is not None  # noqa: S101
             platforms = get_wheel_platforms(wheel_fn.name)
             if len(platforms) != 1:
                 msg = f"Android wheels must have exactly one platform tag, got {platforms}"
                 raise ValueError(msg)
-            platform = platforms.pop()
+            platform = platforms[0]
             api_level = android_api_level(platform)
 
-            # Pick the policy with the highest API level that's less than or equal to the wheel's
-            # existing tag.
+            # One or two new API levels are created every year, so the policy file only lists the
+            # levels in which the available libraries changed
+            # (https://developer.android.com/ndk/guides/stable_apis). We should use the policy with
+            # the highest API level that's less than or equal to the wheel's tag.
             for p in self._policies:
                 if p.name.startswith("android") and android_api_level(p.name) <= api_level:
                     # Rename the policy to match the existing tag, and remove all other policies.
                     self._policies = [self.linux, replace(p, name=platform)]
                     break
             else:
-                msg = (
-                    f"no Android policies match the platform tag {platform!r}. The minimum "
-                    f"supported API level is {android_api_level(self.highest.name)}."
-                )
+                # The minimum API level is 21, which was the first version to be officially
+                # supported by Python (see PEP 738).
+                msg = f"no Android policies match the platform tag {platform!r}"
                 raise ValueError(msg)
 
     def __iter__(self) -> Generator[Policy]:
