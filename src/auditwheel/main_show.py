@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from auditwheel import main_options
+from auditwheel import options
 
 if TYPE_CHECKING:
     import argparse
@@ -16,9 +16,9 @@ def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
     help_ = "Audit a wheel for external shared library dependencies."
     p = sub_parsers.add_parser("show", help=help_, description=help_)
     p.add_argument("WHEEL_FILE", type=Path, help="Path to wheel file.")
-    main_options.disable_isa_check(p)
-    main_options.allow_pure_python_wheel(p)
-    main_options.ldpaths(p)
+    options.disable_isa_check(p)
+    options.allow_pure_python_wheel(p)
+    options.ldpaths(p)
     p.set_defaults(func=execute)
 
 

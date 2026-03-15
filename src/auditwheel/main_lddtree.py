@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from auditwheel import main_options
+from auditwheel import options
 
 if TYPE_CHECKING:
     import argparse
@@ -16,7 +16,7 @@ def configure_subparser(sub_parsers: Any) -> None:  # noqa: ANN401
     help_ = "Analyze a single ELF file (similar to ``ldd``)."
     p = sub_parsers.add_parser("lddtree", help=help_, description=help_)
     p.add_argument("file", type=Path, help="Path to .so file")
-    main_options.ldpaths(p)
+    options.ldpaths(p)
     p.set_defaults(func=execute)
 
 

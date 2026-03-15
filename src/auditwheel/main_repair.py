@@ -7,7 +7,7 @@ import zlib
 from pathlib import Path
 from typing import Any
 
-from auditwheel import main_options
+from auditwheel import options
 from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheelError, WheelToolsError
 from auditwheel.libc import Libc
@@ -119,9 +119,9 @@ wheel will abort processing of subsequent wheels.
         help="Do not check for higher policy compatibility",
         default=False,
     )
-    main_options.disable_isa_check(parser)
-    main_options.allow_pure_python_wheel(parser)
-    main_options.ldpaths(parser)
+    options.disable_isa_check(parser)
+    options.allow_pure_python_wheel(parser)
+    options.ldpaths(parser)
 
     parser.set_defaults(func=execute)
 
