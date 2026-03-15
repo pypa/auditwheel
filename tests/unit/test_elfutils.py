@@ -12,6 +12,7 @@ from auditwheel.elfutils import (
     elf_find_versioned_symbols,
     elf_read_dt_needed,
     elf_read_rpaths,
+    elf_read_soname,
     elf_references_pyfpe_jbuf,
     get_undefined_symbols,
 )
@@ -27,6 +28,38 @@ class MockSymbol(dict[str, Any]):
     @property
     def name(self):
         return self._name
+
+
+@patch("auditwheel.elfutils.ELFFile")
+class TestElfReadSoname:
+    def test_missing_section(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+        fake.touch()
+
+        # GIVEN
+        elffile_mock.return_value.get_section_by_name.return_value = None
+
+        # THEN
+        assert elf_read_soname(fake) is None
+
+    def test_read_soname(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+        fake.touch()
+
+        # GIVEN
+        tag1 = Mock(needed="libz.so")  # Non-SONAME tags should be ignored
+        tag1.entry.d_tag = "DT_NEEDED"
+        tag2 = Mock(soname="libfoo.so")
+        tag2.entry.d_tag = "DT_SONAME"
+        tag3 = Mock(soname="libbar.so")  # Subsequent SONAME tags should be ignored
+        tag3.entry.d_tag = "DT_SONAME"
+
+        section_mock = Mock()
+        section_mock.iter_tags.return_value = [tag1, tag2, tag3]
+        elffile_mock.return_value.get_section_by_name.return_value = section_mock
+
+        # THEN
+        assert elf_read_soname(fake) == "libfoo.so"
 
 
 @patch("auditwheel.elfutils.ELFFile")
@@ -233,6 +266,33 @@ class TestElfReferencesPyPFE:
 
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfReadRpaths:
+    def test_read_rpaths(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+        fake.touch()
+
+        parent = tmp_path.parent
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+
+        # GIVEN
+        tag1 = Mock(rpath=f"{parent}:$ORIGIN")
+        tag1.entry.d_tag = "DT_RPATH"
+        tag2 = Mock(runpath="$ORIGIN/subdir")
+        tag2.entry.d_tag = "DT_RUNPATH"
+        tag3 = Mock(needed="libfoo.so")
+        tag3.entry.d_tag = "DT_NEEDED"
+
+        section_mock = Mock()
+        section_mock.iter_tags.return_value = [tag1, tag2, tag3]
+        elffile_mock.return_value.get_section_by_name.return_value = section_mock
+
+        # THEN
+        result = elf_read_rpaths(fake)
+        assert result == {
+            "rpaths": [str(parent), str(tmp_path)],
+            "runpaths": [str(subdir)],
+        }
+
     def test_missing_dynamic_section(self, elffile_mock, tmp_path):
         fake = tmp_path / "fake.so"
 

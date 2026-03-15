@@ -19,7 +19,7 @@ from auditwheel.elfutils import (
 )
 from auditwheel.error import InvalidLibcError, NonPlatformWheelError
 from auditwheel.genericpkgctx import InGenericPkgCtx
-from auditwheel.lddtree import DynamicExecutable, ldd
+from auditwheel.lddtree import DynamicExecutable, ld_paths_from_arg, ldd
 from auditwheel.libc import Libc
 from auditwheel.policy import ExternalReference, Policy, WheelPolicies
 
@@ -63,6 +63,7 @@ def get_wheel_elfdata(
     architecture: Architecture | None,
     wheel_fn: Path,
     exclude: frozenset[str],
+    args_ldpaths: str | None,
 ) -> WheelElfData:
     full_elftree: dict[Path, DynamicExecutable] = {}
     nonpy_elftree: dict[Path, DynamicExecutable] = {}
@@ -91,7 +92,7 @@ def get_wheel_elfdata(
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
-                elftree = ldd(fn, exclude=exclude)
+                elftree = ldd(fn, exclude=exclude, ldpaths=ld_paths_from_arg(args_ldpaths))
 
                 try:
                     elf_arch = elftree.platform.baseline_architecture
@@ -116,7 +117,7 @@ def get_wheel_elfdata(
                         continue
 
                 if policies is None and libc is not None and architecture is not None:
-                    policies = WheelPolicies(libc=libc, arch=architecture)
+                    policies = WheelPolicies(libc=libc, arch=architecture, wheel_fn=wheel_fn)
 
                 platform_wheel = True
 
@@ -375,8 +376,9 @@ def analyze_wheel_abi(
     disable_isa_ext_check: bool,
     allow_graft: bool,
     requested_policy_base_name: str | None = None,
+    args_ldpaths: str | None = None,
 ) -> WheelAbIInfo:
-    data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude)
+    data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude, args_ldpaths)
     policies = data.policies
     elftree_by_fn = data.full_elftree
     external_refs_by_fn = data.full_external_refs

@@ -232,8 +232,7 @@ def add_platforms(
         out_dir = Path.cwd()
         wheel_fname = wheel_ctx.in_wheel.name
 
-    _, _, _, in_tags = parse_wheel_filename(wheel_fname)
-    original_fname_tags = sorted({tag.platform for tag in in_tags})
+    original_fname_tags = get_wheel_platforms(wheel_fname)
     logger.info("Previous filename tags: %s", ", ".join(original_fname_tags))
     fname_tags = [tag for tag in original_fname_tags if tag not in to_remove]
     fname_tags = unique_by_index(fname_tags + platforms)
@@ -290,21 +289,20 @@ def get_wheel_architecture(filename: str) -> Architecture:
     result: set[Architecture] = set()
     missed = False
     pure = True
-    _, _, _, in_tags = parse_wheel_filename(filename)
-    for tag in in_tags:
+    for platform in get_wheel_platforms(filename):
         found = False
-        pure_ = tag.platform == "any"
+        pure_ = platform == "any"
         pure = pure and pure_
         missed = missed or pure_
         if not pure_:
             for arch in Architecture:
-                if tag.platform.endswith(f"_{arch.value}"):
+                if platform.endswith(f"_{arch.value}"):
                     result.add(arch.baseline)
                     found = True
             if not found:
                 logger.warning(
                     "couldn't guess architecture for platform tag '%s'",
-                    tag.platform,
+                    platform,
                 )
                 missed = True
     if len(result) == 0:
@@ -323,12 +321,10 @@ def get_wheel_architecture(filename: str) -> Architecture:
 
 def get_wheel_libc(filename: str) -> Libc:
     result: set[Libc] = set()
-    _, _, _, in_tags = parse_wheel_filename(filename)
-    for tag in in_tags:
-        if "musllinux_" in tag.platform:
-            result.add(Libc.MUSL)
-        if "manylinux" in tag.platform:
-            result.add(Libc.GLIBC)
+    for platform in get_wheel_platforms(filename):
+        for libc in Libc:
+            if platform.startswith(libc.tag_prefix):
+                result.add(libc)
     if len(result) == 0:
         msg = "unknown libc used"
         raise WheelToolsError(msg)
@@ -336,3 +332,16 @@ def get_wheel_libc(filename: str) -> Libc:
         msg = f"wheels with multiple libc are not supported, got {result}"
         raise WheelToolsError(msg)
     return result.pop()
+
+
+def get_wheel_platforms(filename: str) -> list[str]:
+    _, _, _, in_tags = parse_wheel_filename(filename)
+    return sorted({tag.platform for tag in in_tags})
+
+
+def android_api_level(tag: str) -> int:
+    match = re.match(r"android_(\d+)", tag)
+    if match is None:
+        msg = f"invalid tag: {tag}"
+        raise ValueError(msg)
+    return int(match[1])

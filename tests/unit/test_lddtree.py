@@ -1,9 +1,10 @@
+import os
 from pathlib import Path
 
 import pytest
 
 from auditwheel.architecture import Architecture
-from auditwheel.lddtree import LIBPYTHON_RE, ldd
+from auditwheel.lddtree import LIBPYTHON_RE, ld_paths_from_arg, ldd, parse_ld_paths
 from auditwheel.libc import Libc
 from auditwheel.tools import zip2dir
 
@@ -63,3 +64,67 @@ def test_libpython(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     assert libpython.platform is None
     assert libpython.realpath is None
     assert libpython.needed == ()
+
+
+def test_parse_ld_paths():
+    here = str(HERE)
+    parent = str(HERE.parent)
+
+    assert parse_ld_paths("") == []
+    assert parse_ld_paths(f"{here}") == [here]
+    assert parse_ld_paths(f"{parent}") == [parent]
+
+    # Order is preserved.
+    assert parse_ld_paths(f"{here}:{parent}") == [here, parent]
+    assert parse_ld_paths(f"{parent}:{here}") == [parent, here]
+
+    # `..` references are normalized.
+    assert parse_ld_paths(f"{here}/..") == [parent]
+
+    # Duplicate paths are deduplicated.
+    assert parse_ld_paths(f"{here}:{here}") == [here]
+
+    # Empty paths are equivalent to $PWD.
+    cwd = str(Path.cwd())
+    assert parse_ld_paths(":") == [cwd]
+    assert parse_ld_paths(f"{here}:") == [here, cwd]
+    assert parse_ld_paths(f":{here}") == [cwd, here]
+
+    # Nonexistent paths are ignored.
+    assert parse_ld_paths("/nonexistent") == []
+    assert parse_ld_paths(f"/nonexistent:{here}") == [here]
+
+
+@pytest.mark.parametrize("origin", ["$ORIGIN", "${ORIGIN}"])
+def test_parse_ld_paths_origin(origin):
+    here = str(HERE)
+    parent = str(HERE.parent)
+
+    with pytest.raises(ValueError, match=r"can't expand \$ORIGIN without a path"):
+        parse_ld_paths(origin)
+
+    assert parse_ld_paths(origin, path=__file__) == [here]
+    assert parse_ld_paths(f"{origin}/..", path=__file__) == [parent]
+
+    # Relative paths are made absolute.
+    assert parse_ld_paths(origin, path=os.path.relpath(__file__)) == [here]
+
+
+@pytest.mark.parametrize(
+    ("arg", "env", "expected"),
+    [
+        (None, "", None),
+        (None, str(HERE.parent), None),
+        ("", "", {"conf": [], "env": [], "interp": []}),
+        (str(HERE), "", {"conf": [str(HERE)], "env": [], "interp": []}),
+        ("", str(HERE), {"conf": [], "env": [str(HERE)], "interp": []}),
+        (
+            str(HERE),
+            str(HERE.parent),
+            {"conf": [str(HERE)], "env": [str(HERE.parent)], "interp": []},
+        ),
+    ],
+)
+def test_ld_paths_from_arg(arg, env, expected, monkeypatch):
+    monkeypatch.setitem(os.environ, "LD_LIBRARY_PATH", env)
+    assert ld_paths_from_arg(arg) == expected

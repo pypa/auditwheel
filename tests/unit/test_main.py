@@ -10,24 +10,7 @@ from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc, LibcVersion
 from auditwheel.main import main
 
-on_supported_platform = pytest.mark.skipif(
-    sys.platform != "linux",
-    reason="requires Linux system",
-)
 
-
-def test_unsupported_platform(monkeypatch):
-    # GIVEN
-    monkeypatch.setattr(sys, "platform", "unsupported_platform")
-
-    # WHEN
-    retval = main()
-
-    # THEN
-    assert retval == 1
-
-
-@on_supported_platform
 def test_help(monkeypatch, capsys):
     # GIVEN
     monkeypatch.setattr(sys, "argv", ["auditwheel"])
@@ -108,7 +91,6 @@ def test_repair_wheel_mismatch(
     assert message in captured.err
 
 
-@on_supported_platform
 def test_main_module() -> None:
     version = metadata.version("auditwheel")
     result = subprocess.run(

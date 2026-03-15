@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -13,6 +13,7 @@ from auditwheel.elfutils import filter_undefined_symbols
 from auditwheel.error import InvalidLibcError
 from auditwheel.libc import Libc
 from auditwheel.tools import is_subdir
+from auditwheel.wheeltools import android_api_level, get_wheel_platforms
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 _POLICY_JSON_MAP = {
     Libc.GLIBC: _HERE / "manylinux-policy.json",
     Libc.MUSL: _HERE / "musllinux-policy.json",
+    Libc.ANDROID: _HERE / "android-policy.json",
 }
 
 
@@ -58,6 +60,7 @@ class WheelPolicies:
         *,
         libc: Libc,
         arch: Architecture,
+        wheel_fn: Path | None = None,
         musl_policy: str | None = None,
     ) -> None:
         if libc != Libc.MUSL and musl_policy is not None:
@@ -117,6 +120,35 @@ class WheelPolicies:
                 self._musl_policy = "_".join(self._policies[1].name.split("_")[0:3])
                 self._policies = [self._policies[0], self._policies[1]]
             assert len(self._policies) == 2, self._policies  # noqa: S101
+
+        elif self._libc_variant == Libc.ANDROID:
+            # Android wheels always have a platform tag with an API level (OS version). We won't
+            # change that tag, we'll only use it to determine which libraries need to be grafted.
+            if wheel_fn is None:
+                msg = "wheel_fn is required when selecting Android policies"
+                raise ValueError(msg)
+
+            platforms = get_wheel_platforms(wheel_fn.name)
+            if len(platforms) != 1:
+                msg = f"Android wheels must have exactly one platform tag, got {platforms}"
+                raise ValueError(msg)
+            platform = platforms[0]
+            api_level = android_api_level(platform)
+
+            # One or two new API levels are created every year, so the policy file only lists the
+            # levels in which the available libraries changed
+            # (https://developer.android.com/ndk/guides/stable_apis). We should use the policy with
+            # the highest API level that's less than or equal to the wheel's tag.
+            for p in self._policies:
+                if p.name.startswith("android") and android_api_level(p.name) <= api_level:
+                    # Rename the policy to match the existing tag, and remove all other policies.
+                    self._policies = [self.linux, replace(p, name=platform)]
+                    break
+            else:
+                # The minimum API level is 21, which was the first version to be officially
+                # supported by Python (see PEP 738).
+                msg = f"no Android policies match the platform tag {platform!r}"
+                raise ValueError(msg)
 
     def __iter__(self) -> Generator[Policy]:
         yield from self._policies

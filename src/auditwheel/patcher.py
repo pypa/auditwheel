@@ -6,6 +6,8 @@ from shutil import which
 from subprocess import CalledProcessError, check_call, check_output
 from typing import TYPE_CHECKING
 
+from auditwheel.wheeltools import android_api_level
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -49,7 +51,8 @@ def _verify_patchelf() -> None:
 
 
 class Patchelf(ElfPatcher):
-    def __init__(self) -> None:
+    def __init__(self, platform: str = "") -> None:
+        self.platform = platform
         _verify_patchelf()
 
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
@@ -74,8 +77,18 @@ class Patchelf(ElfPatcher):
         check_call(["patchelf", "--set-soname", new_so_name, file_name])
 
     def set_rpath(self, file_name: Path, rpath: str) -> None:
+        set_args: list[str | Path] = ["patchelf", "--force-rpath", "--set-rpath", rpath, file_name]
+        if self.platform.startswith("android"):
+            # Android supports only RUNPATH, not RPATH.
+            set_args.remove("--force-rpath")
+
+            # https://android.googlesource.com/platform/bionic/+/refs/heads/main/android-changes-for-ndk-developers.md
+            if android_api_level(self.platform) < 24:
+                msg = "Grafting libraries with RUNPATH requires API level 24 or higher"
+                raise ValueError(msg)
+
         check_call(["patchelf", "--remove-rpath", file_name])
-        check_call(["patchelf", "--force-rpath", "--set-rpath", rpath, file_name])
+        check_call(set_args)
 
     def get_rpath(self, file_name: Path) -> str:
         return check_output(["patchelf", "--print-rpath", file_name]).decode("utf-8").strip()

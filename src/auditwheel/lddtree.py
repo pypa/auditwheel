@@ -37,6 +37,9 @@ __all__ = ["LIBPYTHON_RE", "DynamicExecutable", "DynamicLibrary", "ldd"]
 # Regex to match libpython shared library names
 LIBPYTHON_RE = re.compile(r"^libpython\d+\.\d+m?.so(\.\d)*$")
 
+# Regex to match ORIGIN references in rpaths.
+ORIGIN_RE = re.compile(r"\$(ORIGIN|\{ORIGIN\})")
+
 
 @dataclass(frozen=True)
 class Platform:
@@ -213,12 +216,12 @@ def dedupe(items: list[str]) -> list[str]:
     return [seen.setdefault(x, x) for x in items if x not in seen]
 
 
-def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
+def parse_ld_paths(str_ldpaths: str, path: str = "", root: str = "") -> list[str]:
     """Parse the colon-delimited list of paths and apply ldso rules to each
 
     Note the special handling as dictated by the ldso:
     - Empty paths are equivalent to $PWD
-    - $ORIGIN is expanded to the path of the given file
+    - $ORIGIN is expanded to the directory containing the given file
     - (TODO) $LIB and friends
 
     Parameters
@@ -235,13 +238,19 @@ def parse_ld_paths(str_ldpaths: str, path: str, root: str = "") -> list[str]:
         list of processed paths
 
     """
+    if not str_ldpaths:
+        return []
+
     ldpaths: list[str] = []
     for ldpath in str_ldpaths.split(":"):
         if ldpath == "":
             # The ldso treats "" paths as $PWD.
             ldpath_ = os.getcwd()
-        elif "$ORIGIN" in ldpath:
-            ldpath_ = ldpath.replace("$ORIGIN", os.path.dirname(os.path.abspath(path)))
+        elif re.search(ORIGIN_RE, ldpath):
+            if not path:
+                msg = "can't expand $ORIGIN without a path"
+                raise ValueError(msg)
+            ldpath_ = re.sub(ORIGIN_RE, os.path.dirname(os.path.abspath(path)), ldpath)
         else:
             ldpath_ = root + ldpath
         ldpaths.append(normpath(ldpath_))
@@ -361,6 +370,19 @@ def load_ld_paths(
         ldpaths["conf"].extend(["/lib", "/lib64/", "/usr/lib", "/usr/lib64"])
     log.debug("linker ldpaths: %s", ldpaths)
     return ldpaths
+
+
+def ld_paths_from_arg(args_ldpaths: str | None) -> dict[str, list[str]] | None:
+    """Load linker paths from the --ldpaths option and the LD_LIBRARY_PATH env var."""
+    if args_ldpaths is None:
+        # The option was not provided, so fall back on load_ld_paths.
+        return None
+
+    return {
+        "conf": parse_ld_paths(args_ldpaths),
+        "env": parse_ld_paths(os.environ.get("LD_LIBRARY_PATH", "")),
+        "interp": [],
+    }
 
 
 def find_lib(

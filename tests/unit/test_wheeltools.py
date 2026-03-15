@@ -14,8 +14,10 @@ from auditwheel.wheeltools import (
     InWheelCtx,
     WheelToolsError,
     add_platforms,
+    android_api_level,
     get_wheel_architecture,
     get_wheel_libc,
+    get_wheel_platforms,
 )
 
 HERE = Path(__file__).parent.resolve()
@@ -24,7 +26,11 @@ HERE = Path(__file__).parent.resolve()
 @pytest.mark.parametrize(
     ("filename", "expected"),
     [(f"foo-1.0-py3-none-linux_{arch}.whl", arch) for arch in Architecture]
-    + [("foo-1.0-py3-none-linux_x86_64.manylinux1_x86_64.whl", Architecture.x86_64)],
+    + [
+        ("foo-1.0-py3-none-linux_x86_64.manylinux1_x86_64.whl", Architecture.x86_64),
+        ("foo-1.0-py3-none-android_21_x86_64.whl", Architecture.x86_64),
+        ("foo-1.0-py3-none-android_21_arm64_v8a.whl", Architecture.aarch64),
+    ],
 )
 def test_get_wheel_architecture(filename: str, expected: Architecture) -> None:
     arch = get_wheel_architecture(filename)
@@ -61,6 +67,7 @@ def test_get_wheel_architecture_multiple(filename: str) -> None:
         ("foo-1.0-py3-none-manylinux1_x86_64.whl", Libc.GLIBC),
         ("foo-1.0-py3-none-manylinux1_x86_64.manylinux2010_x86_64.whl", Libc.GLIBC),
         ("foo-1.0-py3-none-musllinux_1_1_x86_64.whl", Libc.MUSL),
+        ("foo-1.0-py3-none-android_24_arm64_v8a.whl", Libc.ANDROID),
     ],
 )
 def test_get_wheel_libc(filename: str, expected: Libc) -> None:
@@ -85,6 +92,37 @@ def test_get_wheel_libc_multiple(filename: str) -> None:
     match = re.escape("multiple libc are not supported")
     with pytest.raises(WheelToolsError, match=match):
         get_wheel_libc(filename)
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("foo-1.0-py3-none-manylinux1_x86_64.whl", ["manylinux1_x86_64"]),
+        ("foo-1.0-py3-none-any.any.whl", ["any"]),
+        ("foo-1.0-py3-none-linux_x86_64.any.whl", ["any", "linux_x86_64"]),
+        ("foo-1.0-py3-none-any.linux_x86_64.whl", ["any", "linux_x86_64"]),
+        ("foo-1.0-py2.py3-none-linux_x86_64.any.whl", ["any", "linux_x86_64"]),
+    ],
+)
+def test_get_wheel_platforms(filename: str, expected: list[str]) -> None:
+    assert get_wheel_platforms(filename) == expected
+
+
+@pytest.mark.parametrize(
+    ("tag", "expected"),
+    [
+        ("android_21_arm64_v8a", 21),
+        ("android_21_x86_64", 21),
+        ("android_9_whatever", 9),
+        ("linux_x86_64", None),
+    ],
+)
+def test_android_api_level(tag, expected):
+    if expected is None:
+        with pytest.raises(ValueError, match=f"invalid tag: {tag}"):
+            android_api_level(tag)
+    else:
+        assert android_api_level(tag) == expected
 
 
 def test_inwheel_tmpdir(tmp_path, monkeypatch):

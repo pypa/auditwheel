@@ -61,7 +61,8 @@ class TestGetWheelElfdata:
                 Libc.GLIBC,
                 Architecture.x86_64,
                 Path("/fakepath"),
-                frozenset(),
+                exclude=frozenset(),
+                args_ldpaths="",
             )
 
         assert exec_info.value.args == (message,)
