@@ -124,7 +124,10 @@ class WheelPolicies:
         elif self._libc_variant == Libc.ANDROID:
             # Android wheels always have a platform tag with an API level (OS version). We won't
             # change that tag, we'll only use it to determine which libraries need to be grafted.
-            assert wheel_fn is not None  # noqa: S101
+            if wheel_fn is None:
+                msg = "wheel_fn is required when selecting Android policies"
+                raise ValueError(msg)
+
             platforms = get_wheel_platforms(wheel_fn.name)
             if len(platforms) != 1:
                 msg = f"Android wheels must have exactly one platform tag, got {platforms}"

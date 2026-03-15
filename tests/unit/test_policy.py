@@ -303,6 +303,11 @@ def test_android(wheel_level, policy_level, arch):
     assert policies.lowest.whitelist == whitelist
 
 
+def test_android_no_filename():
+    with pytest.raises(ValueError, match="wheel_fn is required when selecting Android policies"):
+        WheelPolicies(libc=Libc.ANDROID, arch=Architecture.x86_64)
+
+
 @pytest.mark.parametrize(
     ("filename", "message"),
     [

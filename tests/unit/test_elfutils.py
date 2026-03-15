@@ -233,6 +233,32 @@ class TestElfReferencesPyPFE:
 
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfReadRpaths:
+    def test_read_rpaths(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+        parent = tmp_path.parent
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+
+        # GIVEN
+        fake.touch()
+        section_mock = Mock()
+        tag1 = Mock(rpath=f"{parent}:$ORIGIN")
+        tag1.entry.d_tag = "DT_RPATH"
+        tag2 = Mock(runpath="$ORIGIN/subdir")
+        tag2.entry.d_tag = "DT_RUNPATH"
+        tag3 = Mock(needed="libfoo.so")
+        tag3.entry.d_tag = "DT_NEEDED"
+
+        section_mock.iter_tags.return_value = [tag1, tag2, tag3]
+        elffile_mock.return_value.get_section_by_name.return_value = section_mock
+
+        # THEN
+        result = elf_read_rpaths(fake)
+        assert result == {
+            "rpaths": [str(parent), str(tmp_path)],
+            "runpaths": [str(subdir)],
+        }
+
     def test_missing_dynamic_section(self, elffile_mock, tmp_path):
         fake = tmp_path / "fake.so"
 
