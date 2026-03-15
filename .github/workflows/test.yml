@@ -21,10 +21,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.10"
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
@@ -37,11 +37,11 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Install CPython 3.10
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.10"
           architecture: x64
@@ -52,6 +52,7 @@ jobs:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}
     needs: test-dist
     runs-on: ${{ matrix.platform[1] }}
+    environment: codecov
     permissions:
       contents: read
     strategy:
@@ -78,17 +79,17 @@ jobs:
             qemu: true
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
       - name: Setup cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ~/.cache/auditwheel_tests
           key: python${{ matrix.python }}-${{ matrix.platform[0] }}-${{ hashFiles('**/test_manylinux.py') }}
           restore-keys: python${{ matrix.python }}-${{ matrix.platform[0] }}-
       - name: Install CPython ${{ matrix.python }}
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "${{ matrix.python }}"
           allow-prereleases: true

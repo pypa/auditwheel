@@ -111,7 +111,7 @@ def _get_platform(elf: ELFFile) -> Platform:
         ("EM_S390", 64, False): Architecture.s390x,
         ("EM_ARM", 32, True): Architecture.armv7l,
         ("EM_LOONGARCH", 64, True): Architecture.loongarch64,
-    }.get((elf_machine, elf_class, elf_little_endian), None)
+    }.get((elf_machine, elf_class, elf_little_endian))
     ext_arch: Architecture | None = None
     error_msg: str | None = None
     flags = elf["e_flags"]
