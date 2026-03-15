@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from auditwheel.architecture import Architecture
-from auditwheel.lddtree import LIBPYTHON_RE, ld_paths_from_arg, ldd, load_ld_paths, parse_ld_paths
+from auditwheel.lddtree import LIBPYTHON_RE, ld_paths_from_arg, ldd, parse_ld_paths
 from auditwheel.libc import Libc
 from auditwheel.tools import zip2dir
 
@@ -108,15 +108,6 @@ def test_parse_ld_paths_origin(origin):
 
     # Relative paths are made absolute.
     assert parse_ld_paths(origin, path=os.path.relpath(__file__)) == [here]
-
-
-@pytest.mark.parametrize("libc", [Libc.ANDROID, None])
-def test_load_ld_paths_invalid(libc):
-    with pytest.raises(
-        ValueError,
-        match=f"can't load linker paths for libc {libc}: use the --ldpaths option",
-    ):
-        load_ld_paths(libc)
 
 
 @pytest.mark.parametrize(

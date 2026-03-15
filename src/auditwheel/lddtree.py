@@ -363,15 +363,11 @@ def load_ld_paths(
                 if ldpath_stripped == "":
                     continue
                 ldpaths["conf"].append(root + ldpath_stripped)
-    elif libc == Libc.GLIBC:
+    else:
         # Load up /etc/ld.so.conf.
         ldpaths["conf"] = parse_ld_so_conf(root + prefix + "/etc/ld.so.conf", root=root)
         # the trusted directories are not necessarily in ld.so.conf
         ldpaths["conf"].extend(["/lib", "/lib64/", "/usr/lib", "/usr/lib64"])
-    else:
-        msg = f"can't load linker paths for libc {libc}: use the --ldpaths option"
-        raise ValueError(msg)
-
     log.debug("linker ldpaths: %s", ldpaths)
     return ldpaths
 

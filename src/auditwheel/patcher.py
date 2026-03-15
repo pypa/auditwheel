@@ -84,7 +84,7 @@ class Patchelf(ElfPatcher):
 
             # https://android.googlesource.com/platform/bionic/+/refs/heads/main/android-changes-for-ndk-developers.md
             if android_api_level(self.platform) < 24:
-                msg = "RUNPATH requires API level 24 or higher"
+                msg = "Grafting libraries with RUNPATH requires API level 24 or higher"
                 raise ValueError(msg)
 
         check_call(["patchelf", "--remove-rpath", file_name])
