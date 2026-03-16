@@ -24,10 +24,10 @@ def test_libcxx(ldpaths_methods, tmp_path):
     # "env" or "arg":
     #     echo "void SUBDIR() {}"
     #     | aarch64-linux-android24-clang -x c - -shared -o SUBDIR/libc++_shared.so
-    ldpath_args: list[str | Path] = []
+    ldpaths = ""
     if "arg" in ldpaths_methods:
         libcxx_hash = "1be9716c"
-        ldpath_args = ["--ldpaths", android_dir / "ldpaths/arg"]
+        ldpaths = str(android_dir / "ldpaths/arg")
 
     env = os.environ.copy()
     if "env" in ldpaths_methods:
@@ -36,7 +36,7 @@ def test_libcxx(ldpaths_methods, tmp_path):
         env["LD_LIBRARY_PATH"] = str(android_dir / "ldpaths/env")
 
     subprocess.run(
-        ["auditwheel", "repair", "-w", wheelhouse, *ldpath_args, input_wheel],
+        ["auditwheel", "repair", "-w", wheelhouse, "--ldpaths", ldpaths, input_wheel],
         env=env,
         text=True,
         check=True,
