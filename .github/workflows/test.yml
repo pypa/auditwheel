@@ -52,7 +52,7 @@ jobs:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}
     needs: test-dist
     runs-on: ${{ matrix.platform[1] }}
-    environment: codecov
+    environment: ${{ (github.repository == 'pypa/auditwheel' && ((github.event_name != 'pull_request') || (github.event.pull_request.head.repo.full_name == github.repository))) && 'codecov' || '' }}
     permissions:
       contents: read
     strategy:
@@ -102,6 +102,7 @@ jobs:
           AUDITWHEEL_ARCH: ${{ matrix.platform[0] }}
           AUDITWHEEL_QEMU: ${{ matrix.qemu }}
       - name: Upload coverage to codecov
+        if: github.repository == 'pypa/auditwheel'
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
