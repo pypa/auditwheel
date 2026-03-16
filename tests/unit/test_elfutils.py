@@ -42,6 +42,18 @@ class TestElfReadSoname:
         # THEN
         assert elf_read_soname(fake) is None
 
+    def test_missing_tag(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+        fake.touch()
+
+        # GIVEN
+        section_mock = Mock()
+        section_mock.iter_tags.return_value = []
+        elffile_mock.return_value.get_section_by_name.return_value = section_mock
+
+        # THEN
+        assert elf_read_soname(fake) is None
+
     def test_read_soname(self, elffile_mock, tmp_path):
         fake = tmp_path / "fake.so"
         fake.touch()
