@@ -8,6 +8,7 @@ import pytest
 
 from auditwheel import wheel_abi
 from auditwheel.architecture import Architecture
+from auditwheel.lddtree import DynamicExecutable, Platform
 from auditwheel.libc import Libc
 from auditwheel.policy import ExternalReference, WheelPolicies
 
@@ -65,6 +66,205 @@ class TestGetWheelElfdata:
             )
 
         assert exec_info.value.args == (message,)
+
+    def test_filters_internal_nonpy_refs_for_repair(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class FakeCtx:
+            path = Path("/wheel")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def iter_files(self):
+                return [Path("pkg/ext.so"), Path("pkg/libinner.so")]
+
+        platform = Platform(
+            "",
+            64,
+            True,
+            "EM_X86_64",
+            Architecture.x86_64,
+            None,
+            None,
+        )
+        ext_tree = DynamicExecutable(
+            libc=Libc.GLIBC,
+            interpreter=None,
+            path="pkg/ext.so",
+            realpath=Path("/wheel/pkg/ext.so"),
+            platform=platform,
+            needed=("libinner.so",),
+            rpath=(),
+            runpath=(),
+            libraries={},
+        )
+        inner_tree = DynamicExecutable(
+            libc=Libc.GLIBC,
+            interpreter=None,
+            path="pkg/libinner.so",
+            realpath=Path("/wheel/pkg/libinner.so"),
+            platform=platform,
+            needed=(),
+            rpath=(),
+            runpath=(),
+            libraries={},
+        )
+
+        external_ref = {
+            "manylinux_2_17_x86_64": ExternalReference(
+                {
+                    "libinner.so": None,
+                    "libc.so.6": Path("/lib64/libc.so.6"),
+                },
+                {},
+                pretend.stub(priority=80),
+            ),
+        }
+        fake_policies = pretend.stub(
+            lddtree_external_references=lambda _elftree, _wheel_path: external_ref,
+        )
+
+        monkeypatch.setattr(
+            wheel_abi,
+            "InGenericPkgCtx",
+            pretend.stub(__call__=lambda _wheel: FakeCtx()),
+        )
+        monkeypatch.setattr(
+            wheel_abi,
+            "elf_file_filter",
+            lambda _files: [
+                (Path("pkg/ext.so"), pretend.stub()),
+                (Path("pkg/libinner.so"), pretend.stub()),
+            ],
+        )
+        monkeypatch.setattr(
+            wheel_abi,
+            "ldd",
+            lambda fn, **_kwargs: {
+                Path("pkg/ext.so"): ext_tree,
+                Path("pkg/libinner.so"): inner_tree,
+            }[fn],
+        )
+        monkeypatch.setattr(
+            wheel_abi,
+            "elf_find_versioned_symbols",
+            lambda _elf: [],
+        )
+        monkeypatch.setattr(
+            wheel_abi,
+            "elf_is_python_extension",
+            lambda fn, _elf: (fn == Path("pkg/ext.so"), 3),
+        )
+        monkeypatch.setattr(
+            wheel_abi,
+            "elf_references_pyfpe_jbuf",
+            lambda _elf: False,
+        )
+        monkeypatch.setattr(
+            wheel_abi,
+            "WheelPolicies",
+            lambda **_kwargs: fake_policies,
+        )
+
+        wheel_abi.get_wheel_elfdata.cache_clear()
+        result = wheel_abi.get_wheel_elfdata(
+            Libc.GLIBC,
+            Architecture.x86_64,
+            Path("/fakepath"),
+            frozenset(),
+        )
+
+        assert Path("pkg/ext.so") in result.full_external_refs
+        assert Path("pkg/libinner.so") in result.full_external_refs
+        assert Path("pkg/libinner.so") in result.repair_external_refs
+        assert result.repair_external_refs[Path("pkg/libinner.so")]["manylinux_2_17_x86_64"].libs == {
+            "libc.so.6": Path("/lib64/libc.so.6"),
+        }
+        assert Path("pkg/libinner.so") not in result.full_elftree
+
+    def test_keeps_nonpy_roots_in_analysis(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class FakeCtx:
+            path = Path("/wheel")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def iter_files(self):
+                return [Path("pkg/tool.so")]
+
+        platform = Platform(
+            "",
+            64,
+            True,
+            "EM_X86_64",
+            Architecture.x86_64,
+            None,
+            None,
+        )
+        tree = DynamicExecutable(
+            libc=Libc.GLIBC,
+            interpreter=None,
+            path="pkg/tool.so",
+            realpath=Path("/wheel/pkg/tool.so"),
+            platform=platform,
+            needed=(),
+            rpath=(),
+            runpath=(),
+            libraries={},
+        )
+
+        external_ref = {
+            "manylinux_2_17_x86_64": ExternalReference(
+                {},
+                {"libc.so.6": ["bad_symbol"]},
+                pretend.stub(priority=80),
+            ),
+        }
+        fake_policies = pretend.stub(
+            lddtree_external_references=lambda _elftree, _wheel_path: external_ref,
+        )
+
+        monkeypatch.setattr(
+            wheel_abi,
+            "InGenericPkgCtx",
+            pretend.stub(__call__=lambda _wheel: FakeCtx()),
+        )
+        monkeypatch.setattr(
+            wheel_abi,
+            "elf_file_filter",
+            lambda _files: [(Path("pkg/tool.so"), pretend.stub())],
+        )
+        monkeypatch.setattr(wheel_abi, "ldd", lambda _fn, **_kwargs: tree)
+        monkeypatch.setattr(wheel_abi, "elf_find_versioned_symbols", lambda _elf: [])
+        monkeypatch.setattr(wheel_abi, "elf_is_python_extension", lambda *_args: (False, 3))
+        monkeypatch.setattr(wheel_abi, "elf_references_pyfpe_jbuf", lambda _elf: False)
+        monkeypatch.setattr(
+            wheel_abi,
+            "WheelPolicies",
+            lambda **_kwargs: fake_policies,
+        )
+
+        wheel_abi.get_wheel_elfdata.cache_clear()
+        result = wheel_abi.get_wheel_elfdata(
+            Libc.GLIBC,
+            Architecture.x86_64,
+            Path("/fakepath"),
+            frozenset(),
+        )
+
+        assert Path("pkg/tool.so") in result.full_elftree
+        assert Path("pkg/tool.so") in result.repair_external_refs
 
 
 def test_get_symbol_policies() -> None:

@@ -40,7 +40,7 @@ def repair_wheel(
     strip: bool,
     zip_compression_level: int,
 ) -> Path | None:
-    external_refs_by_fn = wheel_abi.full_external_refs
+    external_refs_by_fn = wheel_abi.repair_external_refs
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:
         return None

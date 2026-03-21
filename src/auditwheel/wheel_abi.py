@@ -35,6 +35,7 @@ log = logging.getLogger(__name__)
 class WheelAbIInfo:
     policies: WheelPolicies
     full_external_refs: dict[Path, dict[str, ExternalReference]]
+    repair_external_refs: dict[Path, dict[str, ExternalReference]]
     overall_policy: Policy
     external_refs: dict[str, ExternalReference]
     ref_policy: Policy
@@ -52,9 +53,32 @@ class WheelElfData:
     policies: WheelPolicies
     full_elftree: dict[Path, DynamicExecutable]
     full_external_refs: dict[Path, dict[str, ExternalReference]]
+    repair_external_refs: dict[Path, dict[str, ExternalReference]]
     versioned_symbols: dict[str, set[str]]
     uses_ucs2_symbols: bool
     uses_pyfpe_jbuf: bool
+
+
+def _filter_repair_refs(
+    external_refs: dict[str, ExternalReference],
+    wheel_sonames: frozenset[str],
+) -> dict[str, ExternalReference]:
+    """Return external refs with unresolved sonames already present in the
+    wheel removed.
+
+    ``external_refs`` maps policy name to the libraries needed by one ELF.
+    ``wheel_sonames`` is the set of shared-library sonames already present in
+    the wheel. The returned mapping keeps only refs that still need repair.
+    """
+    filtered_refs = {}
+    for name, external_ref in external_refs.items():
+        libs = {
+            lib: path
+            for lib, path in external_ref.libs.items()
+            if path is not None or lib not in wheel_sonames
+        }
+        filtered_refs[name] = ExternalReference(libs, external_ref.blacklist, external_ref.policy)
+    return filtered_refs
 
 
 @functools.lru_cache
@@ -67,6 +91,7 @@ def get_wheel_elfdata(
     full_elftree: dict[Path, DynamicExecutable] = {}
     nonpy_elftree: dict[Path, DynamicExecutable] = {}
     full_external_refs: dict[Path, dict[str, ExternalReference]] = {}
+    repair_external_refs: dict[Path, dict[str, ExternalReference]] = {}
     versioned_symbols: dict[str, set[str]] = defaultdict(set)
     uses_ucs2_symbols = False
     uses_pyfpe_jbuf = False
@@ -142,6 +167,7 @@ def get_wheel_elfdata(
                         elftree,
                         ctx.path,
                     )
+                    repair_external_refs[fn] = full_external_refs[fn]
                 else:
                     # If the ELF is not a Python extension, it might be
                     # included in the wheel already because auditwheel repair
@@ -164,7 +190,6 @@ def get_wheel_elfdata(
             arch = None if architecture is None else architecture.value
             raise NonPlatformWheelError(arch, shared_libraries_with_invalid_machine)
 
-        # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
             lib
             for elf in itertools.chain(full_elftree.values(), nonpy_elftree.values())
@@ -181,24 +206,29 @@ def get_wheel_elfdata(
             log.warning("couldn't detect wheel libc, defaulting to %s", str(libc))
             policies = WheelPolicies(libc=libc, arch=architecture)
 
-        for fn, elf_tree in nonpy_elftree.items():
-            # If a non-pyextension ELF file is not needed by something else
-            # inside the wheel, then it was not checked by the logic above and
-            # we should walk its elftree.
-            if fn.name not in needed_libs:
-                full_elftree[fn] = elf_tree
+        wheel_sonames = frozenset(
+            fn.name for fn in itertools.chain(full_elftree, nonpy_elftree)
+        )
 
-            # Even if a non-pyextension ELF file is not needed, we
-            # should include it as an external reference, because
-            # it might require additional external libraries.
+        for fn, external_refs in full_external_refs.items():
+            filtered_refs = _filter_repair_refs(external_refs, wheel_sonames)
+            if any(ref.libs or ref.blacklist for ref in filtered_refs.values()):
+                repair_external_refs[fn] = filtered_refs
+
+        for fn, elf_tree in nonpy_elftree.items():
             full_external_refs[fn] = policies.lddtree_external_references(
                 elf_tree,
                 ctx.path,
             )
+            if fn.name not in needed_libs:
+                full_elftree[fn] = elf_tree
+            filtered_refs = _filter_repair_refs(full_external_refs[fn], wheel_sonames)
+            if any(ref.libs or ref.blacklist for ref in filtered_refs.values()):
+                repair_external_refs[fn] = filtered_refs
 
     log.debug("full_elftree:\n%s", json.dumps(full_elftree))
     log.debug(
-        "full_external_refs (will be repaired):\n%s",
+        "full_external_refs:\n%s",
         json.dumps(full_external_refs),
     )
 
@@ -206,6 +236,7 @@ def get_wheel_elfdata(
         policies,
         full_elftree,
         full_external_refs,
+        repair_external_refs,
         versioned_symbols,
         uses_ucs2_symbols,
         uses_pyfpe_jbuf,
@@ -380,6 +411,7 @@ def analyze_wheel_abi(
     policies = data.policies
     elftree_by_fn = data.full_elftree
     external_refs_by_fn = data.full_external_refs
+    repair_external_refs_by_fn = data.repair_external_refs
     versioned_symbols = data.versioned_symbols
 
     external_refs: dict[str, ExternalReference] = {
@@ -470,6 +502,7 @@ def analyze_wheel_abi(
     return WheelAbIInfo(
         policies,
         external_refs_by_fn,
+        repair_external_refs_by_fn,
         overall_policy,
         external_refs,
         ref_policy,
