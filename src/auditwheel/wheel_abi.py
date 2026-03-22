@@ -73,6 +73,10 @@ def get_wheel_elfdata(
     uses_pyfpe_jbuf = False
     policies: WheelPolicies | None = None
 
+    # Android is cross-compiled, so ldpaths should never be loaded from the build machine.
+    if libc == Libc.ANDROID and args_ldpaths is None:
+        args_ldpaths = ""
+
     with InGenericPkgCtx(wheel_fn) as ctx:
         shared_libraries_in_purelib = []
         shared_libraries_with_invalid_machine = []
