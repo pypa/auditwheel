@@ -175,7 +175,8 @@ class TestPolicyAccess:
 class TestLddTreeExternalReferences:
     """Tests for lddtree_external_references."""
 
-    def test_filter_libs(self):
+    @pytest.mark.parametrize("libc", [Libc.GLIBC, Libc.ANDROID])
+    def test_filter_libs(self, libc):
         """Test the nested filter_libs function."""
         filtered_libs = [
             "ld-linux-x86_64.so.1",
@@ -183,10 +184,12 @@ class TestLddTreeExternalReferences:
             "ld64.so.2",
         ]
         unfiltered_libs = ["libfoo.so.1.0", "libbar.so.999.999.999"]
+        (filtered_libs if libc == Libc.ANDROID else unfiltered_libs).append("libpython3.13.so")
         libs = filtered_libs + unfiltered_libs
+
         lddtree = DynamicExecutable(
             interpreter=None,
-            libc=Libc.GLIBC,
+            libc=libc,
             path="/path/to/lib",
             realpath=Path("/path/to/lib"),
             platform=Platform(
@@ -205,7 +208,13 @@ class TestLddTreeExternalReferences:
             rpath=(),
             runpath=(),
         )
-        policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+        policies = WheelPolicies(
+            libc=libc,
+            arch=Architecture.x86_64,
+            wheel_fn=(
+                Path("spam-0.1-py3-none-android_24_x86_64.whl") if libc == Libc.ANDROID else None
+            ),
+        )
         full_external_refs = policies.lddtree_external_references(
             lddtree,
             Path("/path/to/wheel"),

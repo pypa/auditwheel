@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from auditwheel.architecture import Architecture
 from auditwheel.elfutils import filter_undefined_symbols
 from auditwheel.error import InvalidLibcError
+from auditwheel.lddtree import LIBPYTHON_RE
 from auditwheel.libc import Libc
 from auditwheel.tools import is_subdir
 from auditwheel.wheeltools import android_api_level, get_wheel_platforms
@@ -237,6 +238,9 @@ class WheelPolicies:
                     # 'ld64.so.2' on s390x
                     # 'ld64.so.1' on ppc64le
                     # 'ld-linux*' on other platforms
+                    continue
+                if self.libc == Libc.ANDROID and LIBPYTHON_RE.match(lib):
+                    # libpython dependencies are normal on Android.
                     continue
                 if lib in whitelist:
                     # exclude any libs in the whitelist

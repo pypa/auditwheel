@@ -5,18 +5,23 @@ from zipfile import ZipFile
 
 import pytest
 
+from auditwheel.architecture import Architecture
 from auditwheel.elfutils import elf_read_dt_needed, elf_read_rpaths, elf_read_soname
+from auditwheel.libc import Libc
+from auditwheel.policy import ExternalReference
+from auditwheel.wheel_abi import analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
+android_dir = HERE / "android"
+
+# This wheel was generated from cibuildwheel's test_android.py::test_libcxx. It contains an
+# external reference to libc++_shared.so.
+libcxx_wheel = android_dir / "spam-0.1.0-cp313-cp313-android_24_arm64_v8a.whl"
+libcxx_module = "spam.cpython-313-aarch64-linux-android.so"
 
 
 @pytest.mark.parametrize("ldpaths_methods", [["env"], ["arg"], ["env", "arg"]])
 def test_libcxx(ldpaths_methods, tmp_path):
-    # This wheel was generated from cibuildwheel's test_android.py::test_libcxx. It contains an
-    # external reference to libc++_shared.so.
-    android_dir = HERE / "android"
-    input_wheel = android_dir / "spam-0.1.0-cp313-cp313-android_24_arm64_v8a.whl"
-
     wheelhouse = tmp_path / "wheelhouse"
     wheelhouse.mkdir()
 
@@ -36,14 +41,14 @@ def test_libcxx(ldpaths_methods, tmp_path):
         env["LD_LIBRARY_PATH"] = str(android_dir / "ldpaths/env")
 
     subprocess.run(
-        ["auditwheel", "repair", "-w", wheelhouse, "--ldpaths", ldpaths, input_wheel],
+        ["auditwheel", "repair", "-w", wheelhouse, "--ldpaths", ldpaths, libcxx_wheel],
         env=env,
         text=True,
         check=True,
     )
     output_wheels = list(wheelhouse.iterdir())
     assert len(output_wheels) == 1
-    assert output_wheels[0].name == input_wheel.name
+    assert output_wheels[0].name == libcxx_wheel.name
 
     output_dir = tmp_path / "output"
     output_dir.mkdir()
@@ -55,7 +60,7 @@ def test_libcxx(ldpaths_methods, tmp_path):
     assert elf_read_soname(libcxx_path) == libcxx_path.name
     assert elf_read_rpaths(libcxx_path) == {"rpaths": [], "runpaths": [str(libs_dir)]}
 
-    spam_path = output_dir / "spam.cpython-313-aarch64-linux-android.so"
+    spam_path = output_dir / libcxx_module
     assert set(elf_read_dt_needed(spam_path)) == {
         # Included in the policy
         "libc.so",
@@ -67,3 +72,23 @@ def test_libcxx(ldpaths_methods, tmp_path):
         libcxx_path.name,
     }
     assert elf_read_rpaths(spam_path) == {"rpaths": [], "runpaths": [str(libs_dir)]}
+
+
+def test_analyze_wheel_abi():
+    winfo = analyze_wheel_abi(
+        Libc.ANDROID,
+        Architecture.aarch64,
+        libcxx_wheel,
+        exclude=frozenset(),
+        disable_isa_ext_check=False,
+        allow_graft=True,
+    )
+    policy_name = "android_24_arm64_v8a"
+    assert winfo.overall_policy.name == policy_name
+    external_ref = ExternalReference(
+        libs={"libc++_shared.so": None},
+        blacklist={},
+        policy=winfo.overall_policy,
+    )
+    assert winfo.external_refs[policy_name] == external_ref
+    assert winfo.full_external_refs[Path(libcxx_module)] == winfo.external_refs

@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from auditwheel.elfutils import elf_read_dt_needed
 from auditwheel.hashfile import hashfile
 from auditwheel.lddtree import LIBPYTHON_RE
-from auditwheel.libc import Libc
 from auditwheel.policy import get_replace_platforms
 from auditwheel.sboms import create_sbom_for_wheel
 from auditwheel.tools import is_subdir, unique_by_index
@@ -75,16 +74,15 @@ def repair_wheel(
             ext_libs = v[abis[0]].libs
             replacements: list[tuple[str, str]] = []
             for soname, src_path in ext_libs.items():
-                # libpython dependencies are forbidden on Linux, but allowed on Android.
+                # Handle libpython dependencies by removing them
                 if LIBPYTHON_RE.match(soname):
-                    if wheel_abi.policies.libc in [Libc.GLIBC, Libc.MUSL]:
-                        logger.warning(
-                            "Removing %s dependency from %s. "
-                            "Linking with libpython is forbidden for manylinux/musllinux wheels.",
-                            soname,
-                            str(fn),
-                        )
-                        patcher.remove_needed(fn, soname)
+                    logger.warning(
+                        "Removing %s dependency from %s. "
+                        "Linking with libpython is forbidden for manylinux/musllinux wheels.",
+                        soname,
+                        str(fn),
+                    )
+                    patcher.remove_needed(fn, soname)
                     continue
 
                 if src_path is None:
