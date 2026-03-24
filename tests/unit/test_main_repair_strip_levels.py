@@ -37,30 +37,27 @@ class TestStripLevelArgument:
         args = parser.parse_args(["repair", "--strip", "test.whl"])
         assert args.STRIP is True
 
-    def test_strip_help_shows_deprecation(self):
-        """Ensure --strip help text mentions it is deprecated."""
-        import io
-
-        parser = argparse.ArgumentParser()
-        configure_parser(parser.add_subparsers())
-        buf = io.StringIO()
-        try:
-            parser.parse_args(["repair", "--help"])
-        except SystemExit:
-            pass
-
 
 class TestStripLevelExecute:
     def _make_wheel_abi_mock(self):
         mock_wheel_abi = MagicMock()
         mock_wheel_abi.full_external_refs = {}
         mock_wheel_abi.policies = MagicMock()
-        mock_wheel_abi.policies.lowest.name = "manylinux_2_17_x86_64"
-        mock_wheel_abi.overall_policy = mock_wheel_abi.policies.lowest
-        mock_wheel_abi.sym_policy = mock_wheel_abi.policies.lowest
-        mock_wheel_abi.ucs_policy = mock_wheel_abi.policies.lowest
-        mock_wheel_abi.blacklist_policy = mock_wheel_abi.policies.lowest
-        mock_wheel_abi.machine_policy = mock_wheel_abi.policies.lowest
+
+        # Create a single policy mock that supports rich comparison (Python 3.14+
+        # raises TypeError for MagicMock > MagicMock without explicit __gt__).
+        mock_policy = MagicMock()
+        mock_policy.name = "manylinux_2_17_x86_64"
+        type(mock_policy).__gt__ = lambda self, other: False
+        type(mock_policy).__lt__ = lambda self, other: False
+
+        mock_wheel_abi.policies.lowest = mock_policy
+        mock_wheel_abi.policies.get_policy_by_name = MagicMock(return_value=mock_policy)
+        mock_wheel_abi.overall_policy = mock_policy
+        mock_wheel_abi.sym_policy = mock_policy
+        mock_wheel_abi.ucs_policy = mock_policy
+        mock_wheel_abi.blacklist_policy = mock_policy
+        mock_wheel_abi.machine_policy = mock_policy
         return mock_wheel_abi
 
     def _make_args(self, **kwargs):
@@ -81,8 +78,10 @@ class TestStripLevelExecute:
             setattr(args, k, v)
         return args
 
-    @patch("auditwheel.main_repair.repair_wheel")
-    @patch("auditwheel.main_repair.analyze_wheel_abi")
+    # repair_wheel and analyze_wheel_abi are lazily imported inside execute(),
+    # so they must be patched at their source modules, not at auditwheel.main_repair.
+    @patch("auditwheel.repair.repair_wheel")
+    @patch("auditwheel.wheel_abi.analyze_wheel_abi")
     @patch("auditwheel.main_repair.Patchelf")
     def test_strip_level_debug_passed_to_repair_wheel(
         self, _mock_patchelf, mock_analyze, mock_repair
@@ -103,14 +102,15 @@ class TestStripLevelExecute:
         assert result == 0
         call_kwargs = mock_repair.call_args[1]
         assert call_kwargs["strip_level"] == StripLevel.DEBUG
-        assert call_kwargs["strip"] is None
+        assert "strip" not in call_kwargs  # deprecated param not forwarded
 
-    @patch("auditwheel.main_repair.repair_wheel")
-    @patch("auditwheel.main_repair.analyze_wheel_abi")
+    @patch("auditwheel.repair.repair_wheel")
+    @patch("auditwheel.wheel_abi.analyze_wheel_abi")
     @patch("auditwheel.main_repair.Patchelf")
-    def test_deprecated_strip_emits_warning(
+    def test_deprecated_strip_resolves_to_strip_level_all(
         self, _mock_patchelf, mock_analyze, mock_repair
     ):
+        """--strip is deprecated; it resolves to strip_level=ALL before the loop."""
         mock_analyze.return_value = self._make_wheel_abi_mock()
         mock_repair.return_value = Path("output.whl")
         args = self._make_args(STRIP=True)
@@ -132,11 +132,15 @@ class TestStripLevelExecute:
             stacklevel=2,
         )
         call_kwargs = mock_repair.call_args[1]
-        assert call_kwargs["strip"] is True
+        assert call_kwargs["strip_level"] == StripLevel.ALL
+        assert "strip" not in call_kwargs
 
     def test_conflicting_strip_and_strip_level_errors(self):
         args = self._make_args(STRIP=True, STRIP_LEVEL="debug")
         parser = MagicMock()
-        with patch("auditwheel.main_repair.Path.is_file", return_value=True):
+        # parser.error must halt execution (as argparse does) so subsequent code
+        # doesn't run after the conflict is detected.
+        parser.error.side_effect = SystemExit(2)
+        with pytest.raises(SystemExit):
             execute(args, parser)
         parser.error.assert_called_once_with("Cannot specify both --strip and --strip-level")

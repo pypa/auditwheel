@@ -32,8 +32,10 @@ class TestStripLevel:
 
 
 class TestGetStripArgs:
-    def test_none(self):
-        assert _get_strip_args(StripLevel.NONE) == []
+    def test_none_raises(self):
+        """NONE is a caller error; process_symbols guards against it."""
+        with pytest.raises(ValueError):
+            _get_strip_args(StripLevel.NONE)
 
     def test_debug(self):
         assert _get_strip_args(StripLevel.DEBUG) == ["-g"]

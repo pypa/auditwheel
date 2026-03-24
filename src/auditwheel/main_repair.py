@@ -158,6 +158,20 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     wheel_dir: Path = args.WHEEL_DIR.absolute()
     wheel_files: list[Path] = args.WHEEL_FILE
 
+    # Validate and resolve strip arguments once, before processing any wheel.
+    if args.STRIP and args.STRIP_LEVEL != "none":
+        parser.error("Cannot specify both --strip and --strip-level")
+
+    if args.STRIP:
+        warnings.warn(
+            "The --strip option is deprecated. Use --strip-level=all instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        strip_level = StripLevel.ALL
+    else:
+        strip_level = StripLevel(args.STRIP_LEVEL)
+
     requested_architecture: Architecture | None = None
 
     plat_base: str = args.PLAT
@@ -297,18 +311,6 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 *abis,
             ]
 
-        if args.STRIP and args.STRIP_LEVEL != "none":
-            parser.error("Cannot specify both --strip and --strip-level")
-
-        if args.STRIP:
-            warnings.warn(
-                "The --strip option is deprecated. Use --strip-level=all instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-        strip_level = StripLevel(args.STRIP_LEVEL)
-
         patcher = Patchelf()
         out_wheel = repair_wheel(
             wheel_abi,
@@ -318,7 +320,6 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             out_dir=wheel_dir,
             update_tags=args.UPDATE_TAGS,
             patcher=patcher,
-            strip=args.STRIP if args.STRIP else None,
             strip_level=strip_level,
             zip_compression_level=args.ZIP_COMPRESSION_LEVEL,
         )

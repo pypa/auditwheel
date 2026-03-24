@@ -7,6 +7,7 @@ import os
 import platform
 import shutil
 import stat
+import zlib
 from enum import Enum
 from pathlib import Path
 from subprocess import check_call
@@ -49,8 +50,18 @@ def repair_wheel(
     patcher: ElfPatcher,
     strip: bool | None = None,
     strip_level: StripLevel | None = None,
-    zip_compression_level: int = 0,
+    zip_compression_level: int = zlib.Z_DEFAULT_COMPRESSION,
 ) -> Path | None:
+    # Validate and normalize strip arguments before doing any work.
+    if strip is not None and strip_level is not None:
+        msg = "Cannot specify both 'strip' and 'strip_level' parameters"
+        raise ValueError(msg)
+
+    if strip is True:
+        strip_level = StripLevel.ALL
+    elif strip_level is None:
+        strip_level = StripLevel.NONE
+
     external_refs_by_fn = wheel_abi.full_external_refs
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:
@@ -135,16 +146,6 @@ def repair_wheel(
         if update_tags:
             output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
-        # Handle backward compatibility for strip parameter
-        if strip is not None and strip_level is not None:
-            msg = "Cannot specify both 'strip' and 'strip_level' parameters"
-            raise ValueError(msg)
-
-        if strip is True:
-            strip_level = StripLevel.ALL
-        elif strip_level is None:
-            strip_level = StripLevel.NONE
-
         if strip_level != StripLevel.NONE:
             libs_to_process = [path for (_, path) in soname_map.values()]
             extensions = list(external_refs_by_fn.keys())
@@ -183,14 +184,19 @@ def process_symbols(
 
 
 def _get_strip_args(strip_level: StripLevel) -> list[str]:
-    """Get strip command arguments for the given strip level."""
+    """Get strip command arguments for the given strip level.
+
+    ``StripLevel.NONE`` must not be passed here; callers are responsible for
+    skipping symbol processing when the level is NONE.
+    """
     if strip_level == StripLevel.DEBUG:
         return ["-g"]
     if strip_level == StripLevel.UNNEEDED:
         return ["--strip-unneeded"]
     if strip_level == StripLevel.ALL:
         return ["-s"]
-    return []
+    msg = f"_get_strip_args called with unsupported strip level: {strip_level!r}"
+    raise ValueError(msg)
 
 
 def strip_symbols(libraries: Iterable[Path]) -> None:
