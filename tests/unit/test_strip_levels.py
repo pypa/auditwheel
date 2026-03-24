@@ -34,7 +34,7 @@ class TestStripLevel:
 class TestGetStripArgs:
     def test_none_raises(self):
         """NONE is a caller error; process_symbols guards against it."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="unsupported strip level"):
             _get_strip_args(StripLevel.NONE)
 
     def test_debug(self):
@@ -63,7 +63,7 @@ class TestProcessSymbols:
             [
                 call(["strip", "-g", "lib1.so"]),
                 call(["strip", "-g", "lib2.so"]),
-            ]
+            ],
         )
 
     def test_unneeded_level(self, mock_check_call):
@@ -83,5 +83,5 @@ class TestStripSymbolsBackwardCompatibility:
             [
                 call(["strip", "-s", "lib1.so"]),
                 call(["strip", "-s", "lib2.so"]),
-            ]
+            ],
         )

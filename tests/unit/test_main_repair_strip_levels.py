@@ -10,6 +10,18 @@ from auditwheel.main_repair import configure_parser, execute
 from auditwheel.repair import StripLevel
 
 
+class _ComparablePolicy:
+    def __init__(self, name: str, aliases: list[str] | None = None) -> None:
+        self.name = name
+        self.aliases = aliases or []
+
+    def __gt__(self, _other: object) -> bool:
+        return False
+
+    def __lt__(self, _other: object) -> bool:
+        return False
+
+
 class TestStripLevelArgument:
     def test_default_values(self):
         parser = argparse.ArgumentParser()
@@ -39,19 +51,19 @@ class TestStripLevelArgument:
 
 
 class TestStripLevelExecute:
+    @pytest.fixture(autouse=True)
+    def _patch_patchelf(self):
+        with patch("auditwheel.main_repair.Patchelf"):
+            yield
+
     def _make_wheel_abi_mock(self):
         mock_wheel_abi = MagicMock()
         mock_wheel_abi.full_external_refs = {}
         mock_wheel_abi.policies = MagicMock()
-
-        # Create a single policy mock that supports rich comparison (Python 3.14+
-        # raises TypeError for MagicMock > MagicMock without explicit __gt__).
-        mock_policy = MagicMock()
-        mock_policy.name = "manylinux_2_17_x86_64"
-        type(mock_policy).__gt__ = lambda self, other: False
-        type(mock_policy).__lt__ = lambda self, other: False
+        mock_policy = _ComparablePolicy("manylinux_2_17_x86_64")
 
         mock_wheel_abi.policies.lowest = mock_policy
+        mock_wheel_abi.policies.linux = _ComparablePolicy("linux_x86_64")
         mock_wheel_abi.policies.get_policy_by_name = MagicMock(return_value=mock_policy)
         mock_wheel_abi.overall_policy = mock_policy
         mock_wheel_abi.sym_policy = mock_policy
@@ -82,10 +94,8 @@ class TestStripLevelExecute:
     # so they must be patched at their source modules, not at auditwheel.main_repair.
     @patch("auditwheel.repair.repair_wheel")
     @patch("auditwheel.wheel_abi.analyze_wheel_abi")
-    @patch("auditwheel.main_repair.Patchelf")
     def test_strip_level_debug_passed_to_repair_wheel(
         self,
-        _mock_patchelf,
         mock_analyze,
         mock_repair,
     ):
@@ -109,10 +119,8 @@ class TestStripLevelExecute:
 
     @patch("auditwheel.repair.repair_wheel")
     @patch("auditwheel.wheel_abi.analyze_wheel_abi")
-    @patch("auditwheel.main_repair.Patchelf")
     def test_deprecated_strip_resolves_to_strip_level_all(
         self,
-        _mock_patchelf,
         mock_analyze,
         mock_repair,
     ):

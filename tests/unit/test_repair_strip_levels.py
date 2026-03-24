@@ -28,17 +28,31 @@ def _make_ctx_mock():
     return mock_ctx
 
 
-@patch("auditwheel.repair.create_sbom_for_wheel", return_value=None)
-@patch("auditwheel.repair.process_symbols")
-@patch("auditwheel.repair.InWheelCtx")
+@pytest.fixture
+def mock_ctx_cls():
+    with patch("auditwheel.repair.InWheelCtx") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_process():
+    with patch("auditwheel.repair.process_symbols") as mock:
+        yield mock
+
+
 class TestRepairWheelStripLevels:
     """Tests for repair_wheel strip level behaviour."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_sbom(self):
+        with patch("auditwheel.repair.create_sbom_for_wheel", return_value=None):
+            yield
 
     def test_strip_level_none_does_not_call_process_symbols(
         self,
         mock_ctx_cls,
         mock_process,
-        _mock_sbom,
+        tmp_path,
     ):
         mock_ctx_cls.return_value.__enter__.return_value = _make_ctx_mock()
         repair_wheel(
@@ -46,7 +60,7 @@ class TestRepairWheelStripLevels:
             wheel_path=Path("pkg-1.0-py3-none-linux_x86_64.whl"),
             abis=["manylinux_2_17_x86_64"],
             lib_sdir=".libs",
-            out_dir=Path("/tmp"),
+            out_dir=tmp_path,
             update_tags=False,
             patcher=MagicMock(),
             strip_level=StripLevel.NONE,
@@ -57,7 +71,7 @@ class TestRepairWheelStripLevels:
         self,
         mock_ctx_cls,
         mock_process,
-        _mock_sbom,
+        tmp_path,
     ):
         mock_ctx_cls.return_value.__enter__.return_value = _make_ctx_mock()
         repair_wheel(
@@ -65,7 +79,7 @@ class TestRepairWheelStripLevels:
             wheel_path=Path("pkg-1.0-py3-none-linux_x86_64.whl"),
             abis=["manylinux_2_17_x86_64"],
             lib_sdir=".libs",
-            out_dir=Path("/tmp"),
+            out_dir=tmp_path,
             update_tags=False,
             patcher=MagicMock(),
             strip_level=StripLevel.DEBUG,
@@ -79,7 +93,7 @@ class TestRepairWheelStripLevels:
         self,
         mock_ctx_cls,
         mock_process,
-        _mock_sbom,
+        tmp_path,
     ):
         """Backward compatibility: strip=True behaves like strip_level=ALL."""
         mock_ctx_cls.return_value.__enter__.return_value = _make_ctx_mock()
@@ -88,7 +102,7 @@ class TestRepairWheelStripLevels:
             wheel_path=Path("pkg-1.0-py3-none-linux_x86_64.whl"),
             abis=["manylinux_2_17_x86_64"],
             lib_sdir=".libs",
-            out_dir=Path("/tmp"),
+            out_dir=tmp_path,
             update_tags=False,
             patcher=MagicMock(),
             strip=True,
@@ -97,7 +111,7 @@ class TestRepairWheelStripLevels:
         _, level = mock_process.call_args[0]
         assert level == StripLevel.ALL
 
-    def test_pure_wheel_returns_none(self, mock_ctx_cls, mock_process, _mock_sbom):
+    def test_pure_wheel_returns_none(self, mock_process, tmp_path):
         mock_abi = MagicMock()
         mock_abi.full_external_refs = {}
         result = repair_wheel(
@@ -105,7 +119,7 @@ class TestRepairWheelStripLevels:
             wheel_path=Path("pkg-1.0-py3-none-linux_x86_64.whl"),
             abis=["manylinux_2_17_x86_64"],
             lib_sdir=".libs",
-            out_dir=Path("/tmp"),
+            out_dir=tmp_path,
             update_tags=False,
             patcher=MagicMock(),
             strip_level=StripLevel.DEBUG,
@@ -115,7 +129,7 @@ class TestRepairWheelStripLevels:
 
 
 class TestRepairWheelConflict:
-    def test_conflicting_strip_and_strip_level_raises(self):
+    def test_conflicting_strip_and_strip_level_raises(self, tmp_path):
         """Conflict guard fires before the pure-wheel early return."""
         mock_abi = MagicMock()
         mock_abi.full_external_refs = {}  # pure wheel — would normally return None
@@ -125,7 +139,7 @@ class TestRepairWheelConflict:
                 wheel_path=Path("pkg-1.0-py3-none-linux_x86_64.whl"),
                 abis=["manylinux_2_17_x86_64"],
                 lib_sdir=".libs",
-                out_dir=Path("/tmp"),
+                out_dir=tmp_path,
                 update_tags=False,
                 patcher=MagicMock(),
                 strip=True,

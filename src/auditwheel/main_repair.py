@@ -99,7 +99,9 @@ wheel will abort processing of subsequent wheels.
         "--strip",
         dest="STRIP",
         action="store_true",
-        help="(DEPRECATED) Strip all symbols in the resulting wheel. Use --strip-level=all instead.",
+        help=(
+            "(DEPRECATED) Strip all symbols in the resulting wheel. Use --strip-level=all instead."
+        ),
         default=False,
     )
     parser.add_argument(
