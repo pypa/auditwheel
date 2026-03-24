@@ -23,7 +23,7 @@ class TestStripLevelArgument:
         configure_parser(parser.add_subparsers())
         for level in StripLevel:
             args = parser.parse_args(["repair", f"--strip-level={level.value}", "test.whl"])
-            assert args.STRIP_LEVEL == level.value
+            assert level.value == args.STRIP_LEVEL
 
     def test_strip_level_invalid_choice(self):
         parser = argparse.ArgumentParser()
@@ -84,7 +84,10 @@ class TestStripLevelExecute:
     @patch("auditwheel.wheel_abi.analyze_wheel_abi")
     @patch("auditwheel.main_repair.Patchelf")
     def test_strip_level_debug_passed_to_repair_wheel(
-        self, _mock_patchelf, mock_analyze, mock_repair
+        self,
+        _mock_patchelf,
+        mock_analyze,
+        mock_repair,
     ):
         mock_analyze.return_value = self._make_wheel_abi_mock()
         mock_repair.return_value = Path("output.whl")
@@ -108,7 +111,10 @@ class TestStripLevelExecute:
     @patch("auditwheel.wheel_abi.analyze_wheel_abi")
     @patch("auditwheel.main_repair.Patchelf")
     def test_deprecated_strip_resolves_to_strip_level_all(
-        self, _mock_patchelf, mock_analyze, mock_repair
+        self,
+        _mock_patchelf,
+        mock_analyze,
+        mock_repair,
     ):
         """--strip is deprecated; it resolves to strip_level=ALL before the loop."""
         mock_analyze.return_value = self._make_wheel_abi_mock()

@@ -12,8 +12,8 @@ def _make_wheel_abi(libs=None):
     mock = MagicMock()
     mock.full_external_refs = {
         Path("ext.so"): {
-            "manylinux_2_17_x86_64": MagicMock(libs=libs or {})
-        }
+            "manylinux_2_17_x86_64": MagicMock(libs=libs or {}),
+        },
     }
     return mock
 
@@ -35,7 +35,10 @@ class TestRepairWheelStripLevels:
     """Tests for repair_wheel strip level behaviour."""
 
     def test_strip_level_none_does_not_call_process_symbols(
-        self, mock_ctx_cls, mock_process, _mock_sbom
+        self,
+        mock_ctx_cls,
+        mock_process,
+        _mock_sbom,
     ):
         mock_ctx_cls.return_value.__enter__.return_value = _make_ctx_mock()
         repair_wheel(
@@ -51,7 +54,10 @@ class TestRepairWheelStripLevels:
         mock_process.assert_not_called()
 
     def test_strip_level_debug_calls_process_symbols(
-        self, mock_ctx_cls, mock_process, _mock_sbom
+        self,
+        mock_ctx_cls,
+        mock_process,
+        _mock_sbom,
     ):
         mock_ctx_cls.return_value.__enter__.return_value = _make_ctx_mock()
         repair_wheel(
@@ -70,7 +76,10 @@ class TestRepairWheelStripLevels:
         assert Path("ext.so") in list(libs)
 
     def test_strip_true_maps_to_strip_level_all(
-        self, mock_ctx_cls, mock_process, _mock_sbom
+        self,
+        mock_ctx_cls,
+        mock_process,
+        _mock_sbom,
     ):
         """Backward compatibility: strip=True behaves like strip_level=ALL."""
         mock_ctx_cls.return_value.__enter__.return_value = _make_ctx_mock()

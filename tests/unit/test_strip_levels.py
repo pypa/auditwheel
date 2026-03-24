@@ -59,10 +59,12 @@ class TestProcessSymbols:
 
     def test_debug_level(self, mock_check_call):
         process_symbols([Path("lib1.so"), Path("lib2.so")], StripLevel.DEBUG)
-        mock_check_call.assert_has_calls([
-            call(["strip", "-g", "lib1.so"]),
-            call(["strip", "-g", "lib2.so"]),
-        ])
+        mock_check_call.assert_has_calls(
+            [
+                call(["strip", "-g", "lib1.so"]),
+                call(["strip", "-g", "lib2.so"]),
+            ]
+        )
 
     def test_unneeded_level(self, mock_check_call):
         process_symbols([Path("lib1.so")], StripLevel.UNNEEDED)
@@ -77,7 +79,9 @@ class TestProcessSymbols:
 class TestStripSymbolsBackwardCompatibility:
     def test_strip_symbols_uses_all_level(self, mock_check_call):
         strip_symbols([Path("lib1.so"), Path("lib2.so")])
-        mock_check_call.assert_has_calls([
-            call(["strip", "-s", "lib1.so"]),
-            call(["strip", "-s", "lib2.so"]),
-        ])
+        mock_check_call.assert_has_calls(
+            [
+                call(["strip", "-s", "lib1.so"]),
+                call(["strip", "-s", "lib2.so"]),
+            ]
+        )
