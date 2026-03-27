@@ -42,6 +42,7 @@ repos:
       - pytest
       - types-docker
       - types-requests
+      - types-jsonschema
 
 - repo: https://github.com/zizmorcore/zizmor-pre-commit
   rev: e3eebf65325ccc992422292cb7a4baee967cf815  # frozen: v1.26.1

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "auditwheel show",
+  "description": "Output schema for `auditwheel show --json`.",
+  "oneOf": [
+    { "$ref": "#/$defs/result_pure" },
+    { "$ref": "#/$defs/result_platform" },
+    { "$ref": "#/$defs/error" }
+  ],
+  "$defs": {
+    "result_pure": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1,
+          "description": "Schema version."
+        },
+        "wheel": {
+          "type": "string",
+          "description": "Wheel filename."
+        },
+        "pure": {
+          "const": true,
+          "description": "Indicates a pure Python wheel."
+        }
+      },
+      "required": ["version", "wheel", "pure"],
+      "additionalProperties": false
+    },
+    "result_platform": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1,
+          "description": "Schema version."
+        },
+        "wheel": {
+          "type": "string",
+          "description": "Wheel filename."
+        },
+        "pure": {
+          "const": false,
+          "description": "Indicates a platform wheel."
+        },
+        "overall_tag": {
+          "type": "string",
+          "description": "The highest compatible platform tag for the wheel."
+        },
+        "sym_tag": {
+          "type": "string",
+          "description": "Platform tag constrained by symbol versioning."
+        },
+        "pyfpe": {
+          "type": "boolean",
+          "description": "Whether the wheel uses PyFPE_jbuf (incompatible with manylinux/musllinux)."
+        },
+        "ucs2": {
+          "type": "boolean",
+          "description": "Whether the wheel is compiled against narrow unicode (UCS2)."
+        },
+        "unsupported_isa": {
+          "type": "boolean",
+          "description": "Whether the wheel depends on unsupported ISA extensions."
+        },
+        "versioned_symbols": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "description": "Mapping of shared library names to their referenced symbol versions."
+        },
+        "external_libs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "null"]
+          },
+          "description": "Mapping of external shared library names to their resolved paths (or null)."
+        },
+        "policy_upgrades": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "libs_to_eliminate": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "blacklisted_symbols": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Per-policy info on what must be eliminated to achieve a higher tag."
+        }
+      },
+      "required": [
+        "version",
+        "wheel",
+        "pure",
+        "overall_tag",
+        "sym_tag",
+        "pyfpe",
+        "ucs2",
+        "unsupported_isa",
+        "versioned_symbols",
+        "external_libs",
+        "policy_upgrades"
+      ],
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1,
+          "description": "Schema version."
+        },
+        "wheel": {
+          "type": "string",
+          "description": "Wheel filename."
+        },
+        "error": {
+          "type": "string",
+          "description": "Error message."
+        }
+      },
+      "required": ["version", "wheel", "error"],
+      "additionalProperties": false
+    }
+  }
+}
