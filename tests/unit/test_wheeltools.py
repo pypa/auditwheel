@@ -134,7 +134,8 @@ def test_add_platforms_no_duplicate_root_is_purelib(tmp_path):
             "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: false\nTag: py3-none-any\n",
         )
         zf.writestr(
-            f"{dist_info}/METADATA", "Metadata-Version: 2.1\nName: testpkg\nVersion: 0.0.1\n"
+            f"{dist_info}/METADATA",
+            "Metadata-Version: 2.1\nName: testpkg\nVersion: 0.0.1\n",
         )
         zf.writestr(f"{dist_info}/RECORD", "")
 
