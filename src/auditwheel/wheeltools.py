@@ -275,6 +275,7 @@ def add_platforms(
             info.add_header("Tag", tag)
 
         if definitely_not_purelib:
+            del info["Root-Is-Purelib"]
             info["Root-Is-Purelib"] = "False"
             logger.info("Changed wheel type to Platlib")
 
