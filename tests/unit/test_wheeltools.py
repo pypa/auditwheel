@@ -150,7 +150,7 @@ def test_add_platforms_no_duplicate_root_is_purelib(tmp_path):
     assert len(out_wheels) == 1
 
     with zipfile.ZipFile(out_wheels[0]) as zf:
-        wheel_info = [n for n in zf.namelist() if n.endswith("/WHEEL")][0]
+        wheel_info = next(n for n in zf.namelist() if n.endswith("/WHEEL"))
         info = read_pkg_info(zf.extract(wheel_info, tmp_path / "extracted"))
 
     purelib_values = info.get_all("Root-Is-Purelib")
