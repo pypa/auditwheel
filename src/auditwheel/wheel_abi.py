@@ -206,9 +206,7 @@ def get_wheel_elfdata(
             log.warning("couldn't detect wheel libc, defaulting to %s", str(libc))
             policies = WheelPolicies(libc=libc, arch=architecture)
 
-        wheel_sonames = frozenset(
-            fn.name for fn in itertools.chain(full_elftree, nonpy_elftree)
-        )
+        wheel_sonames = frozenset(fn.name for fn in itertools.chain(full_elftree, nonpy_elftree))
 
         for fn, external_refs in full_external_refs.items():
             filtered_refs = _filter_repair_refs(external_refs, wheel_sonames)

@@ -182,7 +182,9 @@ class TestGetWheelElfdata:
         assert Path("pkg/ext.so") in result.full_external_refs
         assert Path("pkg/libinner.so") in result.full_external_refs
         assert Path("pkg/libinner.so") in result.repair_external_refs
-        assert result.repair_external_refs[Path("pkg/libinner.so")]["manylinux_2_17_x86_64"].libs == {
+        assert result.repair_external_refs[Path("pkg/libinner.so")][
+            "manylinux_2_17_x86_64"
+        ].libs == {
             "libc.so.6": Path("/lib64/libc.so.6"),
         }
         assert Path("pkg/libinner.so") not in result.full_elftree
