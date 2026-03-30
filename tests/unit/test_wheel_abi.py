@@ -187,6 +187,11 @@ class TestGetWheelElfdata:
         ].libs == {
             "libc.so.6": Path("/lib64/libc.so.6"),
         }
+        # Ensure the Python extension itself does not list the internal
+        # non-Python ELF dependency as an external library to repair.
+        assert "libinner.so" not in result.repair_external_refs[Path("pkg/ext.so")][
+            "manylinux_2_17_x86_64"
+        ].libs
         assert Path("pkg/libinner.so") not in result.full_elftree
 
     def test_keeps_nonpy_roots_in_analysis(
