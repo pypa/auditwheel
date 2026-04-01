@@ -83,7 +83,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/auditwheel_tests
           key: python${{ matrix.python }}-${{ matrix.platform[0] }}-${{ hashFiles('**/test_manylinux.py') }}
@@ -95,7 +95,7 @@ jobs:
           allow-prereleases: true
       - name: Set up QEMU
         if: matrix.qemu
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
         env:
