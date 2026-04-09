@@ -331,7 +331,8 @@ def test_json_on_pure_wheel_allowed(tmp_path, capsys, monkeypatch):
     wheel = _setup_pure_wheel(tmp_path, monkeypatch)
 
     retval = execute(
-        _make_args(wheel, allow_pure_python=True), argparse.ArgumentParser()
+        _make_args(wheel, allow_pure_python=True),
+        argparse.ArgumentParser(),
     )
 
     assert retval == 0
