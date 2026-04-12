@@ -52,7 +52,6 @@ jobs:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}
     needs: test-dist
     runs-on: ${{ matrix.platform[1] }}
-    environment: ${{ (github.repository == 'pypa/auditwheel' && ((github.event_name != 'pull_request') || (github.event.pull_request.head.repo.full_name == github.repository))) && 'codecov' || '' }}
     permissions:
       contents: read
     strategy:
@@ -101,8 +100,41 @@ jobs:
         env:
           AUDITWHEEL_ARCH: ${{ matrix.platform[0] }}
           AUDITWHEEL_QEMU: ${{ matrix.qemu }}
-      - name: Upload coverage to codecov
-        if: github.repository == 'pypa/auditwheel'
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          name: coverage-${{ matrix.python }}-${{ matrix.platform[0] }}
+          path: coverage-*.xml
+          retention-days: 1
+
+  coverage_report:
+    name: Coverage Report
+    needs: [test]
+    runs-on: ubuntu-slim
+    if: github.repository == 'pypa/auditwheel'
+    permissions:
+      id-token: write  # upload to codecov with OIDC
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        with:
+          use_oidc: true
+
+  check_all_green:
+    if: always()
+    name: Check all tests green
+    needs: [pre-commit, test-dist, test, coverage_report]
+    runs-on: ubuntu-slim
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
+        with:
+          jobs: ${{ toJSON(needs) }}
+          allowed-skips: ${{ (github.repository != 'pypa/auditwheel') && 'coverage_report' || '' }}

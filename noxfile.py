@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import os
+import platform
+import sys
 from pathlib import Path
 
 import nox
@@ -66,14 +68,14 @@ def _download_wheels_for_tests(session: nox.Session) -> None:
         # for tests/integration/test_bundled_wheels.py::test_weak_symbols_not_blacklisted
         ("cryptography==46.0.3", "cp38", "manylinux_2_17_x86_64"),
     ]
-    for package, python_tag, platform in wheels:
+    for package, python_tag, platform_tag in wheels:
         session.run(
             "pip",
             "download",
             "--only-binary=:all:",
             "--no-deps",
             "--dest=./tests/integration/",
-            f"--platform={platform}",
+            f"--platform={platform_tag}",
             f"--implementation={python_tag[:2]}",
             f"--python-version={python_tag[2:]}",
             package,
@@ -100,7 +102,9 @@ def tests(session: nox.Session) -> None:
 
     session.run("pytest", "-s", *posargs)
     if RUNNING_CI:
-        session.run("coverage", "xml", "-ocoverage.xml")
+        machine = platform.machine().lower()
+        suffix = f"{session.python}-{sys.platform}-{machine}"
+        session.run("coverage", "xml", f"-ocoverage-{suffix}.xml")
 
 
 @nox.session(python=["3.10"], default=False)
