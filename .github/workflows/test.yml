@@ -112,6 +112,7 @@ jobs:
     runs-on: ubuntu-slim
     if: github.repository == 'pypa/auditwheel'
     permissions:
+      contents: read
       id-token: write  # upload to codecov with OIDC
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

@@ -102,7 +102,7 @@ def tests(session: nox.Session) -> None:
 
     session.run("pytest", "-s", *posargs)
     if RUNNING_CI:
-        machine = platform.machine().lower()
+        machine = os.environ.get("AUDITWHEEL_ARCH", platform.machine()).lower()
         suffix = f"{session.python}-{sys.platform}-{machine}"
         session.run("coverage", "xml", f"-ocoverage-{suffix}.xml")
 
