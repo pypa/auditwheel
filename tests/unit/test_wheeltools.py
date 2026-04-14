@@ -3,10 +3,12 @@ from __future__ import annotations
 import re
 import shutil
 import tempfile
+import zipfile
 from pathlib import Path
 
 import pytest
 
+from auditwheel._vendor.wheel.pkginfo import read_pkg_info
 from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheelError
 from auditwheel.libc import Libc
@@ -155,6 +157,45 @@ def test_inwheel_no_manager(tmp_path):
         match=re.escape("This function should be called from wheel_ctx context manager"),
     ):
         add_platforms(context, [], [])
+
+
+def test_add_platforms_no_duplicate_root_is_purelib(tmp_path):
+    """Regression test for #642: add_platforms should not duplicate Root-Is-Purelib."""
+    wheel_name = "testpkg-0.0.1-py3-none-any.whl"
+    wheel_path = tmp_path / wheel_name
+    dist_info = "testpkg-0.0.1.dist-info"
+
+    # Create a minimal wheel with Root-Is-Purelib already set to false
+    with zipfile.ZipFile(wheel_path, "w") as zf:
+        zf.writestr(
+            f"{dist_info}/WHEEL",
+            "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: false\nTag: py3-none-any\n",
+        )
+        zf.writestr(
+            f"{dist_info}/METADATA",
+            "Metadata-Version: 2.1\nName: testpkg\nVersion: 0.0.1\n",
+        )
+        zf.writestr(f"{dist_info}/RECORD", "")
+
+    out_wheel_path = tmp_path / "out" / wheel_name
+    out_wheel_path.parent.mkdir()
+
+    with InWheelCtx(wheel_path, out_wheel_path) as ctx:
+        add_platforms(ctx, ["manylinux_2_35_x86_64"])
+
+    # Find the output wheel (name will have changed)
+    out_wheels = list((tmp_path / "out").glob("*.whl"))
+    assert len(out_wheels) == 1
+
+    with zipfile.ZipFile(out_wheels[0]) as zf:
+        wheel_info = next(n for n in zf.namelist() if n.endswith("/WHEEL"))
+        info = read_pkg_info(zf.extract(wheel_info, tmp_path / "extracted"))
+
+    purelib_values = info.get_all("Root-Is-Purelib")
+    assert purelib_values is not None
+    assert len(purelib_values) == 1, (
+        f"Expected exactly one Root-Is-Purelib entry, got {len(purelib_values)}"
+    )
 
 
 def test_inwheel_no_distinfo():

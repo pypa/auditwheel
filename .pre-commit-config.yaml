@@ -1,5 +1,7 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+ci:
+  autoupdate_schedule: monthly
 
 exclude: ^src/auditwheel/_vendor/
 
@@ -21,14 +23,14 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.15.5
+  rev: v0.15.9
   hooks:
   - id: ruff-check
     args: ["--fix", "--show-fixes"]
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.19.1
+  rev: v1.20.0
   hooks:
   - id: mypy
     exclude: tests/integration/.*/.*|tests/integration/quick_check_numpy.py|tests/unit/test_wheel_abi.py|scripts/calculate_symbol_versions.py

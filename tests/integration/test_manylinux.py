@@ -357,8 +357,10 @@ def docker_exec(
     if coverage and os.environ.get("AUDITWHEEL_QEMU", "") != "true":
         env = env.copy() if env is not None else {}
         env["COVERAGE_PROCESS_START"] = "/auditwheel_src/pyproject.toml"
-    ec, output = container.exec_run(cmd, workdir=cwd, environment=env)
-    output = output.decode("utf-8")
+    ec, raw_output = container.exec_run(cmd, workdir=cwd, environment=env)
+    assert isinstance(raw_output, bytes)
+    output = raw_output.decode("utf-8")
+    assert isinstance(ec, int)
     if ec != expected_retcode:
         logger.info("docker exec error %s: %s", container.id[:12], output)
         raise CalledProcessError(ec, cmd, output=output)
