@@ -12,17 +12,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def elf_read_soname(fn: Path) -> str | None:
-    with fn.open("rb") as f:
-        elf = ELFFile(f)
-        section = elf.get_section_by_name(".dynamic")
-        if section:
-            for t in section.iter_tags():
-                if t.entry.d_tag == "DT_SONAME":
-                    return str(t.soname)
-        return None
-
-
 def elf_read_dt_needed(fn: Path) -> list[str]:
     needed: list[str] = []
     with fn.open("rb") as f:

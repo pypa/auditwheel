@@ -4,9 +4,10 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
+from elftools.elf.elffile import ELFFile
 
 from auditwheel.architecture import Architecture
-from auditwheel.elfutils import elf_read_dt_needed, elf_read_rpaths, elf_read_soname
+from auditwheel.elfutils import elf_read_dt_needed, elf_read_rpaths
 from auditwheel.libc import Libc
 from auditwheel.policy import ExternalReference
 from auditwheel.wheel_abi import analyze_wheel_abi
@@ -18,6 +19,17 @@ android_dir = HERE / "android"
 # external reference to libc++_shared.so.
 libcxx_wheel = android_dir / "spam-0.1.0-cp313-cp313-android_24_arm64_v8a.whl"
 libcxx_module = "spam.cpython-313-aarch64-linux-android.so"
+
+
+def elf_read_soname(fn: Path) -> str | None:
+    with fn.open("rb") as f:
+        elf = ELFFile(f)
+        section = elf.get_section_by_name(".dynamic")
+        if section:
+            for t in section.iter_tags():
+                if t.entry.d_tag == "DT_SONAME":
+                    return str(t.soname)
+        return None
 
 
 @pytest.mark.parametrize("ldpaths_methods", [["env"], ["arg"], ["env", "arg"]])
