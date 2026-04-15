@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import call, patch
 
 from auditwheel.patcher import Patchelf
-from auditwheel.repair import append_rpath_within_wheel
+from auditwheel.repair import append_rpath_within_wheel, copylib
 
 
 @patch("auditwheel.patcher._verify_patchelf")
@@ -115,3 +115,27 @@ class TestRepair:
 
         assert check_output.call_args_list == check_output_expected_args
         assert check_call.call_args_list == check_call_expected_args
+
+
+@patch("auditwheel.patcher._verify_patchelf")
+@patch("auditwheel.patcher.check_output")
+@patch("auditwheel.patcher.check_call")
+class TestCopylib:
+    @patch("auditwheel.repair.elf_read_rpaths")
+    def test_nonexistent_rpath(self, elf_read_rpaths, check_call, _0, _1, tmp_path):  # noqa: PT019
+        # When a library has a non-existent runpath, copylib should still
+        # call set_rpath to replace it with $ORIGIN
+        patcher = Patchelf()
+        src_path = tmp_path / "b.so"
+        src_path.write_bytes(b"\x00")
+        dest_dir = tmp_path / "dest"
+        dest_dir.mkdir()
+        elf_read_rpaths.return_value = {"rpaths": [], "runpaths": ["/nonexistent/path"]}
+
+        copylib(src_path, dest_dir, patcher)
+
+        elf_read_rpaths.assert_called_once_with(src_path)
+        dest_path = next(dest_dir.iterdir())
+        check_call.assert_any_call(
+            ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN", dest_path],
+        )
