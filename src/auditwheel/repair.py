@@ -11,7 +11,7 @@ from pathlib import Path
 from subprocess import check_call
 from typing import TYPE_CHECKING
 
-from auditwheel.elfutils import elf_read_dt_needed
+from auditwheel.elfutils import elf_read_dt_needed, elf_read_rpaths
 from auditwheel.hashfile import hashfile
 from auditwheel.lddtree import LIBPYTHON_RE
 from auditwheel.policy import get_replace_platforms
@@ -156,7 +156,7 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
 
     1) Copy the file from src_path to dest_dir/
     2) Rename the shared object from soname to soname.<unique>
-    3) Set its RPATH to point to its new location.
+    3) If necessary, set its RPATH to point to its new location.
     """
     with src_path.open("rb") as f:
         shorthash = hashfile(f)[:8]
@@ -170,6 +170,7 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
         return new_soname, dest_path
 
     logger.debug("Grafting: %s -> %s", src_path, dest_path)
+    rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
     statinfo = dest_path.stat()
     if not statinfo.st_mode & stat.S_IWRITE:
@@ -177,10 +178,13 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
 
     patcher.set_soname(dest_path, new_soname)
 
-    # Set the RPATH so the library can find any other libraries which we copy to the same location.
-    # This is particularly important on Android, which uses RUNPATH, which doesn't affect transitive
+    # If necessary, set the RPATH so the library can find other grafted libraries. We do this
+    # unconditionally on Android because it uses RUNPATH, which doesn't affect transitive
     # dependencies (https://bugs.launchpad.net/ubuntu/+source/eglibc/+bug/1253638).
-    patcher.set_rpath(dest_path, "$ORIGIN")
+    if patcher.platform.startswith("android") or any(
+        itertools.chain(rpaths["rpaths"], rpaths["runpaths"]),
+    ):
+        patcher.set_rpath(dest_path, "$ORIGIN")
 
     return new_soname, dest_path
 

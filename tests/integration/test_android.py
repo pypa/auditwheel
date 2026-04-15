@@ -7,7 +7,7 @@ import pytest
 from elftools.elf.elffile import ELFFile
 
 from auditwheel.architecture import Architecture
-from auditwheel.elfutils import elf_read_dt_needed, elf_read_rpaths
+from auditwheel.elfutils import elf_read_dt_needed
 from auditwheel.libc import Libc
 from auditwheel.policy import ExternalReference
 from auditwheel.wheel_abi import analyze_wheel_abi
@@ -21,14 +21,14 @@ libcxx_wheel = android_dir / "spam-0.1.0-cp313-cp313-android_24_arm64_v8a.whl"
 libcxx_module = "spam.cpython-313-aarch64-linux-android.so"
 
 
-def elf_read_soname(fn: Path) -> str | None:
+def elf_read_tag(fn: Path, tag: str) -> str | None:
     with fn.open("rb") as f:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynamic")
         if section:
             for t in section.iter_tags():
-                if t.entry.d_tag == "DT_SONAME":
-                    return str(t.soname)
+                if t.entry.d_tag == f"DT_{tag.upper()}":
+                    return str(getattr(t, tag))
         return None
 
 
@@ -69,8 +69,9 @@ def test_libcxx(ldpaths_methods, tmp_path):
 
     libs_dir = output_dir / "spam.libs"
     libcxx_path = libs_dir / f"libc++_shared-{libcxx_hash}.so"
-    assert elf_read_soname(libcxx_path) == libcxx_path.name
-    assert elf_read_rpaths(libcxx_path) == {"rpaths": [], "runpaths": [str(libs_dir)]}
+    assert elf_read_tag(libcxx_path, "soname") == libcxx_path.name
+    assert elf_read_tag(libcxx_path, "rpath") is None
+    assert elf_read_tag(libcxx_path, "runpath") == "$ORIGIN"
 
     spam_path = output_dir / libcxx_module
     assert set(elf_read_dt_needed(spam_path)) == {
@@ -83,7 +84,8 @@ def test_libcxx(ldpaths_methods, tmp_path):
         # Grafted library
         libcxx_path.name,
     }
-    assert elf_read_rpaths(spam_path) == {"rpaths": [], "runpaths": [str(libs_dir)]}
+    assert elf_read_tag(spam_path, "rpath") is None
+    assert elf_read_tag(spam_path, "runpath") == f"$ORIGIN/{libs_dir.name}"
 
 
 def test_analyze_wheel_abi():
