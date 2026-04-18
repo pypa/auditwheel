@@ -165,11 +165,11 @@ def get_wheel_elfdata(
             arch = None if architecture is None else architecture.value
             raise NonPlatformWheelError(arch, shared_libraries_with_invalid_machine)
 
-        # auditwheel assumes that if a dependency in a non python ELF tree can be resolved in
-        # any other ELF tree then, it can be loaded from other non python ELF trees as well.
-        # Python extensions ELF trees are not fixed up, they should always be valid in the first
-        # place.
-        # we fix-up nonpy_elftree taking that into account
+        # Auditwheel assumes that if a dependency in a non-Python ELF tree can
+        # be resolved in any other ELF tree, then it can be loaded from other
+        # non-Python ELF trees as well. Python extension ELF trees are not
+        # fixed up; they should always be valid in the first place. We fix up
+        # nonpy_elftree with that assumption in mind.
         soname_library_map: dict[str, DynamicLibrary] = {}
         for elf_executable in itertools.chain(full_elftree.values(), nonpy_elftree.values()):
             for soname, elf_library in elf_executable.libraries.items():
