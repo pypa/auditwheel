@@ -92,6 +92,19 @@ class DynamicExecutable:
     runpath: tuple[str, ...]
     libraries: dict[str, DynamicLibrary]
 
+    def with_libraries(self, libraries: dict[str, DynamicLibrary]) -> DynamicExecutable:
+        return DynamicExecutable(
+            interpreter=self.interpreter,
+            libc=self.libc,
+            path=self.path,
+            realpath=self.realpath,
+            platform=self.platform,
+            needed=self.needed,
+            rpath=self.rpath,
+            runpath=self.runpath,
+            libraries=libraries,
+        )
+
 
 def _get_platform(elf: ELFFile) -> Platform:
     elf_osabi = elf.header["e_ident"]["EI_OSABI"]
