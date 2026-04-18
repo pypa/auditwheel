@@ -173,19 +173,35 @@ def get_wheel_elfdata(
         soname_library_map: dict[str, DynamicLibrary] = {}
         for elf_executable in itertools.chain(full_elftree.values(), nonpy_elftree.values()):
             for soname, elf_library in elf_executable.libraries.items():
-                if elf_library.realpath is not None:
-                    if soname in soname_library_map:
-                        if soname_library_map[soname].realpath != elf_library.realpath:
-                            msg = "inconsistent ELF trees"
-                            raise ValueError(msg)
-                    else:
+                if soname in soname_library_map:
+                    realpath = soname_library_map[soname].realpath
+                    if realpath is None:
                         soname_library_map[soname] = elf_library
+                    elif elf_library.realpath is not None and realpath != elf_library.realpath:
+                        msg = (
+                            f"inconsistent ELF trees: {soname!r} can be resolved as "
+                            f"{realpath!r} or {elf_library.realpath!r}"
+                        )
+                        raise ValueError(msg)
+                else:
+                    soname_library_map[soname] = elf_library
         for elf_path, elf_executable in nonpy_elftree.items():
             libraries_new: dict[str, DynamicLibrary] = {}
+            soname_all = set(elf_executable.libraries.keys())
             changed = False
             for soname, elf_library in elf_executable.libraries.items():
                 if elf_library.realpath is None and soname in soname_library_map:
                     libraries_new[soname] = soname_library_map[soname]
+                    # we need to add newly found dependencies as well
+                    needed_new = set(libraries_new[soname].needed) - soname_all
+                    while needed_new:
+                        needed_new_copy = needed_new.copy()
+                        for soname_needed in needed_new_copy:
+                            if soname_needed not in soname_all:
+                                libraries_new[soname_needed] = soname_library_map[soname_needed]
+                                soname_all.add(soname_needed)
+                                needed_new.update(libraries_new[soname_needed].needed)
+                        needed_new -= soname_all
                     changed = True
                 else:
                     libraries_new[soname] = elf_library
