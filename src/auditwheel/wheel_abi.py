@@ -190,7 +190,7 @@ def get_wheel_elfdata(
             soname_all = set(elf_executable.libraries.keys())
             changed = False
             for soname, elf_library in elf_executable.libraries.items():
-                if elf_library.realpath is None and soname in soname_library_map:
+                if elf_library.realpath is None and soname_library_map[soname].realpath is not None:
                     libraries_new[soname] = soname_library_map[soname]
                     # we need to add newly found dependencies as well
                     needed_new = set(libraries_new[soname].needed) - soname_all
