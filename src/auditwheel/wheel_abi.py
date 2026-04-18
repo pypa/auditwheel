@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import functools
 import itertools
 import logging
@@ -183,13 +184,16 @@ def get_wheel_elfdata(
             libraries_new: dict[str, DynamicLibrary] = {}
             changed = False
             for soname, elf_library in elf_executable.libraries.items():
-                if elf_library.path is None and elf_library.soname in soname_library_map:
+                if elf_library.realpath is None and soname in soname_library_map:
                     libraries_new[soname] = soname_library_map[soname]
                     changed = True
                 else:
                     libraries_new[soname] = elf_library
             if changed:
-                nonpy_elftree[elf_path] = elf_executable.with_libraries(libraries_new)
+                nonpy_elftree[elf_path] = dataclasses.replace(
+                    elf_executable,
+                    libraries=libraries_new,
+                )
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
