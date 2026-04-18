@@ -11,7 +11,7 @@ from pathlib import Path
 from subprocess import check_call
 from typing import TYPE_CHECKING
 
-from auditwheel.elfutils import elf_read_dt_needed, elf_read_rpaths
+from auditwheel.elfutils import elf_read_dt_needed
 from auditwheel.hashfile import hashfile
 from auditwheel.lddtree import LIBPYTHON_RE
 from auditwheel.policy import get_replace_platforms
@@ -112,14 +112,18 @@ def repair_wheel(
         # they may have internal dependencies (DT_NEEDED) on one another, so
         # we need to update those records so each now knows about the new
         # name of the other.
+        # we also clear or set RPATH depending on the presence of internal dependencies
         for _, path in soname_map.values():
-            needed = elf_read_dt_needed(path)
+            needed = elf_read_dt_needed(path)  # TODO perf, we already read those at some point
             replacements = []
             for n in needed:
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
+                patcher.set_rpath(path, "$ORIGIN")
                 patcher.replace_needed(path, *replacements)
+            else:
+                patcher.clear_rpath(path)
 
         if update_tags:
             output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
@@ -156,8 +160,6 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
 
     1) Copy the file from src_path to dest_dir/
     2) Rename the shared object from soname to soname.<unique>
-    3) If the library has a RUNPATH/RPATH, clear it and set RPATH to point to
-    its new location.
     """
     # Copy the a shared library from the system (src_path) into the wheel
     # if the library has a RUNPATH/RPATH we clear it and set RPATH to point to
@@ -175,16 +177,12 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
         return new_soname, dest_path
 
     logger.debug("Grafting: %s -> %s", src_path, dest_path)
-    rpaths = elf_read_rpaths(src_path)
     shutil.copy2(src_path, dest_path)
     statinfo = dest_path.stat()
     if not statinfo.st_mode & stat.S_IWRITE:
         dest_path.chmod(statinfo.st_mode | stat.S_IWRITE)
 
     patcher.set_soname(dest_path, new_soname)
-
-    if any(itertools.chain(rpaths["rpaths"], rpaths["runpaths"])):
-        patcher.set_rpath(dest_path, "$ORIGIN")
 
     return new_soname, dest_path
 
