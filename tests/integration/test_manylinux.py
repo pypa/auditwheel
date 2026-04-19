@@ -1004,7 +1004,6 @@ class TestManylinux(Anylinux):
             'git config --global --add safe.directory "/auditwheel_src"',
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
-            "pipx install -f patchelf==0.18.1.0a1",
         ]
         if policy in {"manylinux_2_28", "manylinux_2_34", "manylinux_2_39"}:
             commands.append(
@@ -1012,6 +1011,21 @@ class TestManylinux(Anylinux):
                 "gcc-toolset-15-binutils gcc-toolset-15-gcc gcc-toolset-15-gcc-c++ "
                 "gcc-toolset-15-gcc-gfortran gcc-toolset-15-libatomic-devel",
             )
+            lief_patchelf_file = {
+                "aarch64": "lief-tools-aarch64-unknown-linux-gnu.zip",
+                "i686": "lief-tools-i686-unknown-linux-gnu.zip",
+                "x86_64": "lief-tools-x86_64-unknown-linux-gnu.zip",
+            }.get(PLATFORM)
+            if lief_patchelf_file:
+                lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
+                lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
+                commands.extend(
+                    "pipx uninstall patchelf",
+                    f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
+                    "cd /tmp && unzip /tmp/lief-tools.zip",
+                    "mv /tmp/lief-tools-*/bin/* /usr/local/bin/",
+                    "rm -rf /tmp/lief-tools*",
+                )
 
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
