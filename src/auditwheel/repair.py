@@ -162,8 +162,6 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
     2) Rename the shared object from soname to soname.<unique>
     """
     # Copy the a shared library from the system (src_path) into the wheel
-    # if the library has a RUNPATH/RPATH we clear it and set RPATH to point to
-    # its new location.
 
     with src_path.open("rb") as f:
         shorthash = hashfile(f)[:8]
