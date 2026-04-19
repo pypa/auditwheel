@@ -780,7 +780,7 @@ class Anylinux:
                     rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RPATH"]
                     if ".libs/liba" in name:
                         # liba has a dependency on libb
-                        # DT_RPATH shall be overriden or written with "$ORIGIN"
+                        # DT_RPATH shall be overridden or written with "$ORIGIN"
                         assert len(rpath_tags) == 1
                         assert rpath_tags[0].rpath == "$ORIGIN"
                     if ".libs/libb" in name:
