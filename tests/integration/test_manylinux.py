@@ -1020,11 +1020,12 @@ class TestManylinux(Anylinux):
                 lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
                 lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
                 commands.extend(
-                    "pipx uninstall patchelf",
-                    f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
-                    "cd /tmp && unzip /tmp/lief-tools.zip",
-                    "mv /tmp/lief-tools-*/bin/* /usr/local/bin/",
-                    "rm -rf /tmp/lief-tools*",
+                    (
+                        "pipx uninstall patchelf",
+                        f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
+                        "bash -c 'cd /tmp && unzip /tmp/lief-tools.zip'",
+                        "mv -f /tmp/bin/lief-patchelf /usr/local/bin/",
+                    ),
                 )
 
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
