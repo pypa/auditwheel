@@ -373,14 +373,14 @@ def load_ld_paths(
 
 
 def ld_paths_from_arg(args_ldpaths: str | None) -> dict[str, list[str]] | None:
-    """Load linker paths from the --ldpaths option and the LD_LIBRARY_PATH env var."""
+    """Load linker paths from the --ldpaths option and the environment."""
     if args_ldpaths is None:
         # The option was not provided, so fall back on load_ld_paths.
         return None
 
     return {
         "conf": parse_ld_paths(args_ldpaths),
-        "env": parse_ld_paths(os.environ.get("LD_LIBRARY_PATH", "")),
+        "env": parse_ld_paths(os.environ.get("AUDITWHEEL_LD_LIBRARY_PATH", "")),
         "interp": [],
     }
 

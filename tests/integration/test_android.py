@@ -48,9 +48,9 @@ def test_libcxx(ldpaths_methods, tmp_path):
 
     env = os.environ.copy()
     if "env" in ldpaths_methods:
-        # LD_LIBRARY_PATH is searched before --ldpaths, so we overwrite the hash.
+        # AUDITWHEEL_LD_LIBRARY_PATH is searched before --ldpaths, so we overwrite the hash.
         libcxx_hash = "18b6a03d"
-        env["LD_LIBRARY_PATH"] = str(android_dir / "ldpaths/env")
+        env["AUDITWHEEL_LD_LIBRARY_PATH"] = str(android_dir / "ldpaths/env")
 
     subprocess.run(
         ["auditwheel", "repair", "-w", wheelhouse, *ldpaths_args, libcxx_wheel],
