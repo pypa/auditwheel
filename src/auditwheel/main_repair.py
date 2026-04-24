@@ -25,7 +25,7 @@ def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
     policy_names += [alias for p in policies for alias in p.aliases]
     policy_names += ["auto"]
     epilog = """PLATFORMS:
-These are the possible target platform tags, as specified by PEP 600.
+These are the possible platform tags for this machine, as specified by PEP 600.
 Note that old, pre-PEP 600 tags are still usable and are listed as aliases
 below.
 """
