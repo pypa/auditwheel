@@ -126,5 +126,5 @@ def test_parse_ld_paths_origin(origin):
     ],
 )
 def test_ld_paths_from_arg(arg, env, expected, monkeypatch):
-    monkeypatch.setitem(os.environ, "LD_LIBRARY_PATH", env)
+    monkeypatch.setitem(os.environ, "AUDITWHEEL_LD_LIBRARY_PATH", env)
     assert ld_paths_from_arg(arg) == expected
