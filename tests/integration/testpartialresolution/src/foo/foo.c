@@ -22,8 +22,8 @@ PyMODINIT_FUNC PyInit_foo(void)
     };
     static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
-        "testrpath",
-        "testrpath module",
+        "foo",
+        "foo module",
         -1,
         module_methods,
     };
