@@ -8,6 +8,7 @@ import pytest
 
 from auditwheel import wheel_abi
 from auditwheel.architecture import Architecture
+from auditwheel.lddtree import DynamicExecutable, DynamicLibrary, Platform
 from auditwheel.libc import Libc
 from auditwheel.policy import ExternalReference, WheelPolicies
 
@@ -96,3 +97,66 @@ def test_get_symbol_policies() -> None:
     )
     max_policy = max(symbol_policy[0] for symbol_policy in symbol_policies)
     assert max_policy.name == "manylinux_2_17_x86_64"
+
+
+@pytest.mark.parametrize("resolved", [True, False])
+def test_nonpy_elf_resolution(tmp_path: Path, resolved) -> None:
+    liba_path = tmp_path / "liba.so"
+    libb_path = tmp_path / "libb.so"
+    liba_path.touch()
+    libb_path.touch()
+    platform = Platform("", 64, True, "EM_X86_64", Architecture.x86_64, None, None)
+    libb = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="libb.so",
+        realpath=libb_path,
+        platform=platform,
+        needed=(),
+        rpath=(),
+        runpath=(),
+        libraries={},
+    )
+    liba = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="liba.so",
+        realpath=liba_path,
+        platform=platform,
+        needed=("libb.so",),
+        rpath=(),
+        runpath=(),
+        libraries={
+            "libb.so": DynamicLibrary("libb.so", None, None),
+        },
+    )
+    libraries = {
+        "liba.so": DynamicLibrary("liba.so", liba.path, liba.realpath, liba.platform, liba.needed),
+    }
+    if resolved:
+        libraries["libb.so"] = DynamicLibrary(
+            "libb.so",
+            libb.path,
+            libb.realpath,
+            libb.platform,
+            libb.needed,
+        )
+    extension = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="extension.so",
+        realpath=Path("extension.so"),
+        platform=platform,
+        needed=("liba.so",),
+        rpath=(),
+        runpath=(),
+        libraries=libraries,
+    )
+    pyelf_trees = {extension.realpath: extension}
+    nonpy_elftrees = {liba.realpath: liba, libb.realpath: libb}
+    wheel_abi._fixup_elf_trees(pyelf_trees, nonpy_elftrees)
+    assert pyelf_trees == {extension.realpath: extension}
+    if resolved:
+        assert nonpy_elftrees != {liba.realpath: liba, libb.realpath: libb}
+    else:
+        assert nonpy_elftrees == {liba.realpath: liba, libb.realpath: libb}
