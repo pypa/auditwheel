@@ -14,7 +14,7 @@ func(PyObject *self, PyObject *args)
 }
 
 /* Module initialization */
-PyMODINIT_FUNC PyInit_foo(void)
+PyMODINIT_FUNC PyInit_testpartialresolution(void)
 {
     static PyMethodDef module_methods[] = {
         {"func", (PyCFunction)func, METH_NOARGS, "func."},
@@ -22,8 +22,8 @@ PyMODINIT_FUNC PyInit_foo(void)
     };
     static struct PyModuleDef moduledef = {
         PyModuleDef_HEAD_INIT,
-        "foo",
-        "foo module",
+        "testpartialresolution",
+        "testpartialresolution module",
         -1,
         module_methods,
     };

@@ -29,15 +29,15 @@ class BuildExt(build_ext):
 
 
 setup(
-    name="foo",
+    name="testpartialresolution",
     version="0.0.1",
-    packages=["foo"],
+    packages=["testpartialresolution"],
     package_dir={"": "src"},
     cmdclass={"build_ext": BuildExt},
     ext_modules=[
         Extension(
-            "foo/foo",
-            sources=["src/foo/foo.c"],
+            "testpartialresolution/testpartialresolution",
+            sources=["src/testpartialresolution/testpartialresolution.c"],
             extra_link_args=["-Wl,--disable-new-dtags", "-Wl,-rpath=$ORIGIN"],
             include_dirs=["a"],
             libraries=["a"],

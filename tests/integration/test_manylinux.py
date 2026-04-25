@@ -784,15 +784,18 @@ class Anylinux:
 
         # Repair the wheel using the appropriate manylinux container
         anylinux.repair(orig_wheel)
-        repaired_wheel = anylinux.check_wheel("foo")
+        repaired_wheel = anylinux.check_wheel("testpartialresolution")
         assert_show_output(anylinux, repaired_wheel, policy, False)
 
         python.install_wheel(repaired_wheel)
-        output = python.run("from foo import foo; print(foo.func())")
+        output = python.run(
+            "from testpartialresolution import testpartialresolution;"
+            "print(testpartialresolution.func())",
+        )
         assert output.strip() == "11"
 
         with zipfile.ZipFile(anylinux.io_folder / repaired_wheel) as w:
-            libraries = tuple(name for name in w.namelist() if "foo/lib" in name)
+            libraries = tuple(name for name in w.namelist() if "testpartialresolution/lib" in name)
             assert len(libraries) == 2
             for name in libraries:
                 with w.open(name) as f:
