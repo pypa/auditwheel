@@ -101,7 +101,7 @@ def test_get_symbol_policies() -> None:
 
 
 @pytest.mark.parametrize("kind", ["resolved", "unresolved", "warning"])
-def test_nonpy_elf_resolution(kind: bool, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_nonpy_elf_resolution(kind: str, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.WARNING)
     liba_path = tmp_path / "liba.so"
     libb_path = tmp_path / "libb.so"
@@ -172,7 +172,7 @@ def test_nonpy_elf_resolution(kind: bool, tmp_path: Path, caplog: pytest.LogCapt
 
 @pytest.mark.parametrize("kind", ["resolved", "unresolved", "warning"])
 def test_nonpy_elf_resolution_transitive_needed(
-    kind: bool,
+    kind: str,
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:

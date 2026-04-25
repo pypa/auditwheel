@@ -77,6 +77,8 @@ def _fixup_elf_trees(
         for candidate in resolved_executables:
             for library in candidate.libraries.values():
                 assert library.realpath is not None  # noqa: S101
+                assert library.realpath.is_file()  # noqa: S101
+                assert path_to_elf.is_file()  # noqa: S101
                 if path_to_elf.samefile(library.realpath):
                     return candidate
         return None
@@ -109,7 +111,8 @@ def _fixup_elf_trees(
                             log.warning("%s not found in %s ELF tree", soname_needed, ref_name)
                     needed_new -= soname_all
             else:
-                log.warning("%s not found in %s ELF tree", soname, ref_name)
+                if elf_library.realpath is None:
+                    log.warning("%s not found in %s ELF tree", soname, ref_name)
                 libraries_new[soname] = elf_library
         nonpy_elftree[elf_path] = dataclasses.replace(elf_executable, libraries=libraries_new)
 
