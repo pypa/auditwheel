@@ -162,8 +162,10 @@ def test_nonpy_elf_resolution(kind: str, tmp_path: Path, caplog: pytest.LogCaptu
     assert pyelf_trees == {extension.realpath: extension}
     if kind == "resolved":
         assert nonpy_elftrees != {liba.realpath: liba, libb.realpath: libb}
+        assert nonpy_elftrees[liba.realpath].libraries["libb.so"].realpath == libb.realpath
     else:
         assert nonpy_elftrees == {liba.realpath: liba, libb.realpath: libb}
+        assert nonpy_elftrees[liba.realpath].libraries["libb.so"].realpath is None
     if kind == "warning":
         assert len(caplog.records) == 1
     else:
@@ -260,8 +262,18 @@ def test_nonpy_elf_resolution_transitive_needed(
     assert pyelf_trees == {extension.realpath: extension}
     if kind in {"resolved", "warning"}:
         assert nonpy_elftrees != {liba.realpath: liba, libb.realpath: libb, libc.realpath: libc}
+        assert nonpy_elftrees[liba.realpath].libraries["libb.so"].realpath ==  libb.realpath
+        if kind == "resolved":
+            assert nonpy_elftrees[liba.realpath].libraries["libc.so"].realpath == libc.realpath
+            assert nonpy_elftrees[libb.realpath].libraries["libc.so"].realpath == libc.realpath
+        else:
+            assert "libc.so" not in nonpy_elftrees[liba.realpath].libraries
+            assert nonpy_elftrees[libb.realpath].libraries["libc.so"].realpath is None
     else:
         assert nonpy_elftrees == {liba.realpath: liba, libb.realpath: libb, libc.realpath: libc}
+        assert nonpy_elftrees[liba.realpath].libraries["libb.so"].realpath is None
+        assert "libc.so" not in nonpy_elftrees[liba.realpath].libraries
+        assert nonpy_elftrees[libb.realpath].libraries["libc.so"].realpath is None
     if kind == "warning":
         assert len(caplog.records) == 2
     else:
