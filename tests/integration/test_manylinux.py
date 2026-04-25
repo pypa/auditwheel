@@ -775,6 +775,34 @@ class Anylinux:
                         assert len(rpath_tags) == 1
                         assert rpath_tags[0].rpath == "$ORIGIN"
 
+    def test_partialresolution(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
+
+        policy = anylinux.policy
+
+        test_path = "/auditwheel_src/tests/integration/testpartialresolution"
+        orig_wheel = anylinux.build_wheel(test_path)
+
+        # Repair the wheel using the appropriate manylinux container
+        anylinux.repair(orig_wheel)
+        repaired_wheel = anylinux.check_wheel("foo")
+        assert_show_output(anylinux, repaired_wheel, policy, False)
+
+        python.install_wheel(repaired_wheel)
+        output = python.run("from foo import foo; print(foo.func())")
+        assert output.strip() == "11"
+
+        with zipfile.ZipFile(anylinux.io_folder / repaired_wheel) as w:
+            libraries = tuple(name for name in w.namelist() if "foo/lib" in name)
+            assert len(libraries) == 2
+            for name in libraries:
+                with w.open(name) as f:
+                    elf = ELFFile(io.BytesIO(f.read()))
+                    dynamic = elf.get_section_by_name(".dynamic")
+                    runpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"]
+                    assert len(runpath_tags) == 0
+                    rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RPATH"]
+                    assert len(rpath_tags) == 0
+
     def test_multiple_top_level(
         self,
         anylinux: AnyLinuxContainer,
