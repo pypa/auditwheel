@@ -33,6 +33,6 @@ def ldpaths(parser: ArgumentParser) -> None:
         "--ldpaths",
         dest="LDPATHS",
         help="Colon-delimited list of directories to search for external libraries. "
-        "This replaces the default list; to add to the default, set the environment "
+        "This replaces the default list; to add to this list, set the environment "
         "variable AUDITWHEEL_LD_LIBRARY_PATH.",
     )
