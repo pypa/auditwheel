@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from pathlib import Path
 
@@ -99,8 +100,9 @@ def test_get_symbol_policies() -> None:
     assert max_policy.name == "manylinux_2_17_x86_64"
 
 
-@pytest.mark.parametrize("resolved", [True, False])
-def test_nonpy_elf_resolution(tmp_path: Path, resolved) -> None:
+@pytest.mark.parametrize("kind", ["resolved", "unresolved", "warning"])
+def test_nonpy_elf_resolution(kind: bool, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.WARNING)
     liba_path = tmp_path / "liba.so"
     libb_path = tmp_path / "libb.so"
     liba_path.touch()
@@ -133,7 +135,7 @@ def test_nonpy_elf_resolution(tmp_path: Path, resolved) -> None:
     libraries = {
         "liba.so": DynamicLibrary("liba.so", liba.path, liba.realpath, liba.platform, liba.needed),
     }
-    if resolved:
+    if kind == "resolved":
         libraries["libb.so"] = DynamicLibrary(
             "libb.so",
             libb.path,
@@ -141,6 +143,8 @@ def test_nonpy_elf_resolution(tmp_path: Path, resolved) -> None:
             libb.platform,
             libb.needed,
         )
+    elif kind == "unresolved":
+        libraries["libb.so"] = DynamicLibrary("libb.so", None, None)
     extension = DynamicExecutable(
         interpreter=None,
         libc=None,
@@ -156,7 +160,109 @@ def test_nonpy_elf_resolution(tmp_path: Path, resolved) -> None:
     nonpy_elftrees = {liba.realpath: liba, libb.realpath: libb}
     wheel_abi._fixup_elf_trees(pyelf_trees, nonpy_elftrees)
     assert pyelf_trees == {extension.realpath: extension}
-    if resolved:
+    if kind == "resolved":
         assert nonpy_elftrees != {liba.realpath: liba, libb.realpath: libb}
     else:
         assert nonpy_elftrees == {liba.realpath: liba, libb.realpath: libb}
+    if kind == "warning":
+        assert len(caplog.records) == 1
+    else:
+        assert len(caplog.records) == 0
+
+
+@pytest.mark.parametrize("kind", ["resolved", "unresolved", "warning"])
+def test_nonpy_elf_resolution_transitive_needed(
+    kind: bool,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING)
+    liba_path = tmp_path / "liba.so"
+    libb_path = tmp_path / "libb.so"
+    libc_path = tmp_path / "libc.so"
+    liba_path.touch()
+    libb_path.touch()
+    libc_path.touch()
+    platform = Platform("", 64, True, "EM_X86_64", Architecture.x86_64, None, None)
+    libc = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="libc.so",
+        realpath=libc_path,
+        platform=platform,
+        needed=(),
+        rpath=(),
+        runpath=(),
+        libraries={},
+    )
+    libb = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="libb.so",
+        realpath=libb_path,
+        platform=platform,
+        needed=("libc.so",),
+        rpath=(),
+        runpath=(),
+        libraries={
+            "libc.so": DynamicLibrary("libc.so", None, None),
+        },
+    )
+    liba = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="liba.so",
+        realpath=liba_path,
+        platform=platform,
+        needed=("libb.so",),
+        rpath=(),
+        runpath=(),
+        libraries={
+            "libb.so": DynamicLibrary("libb.so", None, None),
+        },
+    )
+    libraries = {
+        "liba.so": DynamicLibrary("liba.so", liba.path, liba.realpath, liba.platform, liba.needed),
+    }
+    if kind in {"resolved", "warning"}:
+        libraries["libb.so"] = DynamicLibrary(
+            "libb.so",
+            libb.path,
+            libb.realpath,
+            libb.platform,
+            libb.needed,
+        )
+        if kind == "resolved":
+            libraries["libc.so"] = DynamicLibrary(
+                "libc.so",
+                libc.path,
+                libc.realpath,
+                libc.platform,
+                libc.needed,
+            )
+    elif kind == "unresolved":
+        libraries["libb.so"] = DynamicLibrary("libb.so", None, None)
+
+    extension = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="extension.so",
+        realpath=Path("extension.so"),
+        platform=platform,
+        needed=("liba.so",),
+        rpath=(),
+        runpath=(),
+        libraries=libraries,
+    )
+    pyelf_trees = {extension.realpath: extension}
+    nonpy_elftrees = {liba.realpath: liba, libb.realpath: libb, libc.realpath: libc}
+    wheel_abi._fixup_elf_trees(pyelf_trees, nonpy_elftrees)
+    assert pyelf_trees == {extension.realpath: extension}
+    if kind in {"resolved", "warning"}:
+        assert nonpy_elftrees != {liba.realpath: liba, libb.realpath: libb, libc.realpath: libc}
+    else:
+        assert nonpy_elftrees == {liba.realpath: liba, libb.realpath: libb, libc.realpath: libc}
+    if kind == "warning":
+        assert len(caplog.records) == 2
+    else:
+        assert len(caplog.records) == 0

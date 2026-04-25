@@ -66,7 +66,7 @@ def _fixup_elf_trees(
     # in any other fully resolved ELF tree, then it can be loaded from other
     # non-Python ELF trees as well. Python extension ELF trees are not
     # fixed up; they should always be valid in the first place. We fix up
-    # nonpy_elftree with that assumption in mind.
+    # non-Python ELF trees with that assumption in mind.
     resolved_executables = [
         executable
         for executable in itertools.chain(py_elf_trees.values(), nonpy_elftree.values())
@@ -90,6 +90,7 @@ def _fixup_elf_trees(
         reference = _get_reference(elf_executable.realpath)
         if reference is None:
             continue
+        ref_name = reference.realpath.name
         libraries_new: dict[str, DynamicLibrary] = {}
         soname_all = set(elf_executable.libraries.keys())
         for soname, elf_library in elf_executable.libraries.items():
@@ -99,13 +100,16 @@ def _fixup_elf_trees(
                 needed_new = set(libraries_new[soname].needed) - soname_all
                 while needed_new:
                     needed_new_copy = needed_new.copy()
+                    soname_all |= needed_new_copy
                     for soname_needed in needed_new_copy:
                         if soname_needed in reference.libraries:
                             libraries_new[soname_needed] = reference.libraries[soname_needed]
-                            soname_all.add(soname_needed)
                             needed_new.update(libraries_new[soname_needed].needed)
+                        else:
+                            log.warning("%s not found in %s ELF tree", soname_needed, ref_name)
                     needed_new -= soname_all
             else:
+                log.warning("%s not found in %s ELF tree", soname, ref_name)
                 libraries_new[soname] = elf_library
         nonpy_elftree[elf_path] = dataclasses.replace(elf_executable, libraries=libraries_new)
 
