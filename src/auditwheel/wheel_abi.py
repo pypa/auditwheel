@@ -58,6 +58,58 @@ class WheelElfData:
     uses_pyfpe_jbuf: bool
 
 
+def _fixup_elf_trees(
+    py_elf_trees: dict[Path, DynamicExecutable],
+    nonpy_elftree: dict[Path, DynamicExecutable],
+) -> None:
+    # Auditwheel assumes that if a dependency in a non-Python ELF tree can be resolved
+    # in any other fully resolved ELF tree, then it can be loaded from other
+    # non-Python ELF trees as well. Python extension ELF trees are not
+    # fixed up; they should always be valid in the first place. We fix up
+    # nonpy_elftree with that assumption in mind.
+    resolved_executables = [
+        executable
+        for executable in itertools.chain(py_elf_trees.values(), nonpy_elftree.values())
+        if all(library.realpath is not None for library in executable.libraries.values())
+    ]
+
+    def _get_reference(path_to_elf: Path) -> DynamicExecutable | None:
+        for candidate in resolved_executables:
+            for library in candidate.libraries.values():
+                assert library.realpath is not None  # noqa: S101
+                if path_to_elf.samefile(library.realpath):
+                    return candidate
+        return None
+
+    for elf_path, elf_executable in nonpy_elftree.items():
+        need_resolution = any(
+            elf_library.realpath is None for elf_library in elf_executable.libraries.values()
+        )
+        if not need_resolution:
+            continue
+        reference = _get_reference(elf_executable.realpath)
+        if reference is None:
+            continue
+        libraries_new: dict[str, DynamicLibrary] = {}
+        soname_all = set(elf_executable.libraries.keys())
+        for soname, elf_library in elf_executable.libraries.items():
+            if elf_library.realpath is None and soname in reference.libraries:
+                libraries_new[soname] = reference.libraries[soname]
+                # we need to add newly found dependencies as well
+                needed_new = set(libraries_new[soname].needed) - soname_all
+                while needed_new:
+                    needed_new_copy = needed_new.copy()
+                    for soname_needed in needed_new_copy:
+                        if soname_needed in reference.libraries:
+                            libraries_new[soname_needed] = reference.libraries[soname_needed]
+                            soname_all.add(soname_needed)
+                            needed_new.update(libraries_new[soname_needed].needed)
+                    needed_new -= soname_all
+            else:
+                libraries_new[soname] = elf_library
+        nonpy_elftree[elf_path] = dataclasses.replace(elf_executable, libraries=libraries_new)
+
+
 @functools.lru_cache
 def get_wheel_elfdata(
     libc: Libc | None,
@@ -165,51 +217,7 @@ def get_wheel_elfdata(
             arch = None if architecture is None else architecture.value
             raise NonPlatformWheelError(arch, shared_libraries_with_invalid_machine)
 
-        # Auditwheel assumes that if a dependency in a non-Python ELF tree can
-        # be resolved in any other ELF tree, then it can be loaded from other
-        # non-Python ELF trees as well. Python extension ELF trees are not
-        # fixed up; they should always be valid in the first place. We fix up
-        # nonpy_elftree with that assumption in mind.
-        soname_library_map: dict[str, DynamicLibrary] = {}
-        for elf_executable in itertools.chain(full_elftree.values(), nonpy_elftree.values()):
-            for soname, elf_library in elf_executable.libraries.items():
-                if soname in soname_library_map:
-                    realpath = soname_library_map[soname].realpath
-                    if realpath is None:
-                        soname_library_map[soname] = elf_library
-                    elif elf_library.realpath is not None and realpath != elf_library.realpath:
-                        msg = (
-                            f"inconsistent ELF trees: {soname!r} can be resolved as "
-                            f"{realpath!r} or {elf_library.realpath!r}"
-                        )
-                        raise ValueError(msg)
-                else:
-                    soname_library_map[soname] = elf_library
-        for elf_path, elf_executable in nonpy_elftree.items():
-            libraries_new: dict[str, DynamicLibrary] = {}
-            soname_all = set(elf_executable.libraries.keys())
-            changed = False
-            for soname, elf_library in elf_executable.libraries.items():
-                if elf_library.realpath is None and soname_library_map[soname].realpath is not None:
-                    libraries_new[soname] = soname_library_map[soname]
-                    # we need to add newly found dependencies as well
-                    needed_new = set(libraries_new[soname].needed) - soname_all
-                    while needed_new:
-                        needed_new_copy = needed_new.copy()
-                        for soname_needed in needed_new_copy:
-                            if soname_needed not in soname_all:
-                                libraries_new[soname_needed] = soname_library_map[soname_needed]
-                                soname_all.add(soname_needed)
-                                needed_new.update(libraries_new[soname_needed].needed)
-                        needed_new -= soname_all
-                    changed = True
-                else:
-                    libraries_new[soname] = elf_library
-            if changed:
-                nonpy_elftree[elf_path] = dataclasses.replace(
-                    elf_executable,
-                    libraries=libraries_new,
-                )
+        _fixup_elf_trees(full_elftree, nonpy_elftree)
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
