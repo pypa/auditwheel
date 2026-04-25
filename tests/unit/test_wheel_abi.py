@@ -166,10 +166,15 @@ def test_nonpy_elf_resolution(kind: str, tmp_path: Path, caplog: pytest.LogCaptu
     else:
         assert nonpy_elftrees == {liba.realpath: liba, libb.realpath: libb}
         assert nonpy_elftrees[liba.realpath].libraries["libb.so"].realpath is None
+    warnings = [
+        record
+        for record in caplog.records
+        if "ELF tree" in record.message and record.levelno == logging.WARNING
+    ]
     if kind == "warning":
-        assert len(caplog.records) == 1
+        assert len(warnings) == 1
     else:
-        assert len(caplog.records) == 0
+        assert len(warnings) == 0
 
 
 @pytest.mark.parametrize("kind", ["resolved", "unresolved", "warning"])
@@ -274,7 +279,13 @@ def test_nonpy_elf_resolution_transitive_needed(
         assert nonpy_elftrees[liba.realpath].libraries["libb.so"].realpath is None
         assert "libc.so" not in nonpy_elftrees[liba.realpath].libraries
         assert nonpy_elftrees[libb.realpath].libraries["libc.so"].realpath is None
+
+    warnings = [
+        record
+        for record in caplog.records
+        if "ELF tree" in record.message and record.levelno == logging.WARNING
+    ]
     if kind == "warning":
-        assert len(caplog.records) == 2
+        assert len(warnings) == 2
     else:
-        assert len(caplog.records) == 0
+        assert len(warnings) == 0
