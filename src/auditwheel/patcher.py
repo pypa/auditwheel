@@ -27,19 +27,19 @@ class ElfPatcher:
         raise NotImplementedError
 
 
-def _verify_patchelf() -> str:
+def _verify_patchelf(*, allow_lief: bool) -> str:
     """This function looks for the ``lief-patchelf`` or ``patchelf`` external binary in the PATH,
     checks for the required version, and throws an exception if a proper
     version can't be found. Otherwise, silence is golden
     """
-    result = which("lief-patchelf")
+    result = which("lief-patchelf") if allow_lief else None
     if result is None:
         result = which("patchelf")
         if not result:
             msg = "Cannot find required utility `patchelf` in PATH"
             raise ValueError(msg)
         try:
-            version = check_output(["patchelf", "--version"]).decode("utf-8")
+            version = check_output([result, "--version"]).decode("utf-8")
         except CalledProcessError:
             msg = "Could not call `patchelf` binary"
             raise ValueError(msg) from None
@@ -53,8 +53,8 @@ def _verify_patchelf() -> str:
 
 
 class Patchelf(ElfPatcher):
-    def __init__(self) -> None:
-        self.patchelf_path = _verify_patchelf()
+    def __init__(self, *, allow_lief: bool = True) -> None:
+        self.patchelf_path = _verify_patchelf(allow_lief=allow_lief)
 
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
         check_call(
