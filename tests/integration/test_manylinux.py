@@ -1025,6 +1025,7 @@ class TestManylinux(Anylinux):
                         f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
                         "bash -c 'cd /tmp && unzip /tmp/lief-tools.zip'",
                         "mv -f /tmp/bin/lief-patchelf /usr/local/bin/",
+                        "chmod +x /usr/local/bin/lief-patchelf",
                     ),
                 )
 
