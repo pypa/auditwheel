@@ -1018,7 +1018,7 @@ class TestManylinux(Anylinux):
             }.get(PLATFORM)
             if lief_patchelf_file:
                 lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
-                lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
+                lief_patchelf_url = f"{lief_patchelf_url}/0.17.1/{lief_patchelf_file}"
                 commands.extend(
                     (
                         "pipx uninstall patchelf",
