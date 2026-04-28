@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import functools
 import itertools
 import logging
@@ -19,7 +20,7 @@ from auditwheel.elfutils import (
 )
 from auditwheel.error import InvalidLibcError, NonPlatformWheelError
 from auditwheel.genericpkgctx import InGenericPkgCtx
-from auditwheel.lddtree import DynamicExecutable, ld_paths_from_arg, ldd
+from auditwheel.lddtree import DynamicExecutable, DynamicLibrary, ld_paths_from_arg, ldd
 from auditwheel.libc import Libc
 from auditwheel.policy import ExternalReference, Policy, WheelPolicies
 
@@ -55,6 +56,65 @@ class WheelElfData:
     versioned_symbols: dict[str, set[str]]
     uses_ucs2_symbols: bool
     uses_pyfpe_jbuf: bool
+
+
+def _fixup_elf_trees(
+    py_elf_trees: dict[Path, DynamicExecutable],
+    nonpy_elftree: dict[Path, DynamicExecutable],
+) -> None:
+    # Auditwheel assumes that if a dependency in a non-Python ELF tree can be resolved
+    # in any other fully resolved ELF tree, then it can be loaded from other
+    # non-Python ELF trees as well. Python extension ELF trees are not
+    # fixed up; they should always be valid in the first place. We fix up
+    # non-Python ELF trees with that assumption in mind.
+    resolved_executables = [
+        executable
+        for executable in itertools.chain(py_elf_trees.values(), nonpy_elftree.values())
+        if all(library.realpath is not None for library in executable.libraries.values())
+    ]
+
+    def _get_reference(path_to_elf: Path) -> DynamicExecutable | None:
+        assert path_to_elf.is_file()  # noqa: S101
+        for candidate in resolved_executables:
+            for library in candidate.libraries.values():
+                assert library.realpath is not None  # noqa: S101
+                assert library.realpath.is_file()  # noqa: S101
+                if path_to_elf.samefile(library.realpath):
+                    return candidate
+        return None
+
+    for elf_path, elf_executable in nonpy_elftree.items():
+        need_resolution = any(
+            elf_library.realpath is None for elf_library in elf_executable.libraries.values()
+        )
+        if not need_resolution:
+            continue
+        reference = _get_reference(elf_executable.realpath)
+        if reference is None:
+            continue
+        ref_name = reference.realpath.name
+        libraries_new: dict[str, DynamicLibrary] = {}
+        soname_all = set(elf_executable.libraries.keys())
+        for soname, elf_library in elf_executable.libraries.items():
+            if elf_library.realpath is None and soname in reference.libraries:
+                libraries_new[soname] = reference.libraries[soname]
+                # we need to add newly found dependencies as well
+                needed_new = set(libraries_new[soname].needed) - soname_all
+                while needed_new:
+                    needed_new_copy = needed_new.copy()
+                    soname_all |= needed_new_copy
+                    for soname_needed in needed_new_copy:
+                        if soname_needed in reference.libraries:
+                            libraries_new[soname_needed] = reference.libraries[soname_needed]
+                            needed_new.update(libraries_new[soname_needed].needed)
+                        else:
+                            log.warning("%s not found in %s ELF tree", soname_needed, ref_name)
+                    needed_new -= soname_all
+            else:
+                if elf_library.realpath is None:
+                    log.warning("%s not found in %s ELF tree", soname, ref_name)
+                libraries_new[soname] = elf_library
+        nonpy_elftree[elf_path] = dataclasses.replace(elf_executable, libraries=libraries_new)
 
 
 @functools.lru_cache
@@ -168,6 +228,8 @@ def get_wheel_elfdata(
         if not platform_wheel:
             arch = None if architecture is None else architecture.value
             raise NonPlatformWheelError(arch, shared_libraries_with_invalid_machine)
+
+        _fixup_elf_trees(full_elftree, nonpy_elftree)
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
