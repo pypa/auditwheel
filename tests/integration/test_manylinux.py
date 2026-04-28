@@ -28,6 +28,9 @@ from auditwheel.policy import WheelPolicies
 
 logger = logging.getLogger(__name__)
 
+if "GITHUB_ACTIONS" in os.environ and sys.platform == "darwin":
+    pytest.skip("Docker is not available on GitHub Actions macOS runners", allow_module_level=True)
+
 PLATFORM = os.environ.get("AUDITWHEEL_ARCH", Architecture.detect().value)
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"

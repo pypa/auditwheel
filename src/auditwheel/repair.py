@@ -156,13 +156,8 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
 
     1) Copy the file from src_path to dest_dir/
     2) Rename the shared object from soname to soname.<unique>
-    3) If the library has a RUNPATH/RPATH, clear it and set RPATH to point to
-    its new location.
+    3) If necessary, set its RPATH to point to its new location.
     """
-    # Copy the a shared library from the system (src_path) into the wheel
-    # if the library has a RUNPATH/RPATH we clear it and set RPATH to point to
-    # its new location.
-
     with src_path.open("rb") as f:
         shorthash = hashfile(f)[:8]
 
@@ -183,7 +178,12 @@ def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, P
 
     patcher.set_soname(dest_path, new_soname)
 
-    if any(itertools.chain(rpaths["rpaths"], rpaths["runpaths"])):
+    # If necessary, set the RPATH so the library can find other grafted libraries. We do this
+    # unconditionally on Android because it uses RUNPATH, which doesn't affect transitive
+    # dependencies (https://bugs.launchpad.net/ubuntu/+source/eglibc/+bug/1253638).
+    if patcher.platform.startswith("android") or any(
+        itertools.chain(rpaths["rpaths"], rpaths["runpaths"]),
+    ):
         patcher.set_rpath(dest_path, "$ORIGIN")
 
     return new_soname, dest_path

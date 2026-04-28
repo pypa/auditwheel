@@ -95,10 +95,11 @@ def tests(session: nox.Session) -> None:
 
     if RUNNING_CI:
         posargs.extend(["--cov", "auditwheel", "--cov-config", "pyproject.toml"])
-        # pull manylinux images that will be used.
-        # this helps passing tests which would otherwise timeout.
-        for image in _docker_images(session):
-            session.run("docker", "pull", image, external=True)
+        if sys.platform != "darwin":
+            # pull manylinux images that will be used.
+            # this helps passing tests which would otherwise timeout.
+            for image in _docker_images(session):
+                session.run("docker", "pull", image, external=True)
 
     session.run("pytest", "-s", *posargs)
     if RUNNING_CI:

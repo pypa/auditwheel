@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import re
 from contextlib import nullcontext as does_not_raise
 from pathlib import Path
 
 import pytest
 
+import auditwheel.policy
 from auditwheel.architecture import Architecture
 from auditwheel.lddtree import DynamicExecutable, DynamicLibrary, Platform
 from auditwheel.libc import Libc
@@ -173,7 +175,8 @@ class TestPolicyAccess:
 class TestLddTreeExternalReferences:
     """Tests for lddtree_external_references."""
 
-    def test_filter_libs(self):
+    @pytest.mark.parametrize("libc", [Libc.GLIBC, Libc.ANDROID])
+    def test_filter_libs(self, libc):
         """Test the nested filter_libs function."""
         filtered_libs = [
             "ld-linux-x86_64.so.1",
@@ -181,10 +184,12 @@ class TestLddTreeExternalReferences:
             "ld64.so.2",
         ]
         unfiltered_libs = ["libfoo.so.1.0", "libbar.so.999.999.999"]
+        (filtered_libs if libc == Libc.ANDROID else unfiltered_libs).append("libpython3.13.so")
         libs = filtered_libs + unfiltered_libs
+
         lddtree = DynamicExecutable(
             interpreter=None,
-            libc=Libc.GLIBC,
+            libc=libc,
             path="/path/to/lib",
             realpath=Path("/path/to/lib"),
             platform=Platform(
@@ -203,7 +208,13 @@ class TestLddTreeExternalReferences:
             rpath=(),
             runpath=(),
         )
-        policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+        policies = WheelPolicies(
+            libc=libc,
+            arch=Architecture.x86_64,
+            wheel_fn=(
+                Path("spam-0.1-py3-none-android_24_x86_64.whl") if libc == Libc.ANDROID else None
+            ),
+        )
         full_external_refs = policies.lddtree_external_references(
             lddtree,
             Path("/path/to/wheel"),
@@ -266,3 +277,60 @@ def test_policy_checks_glibc():
     policy = policies.versioned_symbols_policy({"some_library.so": {"IAMALIBRARY"}})
     assert policy == policies.highest
     assert policies.linux < policies.lowest < policies.highest
+
+
+@pytest.mark.parametrize(
+    ("wheel_level", "policy_level"),
+    [(21, 21), (22, 21), (23, 21), (24, 24), (25, 24), (26, 26), (27, 27), (28, 27)],
+)
+@pytest.mark.parametrize(("arch"), [Architecture.arm64_v8a, Architecture.x86_64])
+def test_android(wheel_level, policy_level, arch):
+    for policy_json in json.loads(
+        (Path(auditwheel.policy.__file__).parent / "android-policy.json").read_text(),
+    ):
+        if policy_json["name"] == f"android_{policy_level}":
+            whitelist = frozenset(policy_json["lib_whitelist"])
+            break
+    else:
+        raise AssertionError(policy_level)
+
+    assert "libc.so" in whitelist
+    assert ("libcamera2ndk.so" in whitelist) == (policy_level >= 24)
+    assert ("libaaudio.so" in whitelist) == (policy_level >= 26)
+    assert ("libneuralnetworks.so" in whitelist) == (policy_level >= 27)
+
+    platform = f"android_{wheel_level}_{arch}"
+    policies = WheelPolicies(
+        libc=Libc.ANDROID,
+        arch=arch.baseline,
+        wheel_fn=Path(f"foo-1.0-py3-none-{platform}.whl"),
+    )
+    assert len(list(policies)) == 2
+    assert policies.linux.whitelist == frozenset()
+
+    assert policies.lowest is policies.highest
+    assert policies.lowest.whitelist == whitelist
+
+
+def test_android_no_filename():
+    with pytest.raises(ValueError, match="wheel_fn is required when selecting Android policies"):
+        WheelPolicies(libc=Libc.ANDROID, arch=Architecture.x86_64)
+
+
+@pytest.mark.parametrize(
+    ("filename", "message"),
+    [
+        (
+            "foo-1.0-py3-none-android_21_arm64_v8a.android_22_arm64_v8a.whl",
+            "Android wheels must have exactly one platform tag, got "
+            "['android_21_arm64_v8a', 'android_22_arm64_v8a']",
+        ),
+        (
+            "foo-1.0-py3-none-android_20_x86_64.whl",
+            "no Android policies match the platform tag 'android_20_x86_64'",
+        ),
+    ],
+)
+def test_android_error(filename, message):
+    with pytest.raises(ValueError, match=re.escape(message)):
+        WheelPolicies(libc=Libc.ANDROID, arch=Architecture.x86_64, wheel_fn=Path(filename))
