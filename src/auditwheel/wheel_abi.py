@@ -74,11 +74,11 @@ def _fixup_elf_trees(
     ]
 
     def _get_reference(path_to_elf: Path) -> DynamicExecutable | None:
+        assert path_to_elf.is_file()  # noqa: S101
         for candidate in resolved_executables:
             for library in candidate.libraries.values():
                 assert library.realpath is not None  # noqa: S101
                 assert library.realpath.is_file()  # noqa: S101
-                assert path_to_elf.is_file()  # noqa: S101
                 if path_to_elf.samefile(library.realpath):
                     return candidate
         return None
