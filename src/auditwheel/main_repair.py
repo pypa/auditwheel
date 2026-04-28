@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import shutil
+import warnings
 import zlib
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from auditwheel.error import NonPlatformWheelError, WheelToolsError
 from auditwheel.libc import Libc
 from auditwheel.patcher import Patchelf
 from auditwheel.policy import WheelPolicies
+from auditwheel.repair import StripLevel
 from auditwheel.tools import EnvironmentDefault
 from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
 
@@ -97,8 +99,23 @@ wheel will abort processing of subsequent wheels.
         "--strip",
         dest="STRIP",
         action="store_true",
-        help="Strip symbols in the resulting wheel",
+        help=(
+            "(DEPRECATED) Strip all symbols in the resulting wheel. Use --strip-level=all instead."
+        ),
         default=False,
+    )
+    parser.add_argument(
+        "--strip-level",
+        dest="STRIP_LEVEL",
+        choices=[level.value for level in StripLevel],
+        help=(
+            "Strip level for symbol processing. "
+            "Options: none (default, no stripping), "
+            "debug (remove debug symbols only), "
+            "unneeded (remove unneeded symbols), "
+            "all (remove all symbols)."
+        ),
+        default="none",
     )
     parser.add_argument(
         "--exclude",
@@ -142,6 +159,20 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     exclude: frozenset[str] = frozenset(args.EXCLUDE)
     wheel_dir: Path = args.WHEEL_DIR.absolute()
     wheel_files: list[Path] = args.WHEEL_FILE
+
+    # Validate and resolve strip arguments once, before processing any wheel.
+    if args.STRIP and args.STRIP_LEVEL != "none":
+        parser.error("Cannot specify both --strip and --strip-level")
+
+    if args.STRIP:
+        warnings.warn(
+            "The --strip option is deprecated. Use --strip-level=all instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        strip_level = StripLevel.ALL
+    else:
+        strip_level = StripLevel(args.STRIP_LEVEL)
 
     requested_architecture: Architecture | None = None
 
@@ -291,7 +322,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             out_dir=wheel_dir,
             update_tags=args.UPDATE_TAGS,
             patcher=patcher,
-            strip=args.STRIP,
+            strip_level=strip_level,
             zip_compression_level=args.ZIP_COMPRESSION_LEVEL,
         )
 

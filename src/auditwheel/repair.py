@@ -7,6 +7,8 @@ import os
 import platform
 import shutil
 import stat
+import zlib
+from enum import Enum
 from pathlib import Path
 from subprocess import check_call
 from typing import TYPE_CHECKING
@@ -28,6 +30,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class StripLevel(Enum):
+    """Strip levels for symbol processing."""
+
+    NONE = "none"
+    DEBUG = "debug"
+    UNNEEDED = "unneeded"
+    ALL = "all"
+
+
 def repair_wheel(
     wheel_abi: WheelAbIInfo,
     wheel_path: Path,
@@ -37,9 +48,20 @@ def repair_wheel(
     *,
     update_tags: bool,
     patcher: ElfPatcher,
-    strip: bool,
-    zip_compression_level: int,
+    strip: bool | None = None,
+    strip_level: StripLevel | None = None,
+    zip_compression_level: int = zlib.Z_DEFAULT_COMPRESSION,
 ) -> Path | None:
+    # Validate and normalize strip arguments before doing any work.
+    if strip is not None and strip_level is not None:
+        msg = "Cannot specify both 'strip' and 'strip_level' parameters"
+        raise ValueError(msg)
+
+    if strip is True:
+        strip_level = StripLevel.ALL
+    elif strip_level is None:
+        strip_level = StripLevel.NONE
+
     external_refs_by_fn = wheel_abi.full_external_refs
     # Do not repair a pure wheel, i.e. has no external refs
     if not external_refs_by_fn:
@@ -124,10 +146,11 @@ def repair_wheel(
         if update_tags:
             output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
-        if strip:
-            libs_to_strip = [path for (_, path) in soname_map.values()]
-            extensions = external_refs_by_fn.keys()
-            strip_symbols(itertools.chain(libs_to_strip, extensions))
+        if strip_level != StripLevel.NONE:
+            libs_to_process = [path for (_, path) in soname_map.values()]
+            extensions = list(external_refs_by_fn.keys())
+            all_libraries = list(itertools.chain(libs_to_process, extensions))
+            process_symbols(all_libraries, strip_level)
 
         # If we grafted packages with identities we add an SBOM to the wheel.
         # We recalculate the checksum at this point because there can be
@@ -144,10 +167,41 @@ def repair_wheel(
     return output_wheel
 
 
+def process_symbols(
+    libraries: Iterable[Path],
+    strip_level: StripLevel,
+) -> None:
+    """Process symbols in libraries according to the given strip level."""
+    libraries_list = list(libraries)
+
+    if not libraries_list or strip_level == StripLevel.NONE:
+        return
+
+    strip_args = _get_strip_args(strip_level)
+    for lib in libraries_list:
+        logger.info("Stripping symbols from %s (level: %s)", lib, strip_level.value)
+        check_call(["strip", *strip_args, str(lib)])
+
+
+def _get_strip_args(strip_level: StripLevel) -> list[str]:
+    """Get strip command arguments for the given strip level.
+
+    ``StripLevel.NONE`` must not be passed here; callers are responsible for
+    skipping symbol processing when the level is NONE.
+    """
+    if strip_level == StripLevel.DEBUG:
+        return ["-g"]
+    if strip_level == StripLevel.UNNEEDED:
+        return ["--strip-unneeded"]
+    if strip_level == StripLevel.ALL:
+        return ["-s"]
+    msg = f"_get_strip_args called with unsupported strip level: {strip_level!r}"
+    raise ValueError(msg)
+
+
 def strip_symbols(libraries: Iterable[Path]) -> None:
-    for lib in libraries:
-        logger.info("Stripping symbols from %s", lib)
-        check_call(["strip", "-s", lib])
+    """Legacy function for backward compatibility. Use process_symbols instead."""
+    process_symbols(libraries, StripLevel.ALL)
 
 
 def copylib(src_path: Path, dest_dir: Path, patcher: ElfPatcher) -> tuple[str, Path]:
