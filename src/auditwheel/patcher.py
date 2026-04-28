@@ -26,6 +26,9 @@ class ElfPatcher:
     def get_rpath(self, file_name: Path) -> str:
         raise NotImplementedError
 
+    def clear_rpath(self, file_name: Path) -> None:
+        raise NotImplementedError
+
 
 def _verify_patchelf() -> None:
     """This function looks for the ``patchelf`` external binary in the PATH,
@@ -74,8 +77,12 @@ class Patchelf(ElfPatcher):
         check_call(["patchelf", "--set-soname", new_so_name, file_name])
 
     def set_rpath(self, file_name: Path, rpath: str) -> None:
+        # we only want an RPATH, remove RUNPATH/RPATH altogether in a 1st pass
         check_call(["patchelf", "--remove-rpath", file_name])
         check_call(["patchelf", "--force-rpath", "--set-rpath", rpath, file_name])
 
     def get_rpath(self, file_name: Path) -> str:
         return check_output(["patchelf", "--print-rpath", file_name]).decode("utf-8").strip()
+
+    def clear_rpath(self, file_name: Path) -> None:
+        check_call(["patchelf", "--remove-rpath", file_name])

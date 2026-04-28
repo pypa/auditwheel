@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING
 from elftools.common.exceptions import ELFError
 from elftools.elf.elffile import ELFFile
 
-from auditwheel.lddtree import parse_ld_paths
-
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
     from pathlib import Path
@@ -104,24 +102,6 @@ def elf_is_python_extension(fn: Path, elf: ELFFile) -> tuple[bool, int | None]:
             return True, module_init_f[sym.name]
 
     return False, None
-
-
-def elf_read_rpaths(fn: Path) -> dict[str, list[str]]:
-    result: dict[str, list[str]] = {"rpaths": [], "runpaths": []}
-
-    with fn.open("rb") as f:
-        elf = ELFFile(f)
-        section = elf.get_section_by_name(".dynamic")
-        if section is None:
-            return result
-
-        for t in section.iter_tags():
-            if t.entry.d_tag == "DT_RPATH":
-                result["rpaths"] = parse_ld_paths(t.rpath, root="/", path=str(fn))
-            elif t.entry.d_tag == "DT_RUNPATH":
-                result["runpaths"] = parse_ld_paths(t.runpath, root="/", path=str(fn))
-
-    return result
 
 
 def get_undefined_symbols(path: Path) -> set[str]:
