@@ -21,6 +21,13 @@ if TYPE_CHECKING:
 
 _HERE = Path(__file__).parent
 _MUSL_POLICY_RE = re.compile(r"^musllinux_\d+_\d+$")
+# Match a versioned-symbol tag like "GLIBC_2.17", "ZLIB_NG_2.0.0",
+# "CXXABI_LDBL_1.3" or "OPENSSL_1_1_0" and capture the namespace
+# (everything before the trailing "_<numeric version>"). The version
+# tail is required to be numeric (with `.` or `_` separators) so
+# tags whose suffix is a word like "GLIBC_PRIVATE" don't match;
+# those fall back to the legacy partition-on-first-underscore split.
+_SYMBOL_VERSION_TAG_RE = re.compile(r"^([A-Za-z][A-Za-z0-9_]*?)_(\d+(?:[._]\d+)*)$")
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +183,16 @@ class WheelPolicies:
         required_vers: dict[str, set[str]] = {}
         for symbols in versioned_symbols.values():
             for symbol in symbols:
-                sym_name, _, _ = symbol.partition("_")
+                # Bucket the tag by namespace. Tags with a trailing
+                # numeric version (the common case) use the regex so
+                # multi-underscore namespaces like ZLIB_NG, CXXABI_LDBL,
+                # or LIBSSL_1_1 stay distinct from ZLIB / CXXABI / LIBSSL
+                # rather than being merged with them. Tags without a
+                # numeric tail (e.g. "GLIBC_PRIVATE", or fully bare
+                # tokens with no underscore) fall back to splitting on
+                # the first underscore so existing behavior is kept.
+                m = _SYMBOL_VERSION_TAG_RE.match(symbol)
+                sym_name = m.group(1) if m else symbol.partition("_")[0]
                 required_vers.setdefault(sym_name, set()).add(symbol)
         for p in self._policies[::-1]:
             policy_sym_vers = {

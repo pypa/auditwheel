@@ -266,3 +266,30 @@ def test_policy_checks_glibc():
     policy = policies.versioned_symbols_policy({"some_library.so": {"IAMALIBRARY"}})
     assert policy == policies.highest
     assert policies.linux < policies.lowest < policies.highest
+
+
+def test_policy_does_not_conflate_zlib_ng_with_zlib():
+    # Regression for https://github.com/pypa/auditwheel/issues/613.
+    # zlib-ng tags every exported symbol with ZLIB_NG_2.0.0 / ZLIB_NG_2.1.0
+    # via its GNU symbol version script. Splitting these tags on the first
+    # underscore put them in the "ZLIB" namespace and made them fail every
+    # policy whose ZLIB allowlist did not contain ZLIB_NG_*. The bucketing
+    # must keep ZLIB_NG distinct from ZLIB so the (unmodelled) ZLIB_NG
+    # namespace is silently dropped from the policy check, the same way
+    # any other unrecognised namespace already is.
+    policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+
+    policy = policies.versioned_symbols_policy(
+        {"libz-ng.so.2": {"ZLIB_NG_2.0.0", "ZLIB_NG_2.1.0"}},
+    )
+    assert policy == policies.highest
+
+    # And mixing libz-ng tags with stock-zlib tags must not poison the
+    # ZLIB bucket -- the ZLIB_1.2.0 check still needs to pass on its own.
+    policy = policies.versioned_symbols_policy(
+        {
+            "libz.so.1": {"ZLIB_1.2.0"},
+            "libz-ng.so.2": {"ZLIB_NG_2.0.0"},
+        },
+    )
+    assert policy > policies.linux
