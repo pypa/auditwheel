@@ -12,10 +12,6 @@ from auditwheel import main_lddtree, main_repair, main_show
 
 
 def main() -> int | None:
-    if sys.platform != "linux":
-        print("Error: This tool only supports Linux")
-        return 1
-
     location = pathlib.Path(auditwheel.__file__).parent.resolve()
     version = "auditwheel {} installed at {} (python {}.{})".format(
         metadata.version("auditwheel"),

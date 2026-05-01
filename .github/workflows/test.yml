@@ -76,6 +76,8 @@ jobs:
           - platform: [ 'riscv64', 'ubuntu-24.04' ]
             python: '3.12'
             qemu: true
+          - platform: [ 'aarch64', 'macos-26' ]
+            python: '3.12'
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -102,7 +104,7 @@ jobs:
           AUDITWHEEL_QEMU: ${{ matrix.qemu }}
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: coverage-${{ matrix.python }}-${{ matrix.platform[0] }}
+          name: coverage-${{ matrix.python }}-${{ matrix.platform[0] }}-${{ matrix.platform[1] }}
           path: coverage-*.xml
           retention-days: 1
 

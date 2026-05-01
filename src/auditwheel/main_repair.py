@@ -7,6 +7,7 @@ import zlib
 from pathlib import Path
 from typing import Any
 
+from auditwheel import options
 from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheelError, WheelToolsError
 from auditwheel.libc import Libc
@@ -24,7 +25,7 @@ def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
     policy_names += [alias for p in policies for alias in p.aliases]
     policy_names += ["auto"]
     epilog = """PLATFORMS:
-These are the possible target platform tags, as specified by PEP 600.
+These are the possible platform tags for this machine, as specified by PEP 600.
 Note that old, pre-PEP 600 tags are still usable and are listed as aliases
 below.
 """
@@ -118,20 +119,10 @@ wheel will abort processing of subsequent wheels.
         help="Do not check for higher policy compatibility",
         default=False,
     )
-    parser.add_argument(
-        "--disable-isa-ext-check",
-        dest="DISABLE_ISA_EXT_CHECK",
-        action="store_true",
-        help="Do not check for extended ISA compatibility (e.g. x86_64_v2)",
-        default=False,
-    )
-    parser.add_argument(
-        "--allow-pure-python-wheel",
-        dest="ALLOW_PURE_PY_WHEEL",
-        action="store_true",
-        help="Allow processing of pure Python wheels (no platform-specific binaries) without error",
-        default=False,
-    )
+    options.disable_isa_check(parser)
+    options.allow_pure_python_wheel(parser)
+    options.ldpaths(parser)
+
     parser.set_defaults(func=execute)
 
 
@@ -180,24 +171,16 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             logger.debug("The libc could not be deduced from the wheel filename")
             libc = None
 
-        if plat_base.startswith("manylinux"):
-            if libc is None:
-                libc = Libc.GLIBC
-            if libc != Libc.GLIBC:
-                msg = (
-                    f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel "
-                    "targeting GLIBC"
-                )
-                parser.error(msg)
-        elif plat_base.startswith("musllinux"):
-            if libc is None:
-                libc = Libc.MUSL
-            if libc != Libc.MUSL:
-                msg = (
-                    f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel "
-                    "targeting MUSL"
-                )
-                parser.error(msg)
+        for lc in Libc:
+            if plat_base.startswith(lc.tag_prefix):
+                if libc is None:
+                    libc = lc
+                if libc != lc:
+                    msg = (
+                        f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel "
+                        f"targeting {lc.name}"
+                    )
+                    parser.error(msg)
 
         logger.info("Repairing %s", wheel_filename)
 
@@ -213,6 +196,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 disable_isa_ext_check=args.DISABLE_ISA_EXT_CHECK,
                 allow_graft=True,
                 requested_policy_base_name=plat_base,
+                args_ldpaths=args.LDPATHS,
             )
         except NonPlatformWheelError as e:
             logger.info(e.message)
@@ -282,7 +266,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 *abis,
             ]
 
-        patcher = Patchelf()
+        patcher = Patchelf(requested_policy.name)
         out_wheel = repair_wheel(
             wheel_abi,
             wheel_file,
