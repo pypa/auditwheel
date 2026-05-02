@@ -71,7 +71,7 @@ def test_libcxx(ldpaths_methods, tmp_path):
     libcxx_path = libs_dir / f"libc++_shared-{libcxx_hash}.so"
     assert elf_read_tag(libcxx_path, "soname") == libcxx_path.name
     assert elf_read_tag(libcxx_path, "rpath") is None
-    assert elf_read_tag(libcxx_path, "runpath") == "$ORIGIN"
+    assert elf_read_tag(libcxx_path, "runpath") is None
 
     spam_path = output_dir / libcxx_module
     assert set(elf_read_dt_needed(spam_path)) == {

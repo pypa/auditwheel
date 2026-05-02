@@ -137,3 +137,13 @@ class TestPatchElf:
                 filename,
             ],
         )
+
+    def test_clear_rpath(self, check_call, _0, _1):  # noqa: PT019
+        patcher = Patchelf()
+        filename = Path("test.so")
+        patcher.clear_rpath(filename)
+        check_call_expected_args = [
+            call(["patchelf", "--remove-rpath", filename]),
+        ]
+
+        assert check_call.call_args_list == check_call_expected_args

@@ -726,7 +726,7 @@ class Anylinux:
         output = anylinux.show(orig_wheel, expected_retcode=1)
         assert "This does not look like a platform wheel" in output
 
-    @pytest.mark.parametrize("dtag", ["rpath", "runpath"])
+    @pytest.mark.parametrize("dtag", ["none", "rpath", "runpath"])
     def test_rpath(
         self,
         anylinux: AnyLinuxContainer,
@@ -736,23 +736,32 @@ class Anylinux:
         # Test building a wheel that contains an extension depending on a library
         # with RPATH or RUNPATH set.
         # Following checks are performed:
-        # - check if RUNPATH is replaced by RPATH
+        # - check if RUNPATH is replaced by RPATH if the library has other grafted deps
         # - check if RPATH location is correct, i.e. it is inside .libs directory
         #   where all gathered libraries are put
+        # - check a library with no deps has no RUNPATH/RPATH tags
 
         policy = anylinux.policy
 
         test_path = "/auditwheel_src/tests/integration/testrpath"
         orig_wheel = anylinux.build_wheel(test_path, env={"DTAG": dtag})
 
-        with HERE.joinpath("testrpath", "a", "liba.so").open("rb") as f:
-            elf = ELFFile(f)
-            dynamic = elf.get_section_by_name(".dynamic")
-            tags = {t.entry.d_tag for t in dynamic.iter_tags()}
-            assert f"DT_{dtag.upper()}" in tags
+        for lib in ["a", "b"]:
+            with HERE.joinpath("testrpath", lib, f"lib{lib}.so").open("rb") as f:
+                elf = ELFFile(f)
+                dynamic = elf.get_section_by_name(".dynamic")
+                tags = {t.entry.d_tag for t in dynamic.iter_tags()}
+                if dtag != "none":
+                    assert f"DT_{dtag.upper()}" in tags
+                else:
+                    assert "DT_RPATH" not in tags
+                    assert "DT_RUNPATH" not in tags
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, library_paths=[f"{test_path}/a"])
+        library_paths = [f"{test_path}/a"]
+        if dtag == "none":
+            library_paths.append(f"{test_path}/b")
+        anylinux.repair(orig_wheel, library_paths=library_paths)
         repaired_wheel = anylinux.check_wheel("testrpath")
         assert_show_output(anylinux, repaired_wheel, policy, False)
 
@@ -763,20 +772,24 @@ class Anylinux:
             libraries = tuple(name for name in w.namelist() if "testrpath.libs/lib" in name)
             assert len(libraries) == 2
             assert any(".libs/liba" in name for name in libraries)
+            assert any(".libs/libb" in name for name in libraries)
             for name in libraries:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
                     dynamic = elf.get_section_by_name(".dynamic")
-                    assert (
-                        len(
-                            [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"],
-                        )
-                        == 0
-                    )
+                    # DT_RUNPATH shall be removed
+                    runpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"]
+                    assert len(runpath_tags) == 0
+                    rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RPATH"]
                     if ".libs/liba" in name:
-                        rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RPATH"]
+                        # liba has a dependency on libb
+                        # DT_RPATH shall be overridden or written with "$ORIGIN"
                         assert len(rpath_tags) == 1
                         assert rpath_tags[0].rpath == "$ORIGIN"
+                    if ".libs/libb" in name:
+                        # libb has no dependency
+                        # DT_RPATH shall be removed
+                        assert len(rpath_tags) == 0
 
     def test_partialresolution(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
 
