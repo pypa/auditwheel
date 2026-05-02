@@ -318,7 +318,7 @@ def load_ld_paths(
 ) -> dict[str, list[str]]:
     """Load linker paths from common locations
 
-    This parses the ld.so.conf and LD_LIBRARY_PATH env var.
+    This parses the ld.so.conf and AUDITWHEEL_LD_LIBRARY_PATH / LD_LIBRARY_PATH env vars.
 
     Parameters
     ----------

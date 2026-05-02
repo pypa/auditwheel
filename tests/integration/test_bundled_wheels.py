@@ -89,10 +89,13 @@ HERE = Path(__file__).parent.resolve()
     ],
 )
 def test_analyze_wheel_abi(file, external_libs, exclude, env):
-    # If exclude libs contain path, LD_LIBRARY_PATH need to be modified to find the libs
-    # `lddtree.load_ld_paths` needs to be reloaded for it's `lru_cache`-ed.
+    # If exclude libs contain path, the parametrized environment variable "env" needs to be
+    # modified to find the libs `lddtree.load_ld_paths` needs to be reloaded for
+    # it's `lru_cache`-ed.
 
     with pytest.MonkeyPatch.context() as cp:
+        cp.delenv("AUDITWHEEL_LD_LIBRARY_PATH", raising=False)
+        cp.delenv("LD_LIBRARY_PATH", raising=False)
         if env:
             cp.setenv(env, f"{HERE}")
         importlib.reload(lddtree)
