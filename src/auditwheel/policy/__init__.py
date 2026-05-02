@@ -4,17 +4,22 @@ import json
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Generator, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ..architecture import Architecture
-from ..elfutils import filter_undefined_symbols
-from ..error import InvalidLibc
-from ..lddtree import DynamicExecutable
-from ..libc import Libc
-from ..tools import is_subdir
+from auditwheel.architecture import Architecture
+from auditwheel.elfutils import filter_undefined_symbols
+from auditwheel.error import InvalidLibcError
+from auditwheel.lddtree import LIBPYTHON_RE
+from auditwheel.libc import Libc
+from auditwheel.tools import is_subdir
+from auditwheel.wheeltools import android_api_level, get_wheel_platforms
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+
+    from auditwheel.lddtree import DynamicExecutable
 
 _HERE = Path(__file__).parent
 _MUSL_POLICY_RE = re.compile(r"^musllinux_\d+_\d+$")
@@ -24,6 +29,7 @@ logger = logging.getLogger(__name__)
 _POLICY_JSON_MAP = {
     Libc.GLIBC: _HERE / "manylinux-policy.json",
     Libc.MUSL: _HERE / "musllinux-policy.json",
+    Libc.ANDROID: _HERE / "android-policy.json",
 }
 
 
@@ -36,9 +42,9 @@ class Policy:
     whitelist: frozenset[str]
     blacklist: dict[str, frozenset[str]]
 
-    def __lt__(self, other: Any) -> bool:
+    def __lt__(self, other: Any) -> bool:  # noqa: ANN401
         if not isinstance(other, Policy):
-            raise NotImplementedError()
+            raise NotImplementedError
         return self.priority < other.priority
 
 
@@ -55,6 +61,7 @@ class WheelPolicies:
         *,
         libc: Libc,
         arch: Architecture,
+        wheel_fn: Path | None = None,
         musl_policy: str | None = None,
     ) -> None:
         if libc != Libc.MUSL and musl_policy is not None:
@@ -65,9 +72,9 @@ class WheelPolicies:
                 try:
                     musl_version = libc.get_current_version()
                     musl_policy = f"musllinux_{musl_version.major}_{musl_version.minor}"
-                except InvalidLibc:
+                except InvalidLibcError:
                     logger.warning(
-                        "can't determine musl libc version, latest known version will be used."
+                        "can't determine musl libc version, latest known version will be used.",
                     )
             elif _MUSL_POLICY_RE.match(musl_policy) is None:
                 msg = f"Invalid 'musl_policy': '{musl_policy}'"
@@ -90,8 +97,7 @@ class WheelPolicies:
                 name = f"{policy['name']}_{base_arch}"
                 if policy["name"] != "linux":
                     symbol_versions = {
-                        k: frozenset(v)
-                        for k, v in policy["symbol_versions"][base_arch].items()
+                        k: frozenset(v) for k, v in policy["symbol_versions"][base_arch].items()
                     }
                 else:
                     symbol_versions = {}
@@ -114,7 +120,36 @@ class WheelPolicies:
             if musl_policy is None:
                 self._musl_policy = "_".join(self._policies[1].name.split("_")[0:3])
                 self._policies = [self._policies[0], self._policies[1]]
-            assert len(self._policies) == 2, self._policies
+            assert len(self._policies) == 2, self._policies  # noqa: S101
+
+        elif self._libc_variant == Libc.ANDROID:
+            # Android wheels always have a platform tag with an API level (OS version). We won't
+            # change that tag, we'll only use it to determine which libraries need to be grafted.
+            if wheel_fn is None:
+                msg = "wheel_fn is required when selecting Android policies"
+                raise ValueError(msg)
+
+            platforms = get_wheel_platforms(wheel_fn.name)
+            if len(platforms) != 1:
+                msg = f"Android wheels must have exactly one platform tag, got {platforms}"
+                raise ValueError(msg)
+            platform = platforms[0]
+            api_level = android_api_level(platform)
+
+            # One or two new API levels are created every year, so the policy file only lists the
+            # levels in which the available libraries changed
+            # (https://developer.android.com/ndk/guides/stable_apis). We should use the policy with
+            # the highest API level that's less than or equal to the wheel's tag.
+            for p in self._policies:
+                if p.name.startswith("android") and android_api_level(p.name) <= api_level:
+                    # Rename the policy to match the existing tag, and remove all other policies.
+                    self._policies = [self.linux, replace(p, name=platform)]
+                    break
+            else:
+                # The minimum API level is 21, which was the first version to be officially
+                # supported by Python (see PEP 738).
+                msg = f"no Android policies match the platform tag {platform!r}"
+                raise ValueError(msg)
 
     def __iter__(self) -> Generator[Policy]:
         yield from self._policies
@@ -133,7 +168,7 @@ class WheelPolicies:
 
     @property
     def lowest(self) -> Policy:
-        """lowest policy that's not linux"""
+        """Lowest policy that's not linux"""
         return self._policies[1]
 
     @property
@@ -151,18 +186,19 @@ class WheelPolicies:
         return matches[0]
 
     def versioned_symbols_policy(
-        self, versioned_symbols: dict[str, set[str]]
+        self,
+        versioned_symbols: dict[str, set[str]],
     ) -> Policy:
         def policy_is_satisfied(
-            policy_name: str, policy_sym_vers: dict[str, set[str]]
+            policy_name: str,
+            policy_sym_vers: dict[str, set[str]],
         ) -> bool:
             policy_satisfied = True
             for name in set(required_vers) & set(policy_sym_vers):
                 if not required_vers[name].issubset(policy_sym_vers[name]):
                     for symbol in required_vers[name] - policy_sym_vers[name]:
                         logger.debug(
-                            "Package requires %s, incompatible with "
-                            "policy %s which requires %s",
+                            "Package requires %s, incompatible with policy %s which requires %s",
                             symbol,
                             policy_name,
                             policy_sym_vers[name],
@@ -184,14 +220,17 @@ class WheelPolicies:
                 return p
 
         # the base policy (generic linux) should always match
-        msg = "Internal error"
-        raise RuntimeError(msg)
+        msg = "Internal error"  # pragma: no cover
+        raise RuntimeError(msg)  # pragma: no cover
 
     def lddtree_external_references(
-        self, lddtree: DynamicExecutable, wheel_path: Path
+        self,
+        lddtree: DynamicExecutable,
+        wheel_path: Path,
     ) -> dict[str, ExternalReference]:
         def filter_libs(
-            libs: Iterable[str], whitelist: frozenset[str]
+            libs: Iterable[str],
+            whitelist: frozenset[str],
         ) -> Generator[str]:
             for lib in libs:
                 if "ld-linux" in lib or lib in ["ld64.so.2", "ld64.so.1"]:
@@ -199,6 +238,9 @@ class WheelPolicies:
                     # 'ld64.so.2' on s390x
                     # 'ld64.so.1' on ppc64le
                     # 'ld-linux*' on other platforms
+                    continue
+                if self.libc == Libc.ANDROID and LIBPYTHON_RE.match(lib):
+                    # libpython dependencies are normal on Android.
                     continue
                 if lib in whitelist:
                     # exclude any libs in the whitelist
@@ -231,10 +273,12 @@ class WheelPolicies:
                 blacklist_libs = set(p.blacklist.keys()) & set(lddtree.needed)
                 blacklist_reduced = {k: p.blacklist[k] for k in blacklist_libs}
                 blacklist = filter_undefined_symbols(
-                    lddtree.realpath, blacklist_reduced
+                    lddtree.realpath,
+                    blacklist_reduced,
                 )
                 needed_external_libs = get_req_external(
-                    set(filter_libs(lddtree.needed, whitelist)), whitelist
+                    set(filter_libs(lddtree.needed, whitelist)),
+                    whitelist,
                 )
 
             pol_ext_deps: dict[str, Path | None] = {}
@@ -251,7 +295,7 @@ class WheelPolicies:
         return ret
 
 
-def _validate_pep600_compliance(policies) -> None:  # type: ignore[no-untyped-def]
+def _validate_pep600_compliance(policies: Any) -> None:  # noqa: ANN401
     symbol_versions: dict[str, dict[str, set[str]]] = {}
     lib_whitelist: set[str] = set()
     for policy in sorted(policies, key=lambda x: x["priority"], reverse=True):
@@ -278,13 +322,15 @@ def _validate_pep600_compliance(policies) -> None:  # type: ignore[no-untyped-de
                     )
                     raise ValueError(msg)
                 symbol_versions_arch[prefix].update(
-                    policy["symbol_versions"][arch][prefix]
+                    policy["symbol_versions"][arch][prefix],
                 )
             symbol_versions[arch] = symbol_versions_arch
 
 
 def _fixup_musl_libc_soname(
-    libc: Libc, arch: Architecture, whitelist: list[str]
+    libc: Libc,
+    arch: Architecture,
+    whitelist: list[str],
 ) -> frozenset[str]:
     if libc != Libc.MUSL:
         return frozenset(whitelist)
@@ -298,7 +344,7 @@ def _fixup_musl_libc_soname(
             Architecture.armv7l: "libc.musl-armv7.so.1",
             Architecture.riscv64: "libc.musl-riscv64.so.1",
             Architecture.loongarch64: "libc.musl-loongarch64.so.1",
-        }
+        },
     }
     new_whitelist = []
     for soname in whitelist:

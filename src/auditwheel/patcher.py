@@ -2,26 +2,40 @@ from __future__ import annotations
 
 import re
 from itertools import chain
-from pathlib import Path
 from shutil import which
 from subprocess import CalledProcessError, check_call, check_output
+from typing import TYPE_CHECKING
+
+from auditwheel.wheeltools import android_api_level
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class ElfPatcher:
+    def __init__(self, platform: str) -> None:
+        self.platform = platform
+
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def remove_needed(self, file_name: Path, *sonames: str) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def set_soname(self, file_name: Path, new_so_name: str) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
+
+    def check_rpath_support(self) -> None:
+        # https://android.googlesource.com/platform/bionic/+/refs/heads/main/android-changes-for-ndk-developers.md
+        if self.platform.startswith("android") and android_api_level(self.platform) < 24:
+            msg = "Grafting libraries with RUNPATH requires API level 24 or higher"
+            raise ValueError(msg)
 
     def set_rpath(self, file_name: Path, rpath: str) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_rpath(self, file_name: Path) -> str:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 def _verify_patchelf() -> None:
@@ -46,18 +60,17 @@ def _verify_patchelf() -> None:
 
 
 class Patchelf(ElfPatcher):
-    def __init__(self) -> None:
+    def __init__(self, platform: str = "") -> None:
+        super().__init__(platform)
         _verify_patchelf()
 
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
         check_call(
             [
                 "patchelf",
-                *chain.from_iterable(
-                    ("--replace-needed", *pair) for pair in old_new_pairs
-                ),
+                *chain.from_iterable(("--replace-needed", *pair) for pair in old_new_pairs),
                 file_name,
-            ]
+            ],
         )
 
     def remove_needed(self, file_name: Path, *sonames: str) -> None:
@@ -66,19 +79,22 @@ class Patchelf(ElfPatcher):
                 "patchelf",
                 *chain.from_iterable(("--remove-needed", soname) for soname in sonames),
                 file_name,
-            ]
+            ],
         )
 
     def set_soname(self, file_name: Path, new_so_name: str) -> None:
         check_call(["patchelf", "--set-soname", new_so_name, file_name])
 
     def set_rpath(self, file_name: Path, rpath: str) -> None:
+        self.check_rpath_support()
+
+        set_args: list[str | Path] = ["patchelf", "--force-rpath", "--set-rpath", rpath, file_name]
+        if self.platform.startswith("android"):
+            # Android supports only RUNPATH, not RPATH.
+            set_args.remove("--force-rpath")
+
         check_call(["patchelf", "--remove-rpath", file_name])
-        check_call(["patchelf", "--force-rpath", "--set-rpath", rpath, file_name])
+        check_call(set_args)
 
     def get_rpath(self, file_name: Path) -> str:
-        return (
-            check_output(["patchelf", "--print-rpath", file_name])
-            .decode("utf-8")
-            .strip()
-        )
+        return check_output(["patchelf", "--print-rpath", file_name]).decode("utf-8").strip()

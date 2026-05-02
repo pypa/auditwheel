@@ -2,50 +2,64 @@ name: Test
 
 on:
   push:
-    branches-ignore:
-      - 'dependabot/**'
+    branches:
+      - main
   pull_request:
+  workflow_dispatch:
+    # allow manual runs on branches without a PR
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   pre-commit:
     name: Pre-commit checks (Black, Flake8, MyPy, ...)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          python-version: "3.9"
-      - uses: pre-commit/action@v3.0.1
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.10"
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
 
   test-dist:
     name: Test SDist & wheel
     needs: pre-commit
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install CPython 3.9
-        uses: actions/setup-python@v5
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          python-version: 3.9
+          persist-credentials: false
+      - name: Install CPython 3.10
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.10"
           architecture: x64
       - name: Run tests
-        run: pipx run nox -s test-sdist-3.9 test-wheel-3.9
+        run: pipx run nox -s test-sdist-3.10 test-wheel-3.10
 
   test:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}
     needs: test-dist
     runs-on: ${{ matrix.platform[1] }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         platform:
           - [ 'x86_64', 'ubuntu-24.04' ]
-        python: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
+        python: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
         include:
           - platform: [ 'aarch64', 'ubuntu-24.04-arm' ]
             python: '3.12'
@@ -53,35 +67,77 @@ jobs:
             python: '3.12'
           - platform: [ 'armv7l', 'ubuntu-24.04-arm' ]
             python: '3.12'
-          #- platform: [ 'ppc64le', 'ubuntu-24.04' ]
-          #  python: '3.12'
-          #  qemu: true
-          #- platform: [ 's390x', 'ubuntu-24.04' ]
-          #  python: '3.12'
-          #  qemu: true
+          - platform: [ 'ppc64le', 'ubuntu-24.04' ]
+            python: '3.12'
+            qemu: true
+          - platform: [ 's390x', 'ubuntu-24.04' ]
+            python: '3.12'
+            qemu: true
+          - platform: [ 'riscv64', 'ubuntu-24.04' ]
+            python: '3.12'
+            qemu: true
+          - platform: [ 'aarch64', 'macos-26' ]
+            python: '3.12'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Setup cache
-        uses: actions/cache@v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/auditwheel_tests
           key: python${{ matrix.python }}-${{ matrix.platform[0] }}-${{ hashFiles('**/test_manylinux.py') }}
           restore-keys: python${{ matrix.python }}-${{ matrix.platform[0] }}-
       - name: Install CPython ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "${{ matrix.python }}"
           allow-prereleases: true
       - name: Set up QEMU
         if: matrix.qemu
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
         env:
           AUDITWHEEL_ARCH: ${{ matrix.platform[0] }}
           AUDITWHEEL_QEMU: ${{ matrix.qemu }}
-      - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          name: coverage-${{ matrix.python }}-${{ matrix.platform[0] }}-${{ matrix.platform[1] }}
+          path: coverage-*.xml
+          retention-days: 1
+
+  coverage_report:
+    name: Coverage Report
+    needs: [test]
+    runs-on: ubuntu-slim
+    if: github.repository == 'pypa/auditwheel'
+    permissions:
+      contents: read
+      id-token: write  # upload to codecov with OIDC
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        with:
+          use_oidc: true
+
+  check_all_green:
+    if: always()
+    name: Check all tests green
+    needs: [pre-commit, test-dist, test, coverage_report]
+    runs-on: ubuntu-slim
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
+        with:
+          jobs: ${{ toJSON(needs) }}
+          allowed-skips: ${{ (github.repository != 'pypa/auditwheel') && 'coverage_report' || '' }}

@@ -11,6 +11,7 @@ class Architecture(Enum):
     value: str
 
     aarch64 = "aarch64"
+    arm64_v8a = "arm64_v8a"  # Android
     armv7l = "armv7l"
     i686 = "i686"
     loongarch64 = "loongarch64"
@@ -28,6 +29,8 @@ class Architecture(Enum):
 
     @property
     def baseline(self) -> Architecture:
+        if self.value.startswith("arm64"):
+            return Architecture.aarch64
         if self.value.startswith("x86_64"):
             return Architecture.x86_64
         return self
@@ -53,7 +56,8 @@ class Architecture(Enum):
         machine = platform.machine()
         if sys.platform.startswith("win"):
             machine = {"AMD64": "x86_64", "ARM64": "aarch64", "x86": "i686"}.get(
-                machine, machine
+                machine,
+                machine,
             )
         elif sys.platform.startswith("darwin"):
             machine = {"arm64": "aarch64"}.get(machine, machine)

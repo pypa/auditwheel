@@ -1,33 +1,21 @@
 from __future__ import annotations
 
-import platform
+import subprocess
 import sys
+from importlib import metadata
 
 import pytest
 
+from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc, LibcVersion
 from auditwheel.main import main
 
-on_supported_platform = pytest.mark.skipif(
-    sys.platform != "linux", reason="requires Linux system"
-)
 
-
-def test_unsupported_platform(monkeypatch):
-    # GIVEN
-    monkeypatch.setattr(sys, "platform", "unsupported_platform")
-
-    # WHEN
-    retval = main()
-
-    # THEN
-    assert retval == 1
-
-
-@on_supported_platform
 def test_help(monkeypatch, capsys):
     # GIVEN
     monkeypatch.setattr(sys, "argv", ["auditwheel"])
+    # handle running tests using 'python -m pytest' rather than just 'pytest' on Python 3.14+
+    monkeypatch.delattr(sys.modules.get("__main__"), "__spec__", raising=False)
 
     # WHEN
     retval = main()
@@ -41,7 +29,7 @@ def test_help(monkeypatch, capsys):
 @pytest.mark.parametrize("function", ["show", "repair"])
 def test_unexisting_wheel(monkeypatch, capsys, tmp_path, function):
     monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
     wheel = str(tmp_path / "not-a-file.whl")
     monkeypatch.setattr(sys, "argv", ["auditwheel", function, wheel])
 
@@ -59,33 +47,41 @@ def test_unexisting_wheel(monkeypatch, capsys, tmp_path, function):
             Libc.GLIBC,
             "foo-1.0-py3-none-manylinux1_aarch64.whl",
             "manylinux_2_28_x86_64",
-            "can't repair wheel foo-1.0-py3-none-manylinux1_aarch64.whl with aarch64 architecture to a wheel targeting x86_64",
+            "can't repair wheel foo-1.0-py3-none-manylinux1_aarch64.whl with aarch64 architecture to a wheel targeting x86_64",  # noqa: E501
         ),
         (
             Libc.GLIBC,
             "foo-1.0-py3-none-musllinux_1_1_x86_64.whl",
             "manylinux_2_28_x86_64",
-            "can't repair wheel foo-1.0-py3-none-musllinux_1_1_x86_64.whl with MUSL libc to a wheel targeting GLIBC",
+            "can't repair wheel foo-1.0-py3-none-musllinux_1_1_x86_64.whl with MUSL libc to a wheel targeting GLIBC",  # noqa: E501
         ),
         (
             Libc.MUSL,
             "foo-1.0-py3-none-manylinux1_x86_64.whl",
             "musllinux_1_1_x86_64",
-            "can't repair wheel foo-1.0-py3-none-manylinux1_x86_64.whl with GLIBC libc to a wheel targeting MUSL",
+            "can't repair wheel foo-1.0-py3-none-manylinux1_x86_64.whl with GLIBC libc to a wheel targeting MUSL",  # noqa: E501
         ),
     ],
 )
 def test_repair_wheel_mismatch(
-    monkeypatch, capsys, tmp_path, libc, filename, plat, message
+    monkeypatch,
+    capsys,
+    tmp_path,
+    libc,
+    filename,
+    plat,
+    message,
 ):
     monkeypatch.setattr(sys, "platform", "linux")
-    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
     monkeypatch.setattr(Libc, "detect", lambda: libc)
     monkeypatch.setattr(Libc, "get_current_version", lambda _: LibcVersion(1, 1))
     wheel = tmp_path / filename
     wheel.write_text("")
     monkeypatch.setattr(
-        sys, "argv", ["auditwheel", "repair", "--plat", plat, str(wheel)]
+        sys,
+        "argv",
+        ["auditwheel", "repair", "--plat", plat, str(wheel)],
     )
 
     with pytest.raises(SystemExit):
@@ -93,3 +89,14 @@ def test_repair_wheel_mismatch(
 
     captured = capsys.readouterr()
     assert message in captured.err
+
+
+def test_main_module() -> None:
+    version = metadata.version("auditwheel")
+    result = subprocess.run(
+        [sys.executable, "-m", "auditwheel", "-V"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.startswith(f"auditwheel {version}")

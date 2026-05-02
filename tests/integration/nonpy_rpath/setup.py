@@ -53,9 +53,9 @@ build_ext_cmd.setup_shlib_compiler()
 
 
 def libname(name):
-    """gets 'name' and returns something like libname.cpython-37m-darwin.so"""
+    """Gets 'name' and returns something like libname.cpython-37m-darwin.so"""
     filename = build_ext_cmd.get_ext_filename(name)
-    fn, ext = os.path.splitext(filename)
+    fn, _ = os.path.splitext(filename)
     return build_ext_cmd.shlib_compiler.library_filename(fn, libtype)
 
 

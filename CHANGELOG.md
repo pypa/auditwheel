@@ -2,6 +2,63 @@
 
 ## HEAD
 
+## 6.6.0
+
+Released January 4, 2026
+
+### User-facing changes
+- [BUGFIX] ignore weak symbols when checking blacklisted symbols ([#665](https://github.com/pypa/auditwheel/pull/665), [#663](https://github.com/pypa/auditwheel/issues/663))
+- [FEATURE] Allow "repairing" pure python wheel ([#660](https://github.com/pypa/auditwheel/pull/660))
+
+### Housekeeping
+- Fix running tests with `python -m pytest` in Python 3.14+ ([#661](https://github.com/pypa/auditwheel/pull/661))
+- Fix TestPolicyAccess::test_get_by_name when running on `loongarch64` or `riscv64`  ([#662](https://github.com/pypa/auditwheel/pull/662))
+- Pin all actions and enable zizmor in pre-commit ([#666](https://github.com/pypa/auditwheel/pull/666))
+
+## 6.5.1
+
+Released December 28, 2025
+
+### User-facing changes
+- [BUGFIX] Only restrict to lower priority policies in `get_symbol_policies` ([#648](https://github.com/pypa/auditwheel/pull/648))
+- [BUGFIX] Take whitelisted libraries into account in `_get_machine_policy` ([#649](https://github.com/pypa/auditwheel/pull/649), [#645](https://github.com/pypa/auditwheel/issues/645))
+- [BUGFIX] Don't allow highest priority policies with more grafted libraries than the requested policy ([#649](https://github.com/pypa/auditwheel/pull/649))
+- [BUGFIX] Blacklist symbols from glibc 2.18 in earlier policies ([#655](https://github.com/pypa/auditwheel/pull/655), [#647](https://github.com/pypa/auditwheel/issues/647))
+
+### Housekeeping
+- Move away from Travis CI ([#633](https://github.com/pypa/auditwheel/pull/633))
+- Add tests using manylinux_2_35_armv7l image ([#635](https://github.com/pypa/auditwheel/pull/635))
+- Fix architecture tests on i686 ([#640](https://github.com/pypa/auditwheel/pull/640))
+- Enable all ruff linters ([#653](https://github.com/pypa/auditwheel/pull/653))
+- Add trusted publishing workflow ([#658](https://github.com/pypa/auditwheel/pull/658))
+- And more...
+
+## 6.5.0
+
+Released November 2, 2025
+
+### User-facing changes
+- [REMOVAL] Drop python 3.9 support ([#631](https://github.com/pypa/auditwheel/pull/631))
+- [FEATURE] Add `manylinux_2_40` & `manylinux_2_41` policies ([#632](https://github.com/pypa/auditwheel/pull/632), [#626](https://github.com/pypa/auditwheel/issues/626))
+- [FEATURE] Add `libmvec.so.1` to manylinux whitelisted libraries ([#632](https://github.com/pypa/auditwheel/pull/632), [#623](https://github.com/pypa/auditwheel/issues/623))
+- [FEATURE] Generate SBOMs for repaired libraries ([#577](https://github.com/pypa/auditwheel/pull/577), [#541](https://github.com/pypa/auditwheel/issues/541), [#398](https://github.com/pypa/auditwheel/issues/398))
+
+## 6.4.2
+
+Released July 27, 2025
+
+### User-facing changes
+- [FEATURE] Add `libanl.so.1` to manylinux whitelisted libraries ([#607](https://github.com/pypa/auditwheel/pull/607))
+- [FEATURE] Add Python 3.14 support ([#611](https://github.com/pypa/auditwheel/pull/611))
+- [BUGFIX] Fix logged repaired file path ([#609](https://github.com/pypa/auditwheel/issues/609))
+
+## 6.4.1
+
+Released July 6, 2025
+
+### User-facing changes
+- [FEATURE] Add manylinux_2_26 policy ([#602](https://github.com/pypa/auditwheel/pull/602))
+
 ## 6.4.0
 
 Released May 25, 2025

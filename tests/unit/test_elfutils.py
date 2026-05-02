@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -12,7 +11,9 @@ from auditwheel.elfutils import (
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
     elf_read_dt_needed,
-    elf_references_PyFPE_jbuf,
+    elf_read_rpaths,
+    elf_references_pyfpe_jbuf,
+    get_undefined_symbols,
 )
 
 
@@ -28,22 +29,25 @@ class MockSymbol(dict[str, Any]):
         return self._name
 
 
-@patch("auditwheel.elfutils.open")
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfReadDt:
-    def test_missing_section(self, elffile_mock, open_mock):
+    def test_missing_section(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+
         # GIVEN
-        open_mock.return_value.__enter__.return_value = Mock()
+        fake.touch()
         elffile_mock.return_value.get_section_by_name.return_value = None
 
         # THEN
         with pytest.raises(ValueError, match=r"^Could not find soname.*"):
             # WHEN
-            elf_read_dt_needed(Path("/fake.so"))
+            elf_read_dt_needed(fake)
 
-    def test_needed_libs(self, elffile_mock, open_mock):
+    def test_needed_libs(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+
         # GIVEN
-        open_mock.return_value.__enter__.return_value = Mock()
+        fake.touch()
         section_mock = Mock()
         tag1 = Mock(needed="libz.so")
         tag1.entry.d_tag = "DT_NEEDED"
@@ -53,7 +57,7 @@ class TestElfReadDt:
         elffile_mock.return_value.get_section_by_name.return_value = section_mock
 
         # WHEN
-        needed = elf_read_dt_needed(Path("/fake.so"))
+        needed = elf_read_dt_needed(fake)
 
         # THEN
         assert len(needed) == 2
@@ -61,23 +65,37 @@ class TestElfReadDt:
         assert "libfoo.so" in needed
 
 
-@patch("auditwheel.elfutils.open")
 @patch("auditwheel.elfutils.ELFFile")
 class TestElfFileFilter:
-    def test_filter(self, elffile_mock, open_mock):  # noqa: ARG002
-        result = elf_file_filter([Path("file1.so"), Path("file2.so")])
+    def test_filter(self, elffile_mock, tmp_path):  # noqa: ARG002
+        file1 = tmp_path / "file1.so"
+        file2 = tmp_path / "file2.so"
+        file1.touch()
+        file2.touch()
+        result = elf_file_filter([file1, file2])
         assert len(list(result)) == 2
 
-    def test_some_py_files(self, elffile_mock, open_mock):  # noqa: ARG002
-        result = elf_file_filter([Path("file1.py"), Path("file2.so"), Path("file3.py")])
+    def test_some_py_files(self, elffile_mock, tmp_path):  # noqa: ARG002
+        file1 = tmp_path / "file1.py"
+        file2 = tmp_path / "file2.so"
+        file3 = tmp_path / "file3.py"
+        file1.touch()
+        file2.touch()
+        file3.touch()
+        result = elf_file_filter([file1, file2, file3])
         assert len(list(result)) == 1
 
-    def test_not_elf(self, elffile_mock, open_mock):  # noqa: ARG002
+    def test_not_elf(self, elffile_mock, tmp_path):
+        file1 = tmp_path / "file1.notelf"
+        file2 = tmp_path / "file2.notelf"
+
         # GIVEN
+        file1.touch()
+        file2.touch()
         elffile_mock.side_effect = ELFError
 
         # WHEN
-        result = elf_file_filter([Path("file1.notelf"), Path("file2.notelf")])
+        result = elf_file_filter([file1, file2])
 
         # THEN
         assert len(list(result)) == 0
@@ -91,9 +109,7 @@ class TestElfFindVersionedSymbols:
         verneed.configure_mock(name="foo-lib")
         veraux = Mock()
         veraux.configure_mock(name="foo-lib")
-        elf.get_section_by_name.return_value.iter_versions.return_value = (
-            (verneed, [veraux]),
-        )
+        elf.get_section_by_name.return_value.iter_versions.return_value = ((verneed, [veraux]),)
 
         # WHEN
         symbols = list(elf_find_versioned_symbols(elf))
@@ -109,9 +125,7 @@ class TestElfFindVersionedSymbols:
         verneed.configure_mock(name=ld_name)
         veraux = Mock()
         veraux.configure_mock(name="foo-lib")
-        elf.get_section_by_name.return_value.iter_versions.return_value = (
-            (verneed, [veraux]),
-        )
+        elf.get_section_by_name.return_value.iter_versions.return_value = ((verneed, [veraux]),)
 
         # WHEN
         symbols = list(elf_find_versioned_symbols(elf))
@@ -132,6 +146,15 @@ class TestElfFindVersionedSymbols:
 
 
 class TestFindUcs2Symbols:
+    def test_missing_dynsym_section(self):
+        # GIVEN
+        elf = Mock()
+        elf.get_section_by_name.return_value = None
+
+        # THEN
+        result = list(elf_find_ucs2_symbols(elf))
+        assert result == []
+
     def test_elf_find_ucs2_symbols(self):
         # GIVEN
         elf = Mock()
@@ -170,28 +193,32 @@ class TestElfReferencesPyPFE:
         elf = Mock()
         symbols = (
             MockSymbol(
-                "PyFPE_jbuf", st_shndx="SHN_UNDEF", st_info={"type": "STT_FUNC"}
+                "PyFPE_jbuf",
+                st_shndx="SHN_UNDEF",
+                st_info={"type": "STT_FUNC"},
             ),
         )
 
         elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
 
         # WHEN/THEN
-        assert elf_references_PyFPE_jbuf(elf) is True
+        assert elf_references_pyfpe_jbuf(elf) is True
 
     def test_elf_references_pyfpe_jbuf_false(self):
         # GIVEN
         elf = Mock()
         symbols = (
             MockSymbol(
-                "SomeSymbol", st_shndx="SHN_UNDEF", st_info={"type": "STT_FUNC"}
+                "SomeSymbol",
+                st_shndx="SHN_UNDEF",
+                st_info={"type": "STT_FUNC"},
             ),
         )
 
         elf.get_section_by_name.return_value.iter_symbols.return_value = symbols
 
         # WHEN/THEN
-        assert elf_references_PyFPE_jbuf(elf) is False
+        assert elf_references_pyfpe_jbuf(elf) is False
 
     def test_elf_references_pyfpe_jbuf_no_section(self):
         # GIVEN
@@ -201,4 +228,59 @@ class TestElfReferencesPyPFE:
         elf.get_section_by_name.return_value = None
 
         # WHEN/THEN
-        assert elf_references_PyFPE_jbuf(elf) is False
+        assert elf_references_pyfpe_jbuf(elf) is False
+
+
+@patch("auditwheel.elfutils.ELFFile")
+class TestElfReadRpaths:
+    def test_read_rpaths(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+        fake.touch()
+
+        parent = tmp_path.parent
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+
+        # GIVEN
+        tag1 = Mock(rpath=f"{parent}:$ORIGIN")
+        tag1.entry.d_tag = "DT_RPATH"
+        tag2 = Mock(runpath="$ORIGIN/subdir")
+        tag2.entry.d_tag = "DT_RUNPATH"
+        tag3 = Mock(needed="libfoo.so")
+        tag3.entry.d_tag = "DT_NEEDED"
+
+        section_mock = Mock()
+        section_mock.iter_tags.return_value = [tag1, tag2, tag3]
+        elffile_mock.return_value.get_section_by_name.return_value = section_mock
+
+        # THEN
+        result = elf_read_rpaths(fake)
+        assert result == {
+            "rpaths": [str(parent), str(tmp_path)],
+            "runpaths": [str(subdir)],
+        }
+
+    def test_missing_dynamic_section(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+
+        # GIVEN
+        fake.touch()
+        elffile_mock.return_value.get_section_by_name.return_value = None
+
+        # THEN
+        result = elf_read_rpaths(fake)
+        assert result == {"rpaths": [], "runpaths": []}
+
+
+@patch("auditwheel.elfutils.ELFFile")
+class TestGetUndefinedSymbols:
+    def test_missing_dynsym_section(self, elffile_mock, tmp_path):
+        fake = tmp_path / "fake.so"
+
+        # GIVEN
+        fake.touch()
+        elffile_mock.return_value.get_section_by_name.return_value = None
+
+        # THEN
+        result = get_undefined_symbols(fake)
+        assert result == set()

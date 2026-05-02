@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+
+import pytest
 
 from auditwheel.condatools import InCondaPkg, InCondaPkgCtx
 
@@ -13,15 +16,25 @@ def test_in_condapkg(_):  # noqa: PT019
 
 
 @patch("auditwheel.condatools.tarbz2todir")
-@patch("auditwheel.condatools.open")
-def test_in_condapkg_context(open_mock, _):  # noqa: PT019
+def test_in_condapkg_context(_):  # noqa: PT019
     with InCondaPkgCtx(Path("/fakepath")) as conda_pkg:
-        file_mock = Mock()
-        file_mock.readlines.return_value = ["file1\n", "file2\n", "\n"]
-        open_mock.return_value.__enter__.return_value = file_mock
+        # mock info/files
+        files_path = conda_pkg.path / "info" / "files"
+        files_path.parent.mkdir()
+        files_path.write_text("file1\nfile2\n\n")
         # This returns empty lines so we have count with those as well. This
         # might be a subtle bug in the implementation.
         files = conda_pkg.iter_files()
         assert len(files) == 3
         assert "file1" in files
         assert "file2" in files
+
+
+@patch("auditwheel.condatools.tarbz2todir")
+def test_in_condapkg_context_no_manager(_):  # noqa: PT019
+    conda_pkg = InCondaPkgCtx(Path("/fakepath"))
+    with pytest.raises(
+        ValueError,
+        match=re.escape("This function should be called from context manager"),
+    ):
+        conda_pkg.iter_files()

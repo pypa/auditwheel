@@ -1,19 +1,25 @@
 from __future__ import annotations
 
 import re
+import shutil
 import tempfile
+import zipfile
 from pathlib import Path
 
 import pytest
 
+from auditwheel._vendor.wheel.pkginfo import read_pkg_info
 from auditwheel.architecture import Architecture
-from auditwheel.error import NonPlatformWheel
+from auditwheel.error import NonPlatformWheelError
 from auditwheel.libc import Libc
 from auditwheel.wheeltools import (
     InWheelCtx,
     WheelToolsError,
+    add_platforms,
+    android_api_level,
     get_wheel_architecture,
     get_wheel_libc,
+    get_wheel_platforms,
 )
 
 HERE = Path(__file__).parent.resolve()
@@ -22,7 +28,11 @@ HERE = Path(__file__).parent.resolve()
 @pytest.mark.parametrize(
     ("filename", "expected"),
     [(f"foo-1.0-py3-none-linux_{arch}.whl", arch) for arch in Architecture]
-    + [("foo-1.0-py3-none-linux_x86_64.manylinux1_x86_64.whl", Architecture.x86_64)],
+    + [
+        ("foo-1.0-py3-none-linux_x86_64.manylinux1_x86_64.whl", Architecture.x86_64),
+        ("foo-1.0-py3-none-android_21_x86_64.whl", Architecture.x86_64),
+        ("foo-1.0-py3-none-android_21_arm64_v8a.whl", Architecture.aarch64),
+    ],
 )
 def test_get_wheel_architecture(filename: str, expected: Architecture) -> None:
     arch = get_wheel_architecture(filename)
@@ -35,7 +45,7 @@ def test_get_wheel_architecture_unknown() -> None:
 
 
 def test_get_wheel_architecture_pure() -> None:
-    with pytest.raises(NonPlatformWheel):
+    with pytest.raises(NonPlatformWheelError):
         get_wheel_architecture("foo-1.0-py3-none-any.whl")
 
 
@@ -59,6 +69,7 @@ def test_get_wheel_architecture_multiple(filename: str) -> None:
         ("foo-1.0-py3-none-manylinux1_x86_64.whl", Libc.GLIBC),
         ("foo-1.0-py3-none-manylinux1_x86_64.manylinux2010_x86_64.whl", Libc.GLIBC),
         ("foo-1.0-py3-none-musllinux_1_1_x86_64.whl", Libc.MUSL),
+        ("foo-1.0-py3-none-android_24_arm64_v8a.whl", Libc.ANDROID),
     ],
 )
 def test_get_wheel_libc(filename: str, expected: Libc) -> None:
@@ -67,7 +78,8 @@ def test_get_wheel_libc(filename: str, expected: Libc) -> None:
 
 
 @pytest.mark.parametrize(
-    "filename", ["foo-1.0-py3-none-any.whl", "foo-1.0-py3-none-something.whl"]
+    "filename",
+    ["foo-1.0-py3-none-any.whl", "foo-1.0-py3-none-something.whl"],
 )
 def test_get_wheel_libc_unknown(filename: str) -> None:
     with pytest.raises(WheelToolsError, match=re.escape("unknown libc used")):
@@ -75,7 +87,8 @@ def test_get_wheel_libc_unknown(filename: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "filename", ["foo-1.0-py3-none-manylinux1_x86_64.musllinux_1_1_x86_64.whl"]
+    "filename",
+    ["foo-1.0-py3-none-manylinux1_x86_64.musllinux_1_1_x86_64.whl"],
 )
 def test_get_wheel_libc_multiple(filename: str) -> None:
     match = re.escape("multiple libc are not supported")
@@ -83,10 +96,40 @@ def test_get_wheel_libc_multiple(filename: str) -> None:
         get_wheel_libc(filename)
 
 
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("foo-1.0-py3-none-manylinux1_x86_64.whl", ["manylinux1_x86_64"]),
+        ("foo-1.0-py3-none-any.any.whl", ["any"]),
+        ("foo-1.0-py3-none-linux_x86_64.any.whl", ["any", "linux_x86_64"]),
+        ("foo-1.0-py3-none-any.linux_x86_64.whl", ["any", "linux_x86_64"]),
+        ("foo-1.0-py2.py3-none-linux_x86_64.any.whl", ["any", "linux_x86_64"]),
+    ],
+)
+def test_get_wheel_platforms(filename: str, expected: list[str]) -> None:
+    assert get_wheel_platforms(filename) == expected
+
+
+@pytest.mark.parametrize(
+    ("tag", "expected"),
+    [
+        ("android_21_arm64_v8a", 21),
+        ("android_21_x86_64", 21),
+        ("android_9_whatever", 9),
+        ("linux_x86_64", None),
+    ],
+)
+def test_android_api_level(tag, expected):
+    if expected is None:
+        with pytest.raises(ValueError, match=f"invalid tag: {tag}"):
+            android_api_level(tag)
+    else:
+        assert android_api_level(tag) == expected
+
+
 def test_inwheel_tmpdir(tmp_path, monkeypatch):
     wheel_path = (
-        HERE
-        / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
+        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
     )
     tmp_path = tmp_path.resolve(strict=True)
     tmpdir = tmp_path / "tmpdir"
@@ -97,3 +140,74 @@ def test_inwheel_tmpdir(tmp_path, monkeypatch):
     with InWheelCtx(wheel_path, tmp_path / wheel_path.name) as context:
         Path(context._tmpdir.name).relative_to(tmpdir_symlink)
         context.name.relative_to(tmpdir)
+
+
+def test_inwheel_no_manager(tmp_path):
+    wheel_path = (
+        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
+    )
+    context = InWheelCtx(wheel_path, tmp_path / wheel_path.name)
+    with pytest.raises(
+        ValueError,
+        match=re.escape("This function should be called from context manager"),
+    ):
+        next(context.iter_files())
+    with pytest.raises(
+        ValueError,
+        match=re.escape("This function should be called from wheel_ctx context manager"),
+    ):
+        add_platforms(context, [], [])
+
+
+def test_add_platforms_no_duplicate_root_is_purelib(tmp_path):
+    """Regression test for #642: add_platforms should not duplicate Root-Is-Purelib."""
+    wheel_name = "testpkg-0.0.1-py3-none-any.whl"
+    wheel_path = tmp_path / wheel_name
+    dist_info = "testpkg-0.0.1.dist-info"
+
+    # Create a minimal wheel with Root-Is-Purelib already set to false
+    with zipfile.ZipFile(wheel_path, "w") as zf:
+        zf.writestr(
+            f"{dist_info}/WHEEL",
+            "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: false\nTag: py3-none-any\n",
+        )
+        zf.writestr(
+            f"{dist_info}/METADATA",
+            "Metadata-Version: 2.1\nName: testpkg\nVersion: 0.0.1\n",
+        )
+        zf.writestr(f"{dist_info}/RECORD", "")
+
+    out_wheel_path = tmp_path / "out" / wheel_name
+    out_wheel_path.parent.mkdir()
+
+    with InWheelCtx(wheel_path, out_wheel_path) as ctx:
+        add_platforms(ctx, ["manylinux_2_35_x86_64"])
+
+    # Find the output wheel (name will have changed)
+    out_wheels = list((tmp_path / "out").glob("*.whl"))
+    assert len(out_wheels) == 1
+
+    with zipfile.ZipFile(out_wheels[0]) as zf:
+        wheel_info = next(n for n in zf.namelist() if n.endswith("/WHEEL"))
+        info = read_pkg_info(zf.extract(wheel_info, tmp_path / "extracted"))
+
+    purelib_values = info.get_all("Root-Is-Purelib")
+    assert purelib_values is not None
+    assert len(purelib_values) == 1, (
+        f"Expected exactly one Root-Is-Purelib entry, got {len(purelib_values)}"
+    )
+
+
+def test_inwheel_no_distinfo():
+    wheel_path = (
+        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
+    )
+    with InWheelCtx(wheel_path, None) as context:
+        dist_info = list(context.path.glob("*.dist-info"))
+        assert len(dist_info) == 1
+        shutil.rmtree(dist_info[0])
+        with pytest.raises(
+            WheelToolsError,
+            match=re.escape("Should be exactly one `*.dist_info` directory"),
+        ):
+            next(context.iter_files())

@@ -2,28 +2,30 @@ from __future__ import annotations
 
 import argparse
 import logging
+import shutil
 import zlib
 from pathlib import Path
+from typing import Any
 
+from auditwheel import options
 from auditwheel.architecture import Architecture
-from auditwheel.error import NonPlatformWheel, WheelToolsError
+from auditwheel.error import NonPlatformWheelError, WheelToolsError
 from auditwheel.libc import Libc
 from auditwheel.patcher import Patchelf
+from auditwheel.policy import WheelPolicies
+from auditwheel.tools import EnvironmentDefault
 from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
-
-from .policy import WheelPolicies
-from .tools import EnvironmentDefault
 
 logger = logging.getLogger(__name__)
 
 
-def configure_parser(sub_parsers) -> None:  # type: ignore[no-untyped-def]
+def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
     policies = WheelPolicies(libc=Libc.detect(), arch=Architecture.detect())
     policy_names = [p.name for p in policies if p != policies.linux]
     policy_names += [alias for p in policies for alias in p.aliases]
     policy_names += ["auto"]
     epilog = """PLATFORMS:
-These are the possible target platform tags, as specified by PEP 600.
+These are the possible platform tags for this machine, as specified by PEP 600.
 Note that old, pre-PEP 600 tags are still usable and are listed as aliases
 below.
 """
@@ -32,14 +34,14 @@ below.
         if len(p.aliases) > 0:
             epilog += f" (aliased by {', '.join(p.aliases)})"
         epilog += "\n"
-    help = """Vendor in external shared library dependencies of a wheel.
+    help_ = """Vendor in external shared library dependencies of a wheel.
 If multiple wheels are specified, an error processing one
 wheel will abort processing of subsequent wheels.
 """
     parser = sub_parsers.add_parser(
         "repair",
-        help=help,
-        description=help,
+        help=help_,
+        description=help_,
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -117,19 +119,16 @@ wheel will abort processing of subsequent wheels.
         help="Do not check for higher policy compatibility",
         default=False,
     )
-    parser.add_argument(
-        "--disable-isa-ext-check",
-        dest="DISABLE_ISA_EXT_CHECK",
-        action="store_true",
-        help="Do not check for extended ISA compatibility (e.g. x86_64_v2)",
-        default=False,
-    )
+    options.disable_isa_check(parser)
+    options.allow_pure_python_wheel(parser)
+    options.ldpaths(parser)
+
     parser.set_defaults(func=execute)
 
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    from .repair import repair_wheel
-    from .wheel_abi import analyze_wheel_abi
+    from auditwheel.repair import repair_wheel
+    from auditwheel.wheel_abi import analyze_wheel_abi
 
     exclude: frozenset[str] = frozenset(args.EXCLUDE)
     wheel_dir: Path = args.WHEEL_DIR.absolute()
@@ -151,15 +150,20 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
         wheel_filename = wheel_file.name
         arch = requested_architecture
+        is_pure_python = False
         try:
             arch = get_wheel_architecture(wheel_filename)
             if requested_architecture is not None and requested_architecture != arch:
-                msg = f"can't repair wheel {wheel_filename} with {arch.value} architecture to a wheel targeting {requested_architecture.value}"
+                msg = (
+                    f"can't repair wheel {wheel_filename} with {arch.value} architecture to a "
+                    f"wheel targeting {requested_architecture.value}"
+                )
                 parser.error(msg)
-        except (WheelToolsError, NonPlatformWheel):
+        except (WheelToolsError, NonPlatformWheelError) as e:
             logger.warning(
-                "The architecture could not be deduced from the wheel filename"
+                "The architecture could not be deduced from the wheel filename",
             )
+            is_pure_python = isinstance(e, NonPlatformWheelError)
 
         try:
             libc = get_wheel_libc(wheel_filename)
@@ -167,18 +171,16 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             logger.debug("The libc could not be deduced from the wheel filename")
             libc = None
 
-        if plat_base.startswith("manylinux"):
-            if libc is None:
-                libc = Libc.GLIBC
-            if libc != Libc.GLIBC:
-                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting GLIBC"
-                parser.error(msg)
-        elif plat_base.startswith("musllinux"):
-            if libc is None:
-                libc = Libc.MUSL
-            if libc != Libc.MUSL:
-                msg = f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel targeting MUSL"
-                parser.error(msg)
+        for lc in Libc:
+            if plat_base.startswith(lc.tag_prefix):
+                if libc is None:
+                    libc = lc
+                if libc != lc:
+                    msg = (
+                        f"can't repair wheel {wheel_filename} with {libc.name} libc to a wheel "
+                        f"targeting {lc.name}"
+                    )
+                    parser.error(msg)
 
         logger.info("Repairing %s", wheel_filename)
 
@@ -187,10 +189,23 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
         try:
             wheel_abi = analyze_wheel_abi(
-                libc, arch, wheel_file, exclude, args.DISABLE_ISA_EXT_CHECK, True
+                libc,
+                arch,
+                wheel_file,
+                exclude,
+                disable_isa_ext_check=args.DISABLE_ISA_EXT_CHECK,
+                allow_graft=True,
+                requested_policy_base_name=plat_base,
+                args_ldpaths=args.LDPATHS,
             )
-        except NonPlatformWheel as e:
+        except NonPlatformWheelError as e:
             logger.info(e.message)
+            if is_pure_python and args.ALLOW_PURE_PY_WHEEL:
+                dest_fname = wheel_dir / wheel_file.name
+                if not dest_fname.is_file() or not dest_fname.samefile(wheel_file):
+                    shutil.copy2(wheel_file, dest_fname)
+                # process next wheel
+                continue
             return 1
 
         policies = wheel_abi.policies
@@ -251,7 +266,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 *abis,
             ]
 
-        patcher = Patchelf()
+        patcher = Patchelf(requested_policy.name)
         out_wheel = repair_wheel(
             wheel_abi,
             wheel_file,

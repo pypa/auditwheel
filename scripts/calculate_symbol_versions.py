@@ -1,5 +1,4 @@
-"""
-Calculate symbol_versions for a policy in policy.json by collection
+"""Calculate symbol_versions for a policy in policy.json by collection
 defined version (.gnu.version_d) from libraries in lib_whitelist.
 This should be run inside a manylinux Docker container.
 """
@@ -49,7 +48,7 @@ def find_library(library):
 def versionify(version_string):
     try:
         result = [int(n) for n in version_string.split(".")]
-        assert len(result) <= 3
+        assert len(result) <= 3  # noqa: S101
     except ValueError:
         result = [999999, 999999, 999999, version_string]
     return result
@@ -71,10 +70,7 @@ def calculate_symbol_versions(libraries, symbol_versions, arch):
                     for vernaux in verdef_iter:
                         with contextlib.suppress(ValueError):
                             name, version = vernaux.name.split("_", 1)
-                            if (
-                                name in calculated_symbol_versions
-                                and version != "PRIVATE"
-                            ):
+                            if name in calculated_symbol_versions and version != "PRIVATE":
                                 calculated_symbol_versions[name].add(version)
     return {k: sorted(v, key=versionify) for k, v in calculated_symbol_versions.items()}
 
@@ -90,8 +86,8 @@ def main():
                 policy["lib_whitelist"],
                 policy["symbol_versions"],
                 arch,
-            )
-        )
+            ),
+        ),
     )
 
 

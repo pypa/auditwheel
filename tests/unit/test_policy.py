@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import re
 from contextlib import nullcontext as does_not_raise
 from pathlib import Path
 
 import pytest
 
+import auditwheel.policy
 from auditwheel.architecture import Architecture
 from auditwheel.lddtree import DynamicExecutable, DynamicLibrary, Platform
 from auditwheel.libc import Libc
@@ -65,7 +67,7 @@ def test_pep600_compliance():
                 },
                 "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
             },
-        ]
+        ],
     )
 
     _validate_pep600_compliance(
@@ -87,7 +89,7 @@ def test_pep600_compliance():
                 },
                 "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
             },
-        ]
+        ],
     )
 
     with pytest.raises(ValueError, match=r"manylinux2010_i686.*CXXABI.*1.3.2"):
@@ -109,7 +111,7 @@ def test_pep600_compliance():
                     },
                     "lib_whitelist": ["libgcc_s.so.1", "libstdc++.so.6"],
                 },
-            ]
+            ],
         )
 
     with pytest.raises(ValueError, match=r"manylinux2010.*libstdc\+\+\.so\.6"):
@@ -131,7 +133,7 @@ def test_pep600_compliance():
                     },
                     "lib_whitelist": ["libgcc_s.so.1"],
                 },
-            ]
+            ],
         )
 
 
@@ -139,6 +141,13 @@ class TestPolicyAccess:
     def test_get_by_name(self):
         arch = Architecture.detect()
         policies = WheelPolicies(libc=Libc.GLIBC, arch=arch)
+        assert policies.get_policy_by_name(f"manylinux_2_41_{arch}").priority == 51
+        assert policies.get_policy_by_name(f"manylinux_2_36_{arch}").priority == 56
+        if arch == Architecture.loongarch64:
+            return
+        assert policies.get_policy_by_name(f"manylinux_2_31_{arch}").priority == 61
+        if arch == Architecture.riscv64:
+            return
         assert policies.get_policy_by_name(f"manylinux_2_27_{arch}").priority == 65
         assert policies.get_policy_by_name(f"manylinux_2_24_{arch}").priority == 70
         assert policies.get_policy_by_name(f"manylinux2014_{arch}").priority == 80
@@ -166,7 +175,8 @@ class TestPolicyAccess:
 class TestLddTreeExternalReferences:
     """Tests for lddtree_external_references."""
 
-    def test_filter_libs(self):
+    @pytest.mark.parametrize("libc", [Libc.GLIBC, Libc.ANDROID])
+    def test_filter_libs(self, libc):
         """Test the nested filter_libs function."""
         filtered_libs = [
             "ld-linux-x86_64.so.1",
@@ -174,26 +184,40 @@ class TestLddTreeExternalReferences:
             "ld64.so.2",
         ]
         unfiltered_libs = ["libfoo.so.1.0", "libbar.so.999.999.999"]
+        (filtered_libs if libc == Libc.ANDROID else unfiltered_libs).append("libpython3.13.so")
         libs = filtered_libs + unfiltered_libs
+
         lddtree = DynamicExecutable(
             interpreter=None,
-            libc=Libc.GLIBC,
+            libc=libc,
             path="/path/to/lib",
             realpath=Path("/path/to/lib"),
             platform=Platform(
-                "", 64, True, "EM_X86_64", Architecture.x86_64, None, None
+                "",
+                64,
+                True,
+                "EM_X86_64",
+                Architecture.x86_64,
+                None,
+                None,
             ),
             needed=tuple(libs),
             libraries={
-                lib: DynamicLibrary(lib, f"/path/to/{lib}", Path(f"/path/to/{lib}"))
-                for lib in libs
+                lib: DynamicLibrary(lib, f"/path/to/{lib}", Path(f"/path/to/{lib}")) for lib in libs
             },
             rpath=(),
             runpath=(),
         )
-        policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+        policies = WheelPolicies(
+            libc=libc,
+            arch=Architecture.x86_64,
+            wheel_fn=(
+                Path("spam-0.1-py3-none-android_24_x86_64.whl") if libc == Libc.ANDROID else None
+            ),
+        )
         full_external_refs = policies.lddtree_external_references(
-            lddtree, Path("/path/to/wheel")
+            lddtree,
+            Path("/path/to/wheel"),
         )
 
         # Assert that each policy only has the unfiltered libs.
@@ -253,3 +277,60 @@ def test_policy_checks_glibc():
     policy = policies.versioned_symbols_policy({"some_library.so": {"IAMALIBRARY"}})
     assert policy == policies.highest
     assert policies.linux < policies.lowest < policies.highest
+
+
+@pytest.mark.parametrize(
+    ("wheel_level", "policy_level"),
+    [(21, 21), (22, 21), (23, 21), (24, 24), (25, 24), (26, 26), (27, 27), (28, 27)],
+)
+@pytest.mark.parametrize(("arch"), [Architecture.arm64_v8a, Architecture.x86_64])
+def test_android(wheel_level, policy_level, arch):
+    for policy_json in json.loads(
+        (Path(auditwheel.policy.__file__).parent / "android-policy.json").read_text(),
+    ):
+        if policy_json["name"] == f"android_{policy_level}":
+            whitelist = frozenset(policy_json["lib_whitelist"])
+            break
+    else:
+        raise AssertionError(policy_level)
+
+    assert "libc.so" in whitelist
+    assert ("libcamera2ndk.so" in whitelist) == (policy_level >= 24)
+    assert ("libaaudio.so" in whitelist) == (policy_level >= 26)
+    assert ("libneuralnetworks.so" in whitelist) == (policy_level >= 27)
+
+    platform = f"android_{wheel_level}_{arch}"
+    policies = WheelPolicies(
+        libc=Libc.ANDROID,
+        arch=arch.baseline,
+        wheel_fn=Path(f"foo-1.0-py3-none-{platform}.whl"),
+    )
+    assert len(list(policies)) == 2
+    assert policies.linux.whitelist == frozenset()
+
+    assert policies.lowest is policies.highest
+    assert policies.lowest.whitelist == whitelist
+
+
+def test_android_no_filename():
+    with pytest.raises(ValueError, match="wheel_fn is required when selecting Android policies"):
+        WheelPolicies(libc=Libc.ANDROID, arch=Architecture.x86_64)
+
+
+@pytest.mark.parametrize(
+    ("filename", "message"),
+    [
+        (
+            "foo-1.0-py3-none-android_21_arm64_v8a.android_22_arm64_v8a.whl",
+            "Android wheels must have exactly one platform tag, got "
+            "['android_21_arm64_v8a', 'android_22_arm64_v8a']",
+        ),
+        (
+            "foo-1.0-py3-none-android_20_x86_64.whl",
+            "no Android policies match the platform tag 'android_20_x86_64'",
+        ),
+    ],
+)
+def test_android_error(filename, message):
+    with pytest.raises(ValueError, match=re.escape(message)):
+        WheelPolicies(libc=Libc.ANDROID, arch=Architecture.x86_64, wheel_fn=Path(filename))

@@ -1,11 +1,13 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+ci:
+  autoupdate_schedule: monthly
 
 exclude: ^src/auditwheel/_vendor/
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
+  rev: v6.0.0
   hooks:
   - id: check-builtin-literals
   - id: check-added-large-files
@@ -21,18 +23,18 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.11.13
+  rev: v0.15.9
   hooks:
-  - id: ruff
+  - id: ruff-check
     args: ["--fix", "--show-fixes"]
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.16.0
+  rev: v1.20.0
   hooks:
   - id: mypy
     exclude: tests/integration/.*/.*|tests/integration/quick_check_numpy.py|tests/unit/test_wheel_abi.py|scripts/calculate_symbol_versions.py
-    args: ["--python-version=3.9"]
+    args: ["--python-version=3.10"]
     additional_dependencies:
       - nox
       - packaging
@@ -40,3 +42,8 @@ repos:
       - pytest
       - types-docker
       - types-requests
+
+- repo: https://github.com/zizmorcore/zizmor-pre-commit
+  rev: v1.23.1
+  hooks:
+  - id: zizmor

@@ -1,29 +1,33 @@
 from __future__ import annotations
 
+import dataclasses
 import functools
 import itertools
 import logging
 from collections import defaultdict
-from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-from . import json
-from .architecture import Architecture
-from .elfutils import (
+from auditwheel import json
+from auditwheel.elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
     elf_is_python_extension,
-    elf_references_PyFPE_jbuf,
+    elf_references_pyfpe_jbuf,
 )
-from .error import InvalidLibc, NonPlatformWheel
-from .genericpkgctx import InGenericPkgCtx
-from .lddtree import DynamicExecutable, ldd
-from .libc import Libc
-from .policy import ExternalReference, Policy, WheelPolicies
+from auditwheel.error import InvalidLibcError, NonPlatformWheelError
+from auditwheel.genericpkgctx import InGenericPkgCtx
+from auditwheel.lddtree import DynamicExecutable, DynamicLibrary, ld_paths_from_arg, ldd
+from auditwheel.libc import Libc
+from auditwheel.policy import ExternalReference, Policy, WheelPolicies
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from auditwheel.architecture import Architecture
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +45,7 @@ class WheelAbIInfo:
     pyfpe_policy: Policy
     blacklist_policy: Policy
     machine_policy: Policy
+    graft_policy: Policy
 
 
 @dataclass(frozen=True)
@@ -50,7 +55,66 @@ class WheelElfData:
     full_external_refs: dict[Path, dict[str, ExternalReference]]
     versioned_symbols: dict[str, set[str]]
     uses_ucs2_symbols: bool
-    uses_PyFPE_jbuf: bool
+    uses_pyfpe_jbuf: bool
+
+
+def _fixup_elf_trees(
+    py_elf_trees: dict[Path, DynamicExecutable],
+    nonpy_elftree: dict[Path, DynamicExecutable],
+) -> None:
+    # Auditwheel assumes that if a dependency in a non-Python ELF tree can be resolved
+    # in any other fully resolved ELF tree, then it can be loaded from other
+    # non-Python ELF trees as well. Python extension ELF trees are not
+    # fixed up; they should always be valid in the first place. We fix up
+    # non-Python ELF trees with that assumption in mind.
+    resolved_executables = [
+        executable
+        for executable in itertools.chain(py_elf_trees.values(), nonpy_elftree.values())
+        if all(library.realpath is not None for library in executable.libraries.values())
+    ]
+
+    def _get_reference(path_to_elf: Path) -> DynamicExecutable | None:
+        assert path_to_elf.is_file()  # noqa: S101
+        for candidate in resolved_executables:
+            for library in candidate.libraries.values():
+                assert library.realpath is not None  # noqa: S101
+                assert library.realpath.is_file()  # noqa: S101
+                if path_to_elf.samefile(library.realpath):
+                    return candidate
+        return None
+
+    for elf_path, elf_executable in nonpy_elftree.items():
+        need_resolution = any(
+            elf_library.realpath is None for elf_library in elf_executable.libraries.values()
+        )
+        if not need_resolution:
+            continue
+        reference = _get_reference(elf_executable.realpath)
+        if reference is None:
+            continue
+        ref_name = reference.realpath.name
+        libraries_new: dict[str, DynamicLibrary] = {}
+        soname_all = set(elf_executable.libraries.keys())
+        for soname, elf_library in elf_executable.libraries.items():
+            if elf_library.realpath is None and soname in reference.libraries:
+                libraries_new[soname] = reference.libraries[soname]
+                # we need to add newly found dependencies as well
+                needed_new = set(libraries_new[soname].needed) - soname_all
+                while needed_new:
+                    needed_new_copy = needed_new.copy()
+                    soname_all |= needed_new_copy
+                    for soname_needed in needed_new_copy:
+                        if soname_needed in reference.libraries:
+                            libraries_new[soname_needed] = reference.libraries[soname_needed]
+                            needed_new.update(libraries_new[soname_needed].needed)
+                        else:
+                            log.warning("%s not found in %s ELF tree", soname_needed, ref_name)
+                    needed_new -= soname_all
+            else:
+                if elf_library.realpath is None:
+                    log.warning("%s not found in %s ELF tree", soname, ref_name)
+                libraries_new[soname] = elf_library
+        nonpy_elftree[elf_path] = dataclasses.replace(elf_executable, libraries=libraries_new)
 
 
 @functools.lru_cache
@@ -59,14 +123,19 @@ def get_wheel_elfdata(
     architecture: Architecture | None,
     wheel_fn: Path,
     exclude: frozenset[str],
+    args_ldpaths: str | None,
 ) -> WheelElfData:
     full_elftree: dict[Path, DynamicExecutable] = {}
     nonpy_elftree: dict[Path, DynamicExecutable] = {}
     full_external_refs: dict[Path, dict[str, ExternalReference]] = {}
     versioned_symbols: dict[str, set[str]] = defaultdict(set)
     uses_ucs2_symbols = False
-    uses_PyFPE_jbuf = False
+    uses_pyfpe_jbuf = False
     policies: WheelPolicies | None = None
+
+    # Android is cross-compiled, so ldpaths should never be loaded from the build machine.
+    if libc == Libc.ANDROID and args_ldpaths is None:
+        args_ldpaths = ""
 
     with InGenericPkgCtx(wheel_fn) as ctx:
         shared_libraries_in_purelib = []
@@ -87,7 +156,7 @@ def get_wheel_elfdata(
             # to fail and there's no need to do further checks
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
-                elftree = ldd(fn, exclude=exclude)
+                elftree = ldd(fn, exclude=exclude, ldpaths=ld_paths_from_arg(args_ldpaths))
 
                 try:
                     elf_arch = elftree.platform.baseline_architecture
@@ -112,7 +181,7 @@ def get_wheel_elfdata(
                         continue
 
                 if policies is None and libc is not None and architecture is not None:
-                    policies = WheelPolicies(libc=libc, arch=architecture)
+                    policies = WheelPolicies(libc=libc, arch=architecture, wheel_fn=wheel_fn)
 
                 platform_wheel = True
 
@@ -126,18 +195,17 @@ def get_wheel_elfdata(
                 # include its external dependencies.
                 if is_py_ext:
                     if policies is None:
-                        assert architecture is not None
-                        assert libc is None
+                        assert architecture is not None  # noqa: S101
+                        assert libc is None  # noqa: S101
                         msg = f"couldn't detect libc for python extension {fn}"
-                        raise InvalidLibc(msg)
+                        raise InvalidLibcError(msg)
                     full_elftree[fn] = elftree
-                    uses_PyFPE_jbuf |= elf_references_PyFPE_jbuf(elf)
+                    uses_pyfpe_jbuf |= elf_references_pyfpe_jbuf(elf)
                     if py_ver == 2:
-                        uses_ucs2_symbols |= any(
-                            True for _ in elf_find_ucs2_symbols(elf)
-                        )
+                        uses_ucs2_symbols |= any(True for _ in elf_find_ucs2_symbols(elf))
                     full_external_refs[fn] = policies.lddtree_external_references(
-                        elftree, ctx.path
+                        elftree,
+                        ctx.path,
                     )
                 else:
                     # If the ELF is not a Python extension, it might be
@@ -159,7 +227,9 @@ def get_wheel_elfdata(
 
         if not platform_wheel:
             arch = None if architecture is None else architecture.value
-            raise NonPlatformWheel(arch, shared_libraries_with_invalid_machine)
+            raise NonPlatformWheelError(arch, shared_libraries_with_invalid_machine)
+
+        _fixup_elf_trees(full_elftree, nonpy_elftree)
 
         # Get a list of all external libraries needed by ELFs in the wheel.
         needed_libs = {
@@ -172,8 +242,8 @@ def get_wheel_elfdata(
             # we have no python extensions, either we have shared libraries with
             # no dependencies on libc (unlikely) or a statically linked executable
             # let's fallback to the host libc
-            assert architecture is not None
-            assert libc is None
+            assert architecture is not None  # noqa: S101
+            assert libc is None  # noqa: S101
             libc = Libc.detect()
             log.warning("couldn't detect wheel libc, defaulting to %s", str(libc))
             policies = WheelPolicies(libc=libc, arch=architecture)
@@ -189,12 +259,14 @@ def get_wheel_elfdata(
             # should include it as an external reference, because
             # it might require additional external libraries.
             full_external_refs[fn] = policies.lddtree_external_references(
-                elf_tree, ctx.path
+                elf_tree,
+                ctx.path,
             )
 
     log.debug("full_elftree:\n%s", json.dumps(full_elftree))
     log.debug(
-        "full_external_refs (will be repaired):\n%s", json.dumps(full_external_refs)
+        "full_external_refs (will be repaired):\n%s",
+        json.dumps(full_external_refs),
     )
 
     return WheelElfData(
@@ -203,7 +275,7 @@ def get_wheel_elfdata(
         full_external_refs,
         versioned_symbols,
         uses_ucs2_symbols,
-        uses_PyFPE_jbuf,
+        uses_pyfpe_jbuf,
     )
 
 
@@ -235,8 +307,7 @@ def get_versioned_symbols(libs: dict[Path, str]) -> dict[str, dict[str, set[str]
     """
     result = {}
     for path, elf in elf_file_filter(libs.keys()):
-        # {depname: set(symbol_version)}, e.g.
-        # {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
+        # {depname: set(symbol_version)}, e.g. {'libc.so.6', set(['GLIBC_2.5','GLIBC_2.12'])}
         elf_versioned_symbols: dict[str, set[str]] = defaultdict(set)
         for key, value in elf_find_versioned_symbols(elf):
             log.debug("path %s, key %s, value %s", path, key, value)
@@ -272,9 +343,13 @@ def get_symbol_policies(
             ext_symbols = external_versioned_symbols[soname]
             for k in iter(ext_symbols):
                 policy_symbols[k].update(ext_symbols[k])
-        result.append(
-            (policies.versioned_symbols_policy(policy_symbols), policy_symbols)
+        # if the white-list policy changed, we don't want to allow highest priority policy
+        # than the current one, that is, only restrict to a lower priority policy
+        found_policy = min(
+            external_ref.policy,
+            policies.versioned_symbols_policy(policy_symbols),
         )
+        result.append((found_policy, policy_symbols))
     return result
 
 
@@ -283,29 +358,70 @@ def _get_machine_policy(
     elftree_by_fn: dict[Path, DynamicExecutable],
     external_so_names: frozenset[str],
 ) -> Policy:
+    """
+    Determine the most appropriate machine policy for the wheel based on ELF
+    architectures and whitelisted external dependencies.
+    The function inspects the extended architecture of each top-level ELF file
+    in ``elftree_by_fn`` and of any library dependencies whose SONAME appears in
+    ``external_so_names``. If an ELF file requires instructions that are not
+    covered by ``policies.architecture``, the overall policy is downgraded to
+    reflect that requirement.
+    If the offending ELF file corresponds to an external shared object
+    (i.e. its SONAME is in ``external_so_names``), the function looks for a
+    policy whose whitelist contains that SONAME and uses the highest-priority
+    such policy instead of unconditionally falling back to the baseline
+    ``policies.linux`` policy. Informational or warning logs are emitted to
+    record any such downgrades.
+    :param policies: Collection of available wheel policies, including the
+        target architecture, the baseline ``linux`` policy, and the highest
+        (most permissive) default policy.
+    :param elftree_by_fn: Mapping from ELF file paths to their corresponding
+        :class:`DynamicExecutable` objects, used to inspect platforms and
+        dependency graphs.
+    :param external_so_names: Set of SONAMEs that are treated as external
+        references and may be whitelisted by individual policies.
+    :return: The selected :class:`Policy` after considering all relevant ELF
+        files and their dependencies.
+    """
     result = policies.highest
-    machine_to_check = {}
+    machine_to_check: dict[Path, tuple[str | None, Architecture | None]] = {}
     for fn, dynamic_executable in elftree_by_fn.items():
         if fn in machine_to_check:
             continue
-        machine_to_check[fn] = dynamic_executable.platform.extended_architecture
+        machine_to_check[fn] = (None, dynamic_executable.platform.extended_architecture)
         for dependency in dynamic_executable.libraries.values():
             if dependency.soname not in external_so_names:
                 continue
             if dependency.realpath is None:
                 continue
-            assert dependency.platform is not None
+            assert dependency.platform is not None  # noqa: S101
             if dependency.realpath in machine_to_check:
                 continue
             machine_to_check[dependency.realpath] = (
-                dependency.platform.extended_architecture
+                dependency.soname,
+                dependency.platform.extended_architecture,
             )
 
-    for fn, extended_architecture in machine_to_check.items():
+    for fn, (soname, extended_architecture) in machine_to_check.items():
         if extended_architecture is None:
             continue
         if policies.architecture.is_superset(extended_architecture):
             continue
+        if soname is not None:
+            found_policy = policies.linux
+            for policy in policies:
+                if soname in policy.whitelist:
+                    found_policy = max(found_policy, policy)
+            if policies.linux.priority < found_policy.priority:
+                log.info(
+                    "ELF file %r requires %r instruction set, not in %r, whitelisted in %r",
+                    fn,
+                    extended_architecture.value,
+                    policies.architecture.value,
+                    found_policy.name,
+                )
+                result = min(result, found_policy)
+                continue
         log.warning(
             "ELF file %r requires %r instruction set, not in %r",
             fn,
@@ -322,10 +438,13 @@ def analyze_wheel_abi(
     architecture: Architecture | None,
     wheel_fn: Path,
     exclude: frozenset[str],
+    *,
     disable_isa_ext_check: bool,
     allow_graft: bool,
+    requested_policy_base_name: str | None = None,
+    args_ldpaths: str | None = None,
 ) -> WheelAbIInfo:
-    data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude)
+    data = get_wheel_elfdata(libc, architecture, wheel_fn, exclude, args_ldpaths)
     policies = data.policies
     elftree_by_fn = data.full_elftree
     external_refs_by_fn = data.full_external_refs
@@ -344,14 +463,19 @@ def analyze_wheel_abi(
     external_libs = get_external_libs(external_refs)
     external_versioned_symbols = get_versioned_symbols(external_libs)
     symbol_policies = get_symbol_policies(
-        policies, versioned_symbols, external_versioned_symbols, external_refs
+        policies,
+        versioned_symbols,
+        external_versioned_symbols,
+        external_refs,
     )
     symbol_policy = policies.versioned_symbols_policy(versioned_symbols)
 
     # let's keep the highest priority policy and
     # corresponding versioned_symbols
     symbol_policy, versioned_symbols = max(
-        symbol_policies, key=lambda x: x[0], default=(symbol_policy, versioned_symbols)
+        symbol_policies,
+        key=lambda x: x[0],
+        default=(symbol_policy, versioned_symbols),
     )
 
     ref_policy = max(
@@ -364,15 +488,38 @@ def analyze_wheel_abi(
         default=policies.linux,
     )
 
+    # don't allow highest priority policies with more grafted libraries
+    # than the requested policy
+    if requested_policy_base_name is None or requested_policy_base_name == "auto":
+        graft_lib_count = min(
+            (len(e.libs) for e in external_refs.values() if e.policy != policies.linux),
+            default=0,
+        )
+    else:
+        graft_lib_count = min(
+            (
+                len(e.libs)
+                for e in external_refs.values()
+                if e.policy.name.startswith(f"{requested_policy_base_name}_")
+            ),
+            default=0,
+        )
+    graft_policy = max(
+        (e.policy for e in external_refs.values() if len(e.libs) <= graft_lib_count),
+        default=policies.linux,
+    )
+
     if disable_isa_ext_check:
         machine_policy = policies.highest
     else:
         machine_policy = _get_machine_policy(
-            policies, elftree_by_fn, frozenset(external_libs.values())
+            policies,
+            elftree_by_fn,
+            frozenset(external_libs.values()),
         )
 
     ucs_policy = policies.linux if data.uses_ucs2_symbols else policies.highest
-    pyfpe_policy = policies.linux if data.uses_PyFPE_jbuf else policies.highest
+    pyfpe_policy = policies.linux if data.uses_pyfpe_jbuf else policies.highest
 
     overall_policy = min(
         symbol_policy,
@@ -381,6 +528,10 @@ def analyze_wheel_abi(
         blacklist_policy,
         machine_policy,
     )
+
+    if requested_policy_base_name is not None:
+        overall_policy = min(overall_policy, graft_policy)
+
     if not allow_graft:
         overall_policy = min(overall_policy, ref_policy)
 
@@ -396,30 +547,31 @@ def analyze_wheel_abi(
         pyfpe_policy,
         blacklist_policy,
         machine_policy,
+        graft_policy,
     )
 
 
-_T = TypeVar("_T", ExternalReference, Optional[Path])
+_T = TypeVar("_T", ExternalReference, Path | None)
 
 
 def update(d: dict[str, _T], u: Mapping[str, _T]) -> None:
     for k, v in u.items():
         if isinstance(v, ExternalReference):
-            assert k in d
-            assert isinstance(d[k], ExternalReference)
-            assert d[k].policy == v.policy
+            assert k in d  # noqa: S101
+            assert isinstance(d[k], ExternalReference)  # noqa: S101
+            assert d[k].policy == v.policy  # noqa: S101
             # update blacklist
             for lib, symbols in v.blacklist.items():
                 if lib not in d[k].blacklist:
                     d[k].blacklist[lib] = sorted(symbols)
                 else:
                     d[k].blacklist[lib] = sorted(
-                        set(d[k].blacklist[lib]) | set(symbols)
+                        set(d[k].blacklist[lib]) | set(symbols),
                     )
             # libs
             update(d[k].libs, v.libs)
         elif isinstance(v, (Path, type(None))):
-            d[k] = u[k]
+            d[k] = v
         else:
             msg = f"can't update {d} with {k}:{v}"
-            raise RuntimeError(msg)
+            raise TypeError(msg)

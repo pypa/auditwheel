@@ -57,7 +57,7 @@ class TestPatchElf:
         soname_new = "TEST_NEW"
         patcher.replace_needed(filename, (soname_old, soname_new))
         check_call.assert_called_once_with(
-            ["patchelf", "--replace-needed", soname_old, soname_new, filename]
+            ["patchelf", "--replace-needed", soname_old, soname_new, filename],
         )
 
     def test_replace_needed_multple(self, check_call, _0, _1):  # noqa: PT019
@@ -76,7 +76,7 @@ class TestPatchElf:
                 "--replace-needed",
                 *replacements[1],
                 filename,
-            ]
+            ],
         )
 
     def test_set_soname(self, check_call, _0, _1):  # noqa: PT019
@@ -85,21 +85,31 @@ class TestPatchElf:
         soname_new = "TEST_NEW"
         patcher.set_soname(filename, soname_new)
         check_call.assert_called_once_with(
-            ["patchelf", "--set-soname", soname_new, filename]
+            ["patchelf", "--set-soname", soname_new, filename],
         )
 
-    def test_set_rpath(self, check_call, _0, _1):  # noqa: PT019
-        patcher = Patchelf()
+    @pytest.mark.parametrize("platform", ["android_24_x86_64", "manylinux_2_26_x86_64"])
+    def test_set_rpath(self, check_call, _0, _1, platform):  # noqa: PT019
+        patcher = Patchelf(platform)
         filename = Path("test.so")
         patcher.set_rpath(filename, "$ORIGIN/.lib")
         check_call_expected_args = [
             call(["patchelf", "--remove-rpath", filename]),
             call(
-                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN/.lib", filename]
+                ["patchelf"]
+                + ([] if platform.startswith("android") else ["--force-rpath"])
+                + ["--set-rpath", "$ORIGIN/.lib", filename],
             ),
         ]
 
         assert check_call.call_args_list == check_call_expected_args
+
+    def test_set_rpath_android_old(self, check_call, _0, _1):  # noqa: PT019
+        patcher = Patchelf("android_23_x86_64")
+        filename = Path("test.so")
+        with pytest.raises(ValueError, match="RUNPATH requires API level 24 or higher"):
+            patcher.set_rpath(filename, "$ORIGIN/.lib")
+        check_call.assert_not_called()
 
     def test_get_rpath(self, _0, check_output, _1):  # noqa: PT019
         patcher = Patchelf()
@@ -125,5 +135,5 @@ class TestPatchElf:
                 "--remove-needed",
                 soname_2,
                 filename,
-            ]
+            ],
         )
