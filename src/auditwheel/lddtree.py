@@ -347,6 +347,8 @@ def load_ld_paths(
     if env_ldpath:
         # TODO: If this contains $ORIGIN, we probably have to parse this
         # on a per-ELF basis so it can get turned into the right thing.
+        # don't pass root: in case root != "/", only AUDITWHEEL_LD_LIBRARY_PATH is checked
+        # it shall already contain fully resolved paths
         ldpaths["env"] = parse_ld_paths(env_ldpath, path="")
 
     if libc == Libc.MUSL:
