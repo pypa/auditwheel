@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import importlib
 import json
+import os
 import sys
 import zipfile
 from argparse import Namespace
@@ -90,16 +90,16 @@ HERE = Path(__file__).parent.resolve()
 )
 def test_analyze_wheel_abi(file, external_libs, exclude, env):
     # If exclude libs contain path, the parametrized environment variable "env" needs to be
-    # modified to find the libs `lddtree.load_ld_paths` needs to be reloaded for
-    # it's `lru_cache`-ed.
+    # modified to find the libs
+
+    lddtree.load_ld_paths.cache_clear()
+    auditwheel.wheel_abi.get_wheel_elfdata.cache_clear()
 
     with pytest.MonkeyPatch.context() as cp:
         cp.delenv("AUDITWHEEL_LD_LIBRARY_PATH", raising=False)
         cp.delenv("LD_LIBRARY_PATH", raising=False)
         if env:
             cp.setenv(env, f"{HERE}")
-        importlib.reload(lddtree)
-        importlib.reload(auditwheel.wheel_abi)
 
         winfo = analyze_wheel_abi(
             Libc.GLIBC,
@@ -110,11 +110,11 @@ def test_analyze_wheel_abi(file, external_libs, exclude, env):
             allow_graft=True,
         )
         assert set(winfo.external_refs["manylinux_2_5_x86_64"].libs) == external_libs, (
-            f"{HERE}, {exclude}, {env}"
+            f"{HERE}, {exclude}, {os.environ}"
         )
 
-    importlib.reload(lddtree)
-    importlib.reload(auditwheel.wheel_abi)
+    lddtree.load_ld_paths.cache_clear()
+    auditwheel.wheel_abi.get_wheel_elfdata.cache_clear()
 
 
 def test_analyze_wheel_abi_pyfpe():
