@@ -9,6 +9,8 @@ from auditwheel import options
 if TYPE_CHECKING:
     import argparse
 
+    from auditwheel.wheel_abi import WheelAbIInfo
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,6 +18,13 @@ def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
     help_ = "Audit a wheel for external shared library dependencies."
     p = sub_parsers.add_parser("show", help=help_, description=help_)
     p.add_argument("WHEEL_FILE", type=Path, help="Path to wheel file.")
+    p.add_argument(
+        "--json",
+        dest="JSON",
+        action="store_true",
+        default=False,
+        help="Output results in JSON format",
+    )
     options.disable_isa_check(p)
     options.allow_pure_python_wheel(p)
     options.ldpaths(p)
@@ -27,6 +36,42 @@ def printp(text: str) -> None:
 
     print()
     print("\n".join(wrap(text, break_long_words=False, break_on_hyphens=False)))
+
+
+def _output_json(fn: str, winfo: WheelAbIInfo) -> None:
+    from auditwheel import json
+
+    policies = winfo.policies
+    libs = winfo.external_refs[policies.lowest.name].libs
+
+    policy_upgrades: dict[str, dict[str, Any]] = {}
+    for p in policies:
+        if p > winfo.overall_policy:
+            entry: dict[str, Any] = {}
+            p_libs = winfo.external_refs[p.name].libs
+            if len(p_libs):
+                entry["libs_to_eliminate"] = sorted(p_libs.keys())
+            blacklist = winfo.external_refs[p.name].blacklist
+            if len(blacklist):
+                entry["blacklisted_symbols"] = {k: sorted(v) for k, v in sorted(blacklist.items())}
+            if entry:
+                policy_upgrades[p.name] = entry
+
+    result: dict[str, Any] = {
+        "version": 1,
+        "wheel": fn,
+        "pure": False,
+        "overall_tag": winfo.overall_policy.name,
+        "sym_tag": winfo.sym_policy.name,
+        "pyfpe": winfo.pyfpe_policy == policies.linux,
+        "ucs2": winfo.ucs_policy == policies.linux,
+        "unsupported_isa": winfo.machine_policy == policies.linux,
+        "versioned_symbols": {k: sorted(v) for k, v in sorted(winfo.versioned_symbols.items())},
+        "external_libs": {str(k): str(v) if v else None for k, v in sorted(libs.items())},
+        "policy_upgrades": policy_upgrades,
+    }
+
+    print(json.dumps(result))
 
 
 def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
@@ -69,8 +114,16 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     except NonPlatformWheelError as e:
         logger.info("%s", e.message)
         if is_pure_python and args.ALLOW_PURE_PY_WHEEL:
+            if args.JSON:
+                print(json.dumps({"version": 1, "wheel": fn, "pure": True}))
             return 0
+        if args.JSON:
+            print(json.dumps({"version": 1, "wheel": fn, "error": e.message}))
         return 1
+
+    if args.JSON:
+        _output_json(fn, winfo)
+        return 0
 
     policies = winfo.policies
 
