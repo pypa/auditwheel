@@ -318,7 +318,7 @@ def load_ld_paths(
 ) -> dict[str, list[str]]:
     """Load linker paths from common locations
 
-    This parses the ld.so.conf and LD_LIBRARY_PATH env var.
+    This parses the ld.so.conf and AUDITWHEEL_LD_LIBRARY_PATH / LD_LIBRARY_PATH env vars.
 
     Parameters
     ----------
@@ -334,15 +334,22 @@ def load_ld_paths(
     """
     ldpaths: dict[str, list[str]] = {"conf": [], "env": [], "interp": []}
 
-    # Load up $LD_LIBRARY_PATH.
-    env_ldpath = os.environ.get("LD_LIBRARY_PATH")
-    if env_ldpath is not None:
-        if root != "/":
-            log.warning("ignoring LD_LIBRARY_PATH due to ROOT usage")
-        else:
-            # TODO: If this contains $ORIGIN, we probably have to parse this
-            # on a per-ELF basis so it can get turned into the right thing.
-            ldpaths["env"] = parse_ld_paths(env_ldpath, path="")
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH")
+    if root != "/" and ld_library_path is not None:
+        log.warning("ignoring LD_LIBRARY_PATH due to ROOT usage")
+        ld_library_path = None
+
+    # Load up $AUDITWHEEL_LD_LIBRARY_PATH and $LD_LIBRARY_PATH
+    env_ldpath = ":".join(
+        filter(None, (os.environ.get("AUDITWHEEL_LD_LIBRARY_PATH"), ld_library_path)),
+    )
+
+    if env_ldpath:
+        # TODO: If this contains $ORIGIN, we probably have to parse this
+        # on a per-ELF basis so it can get turned into the right thing.
+        # don't pass root: in case root != "/", only AUDITWHEEL_LD_LIBRARY_PATH is checked
+        # it shall already contain fully resolved paths
+        ldpaths["env"] = parse_ld_paths(env_ldpath, path="")
 
     if libc == Libc.MUSL:
         # from https://git.musl-libc.org/cgit/musl/tree/ldso
