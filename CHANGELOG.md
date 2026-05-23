@@ -2,6 +2,16 @@
 
 ## HEAD
 
+## 6.7.0
+
+Released May 24, 2026
+
+### User-facing changes
+- [BUGFIX] prevent duplicate Root-Is-Purelib in WHEEL metadata ([#686](https://github.com/pypa/auditwheel/pull/686), [#642](https://github.com/pypa/auditwheel/issues/642))
+- [BUGFIX] non python ELF tree dependencies resolution ([#692](https://github.com/pypa/auditwheel/pull/692), [#531](https://github.com/pypa/auditwheel/issues/531))
+- [BUGFIX] always set RPATH or clear RUNPATH/RPATH for grafted libraries ([#693](https://github.com/pypa/auditwheel/pull/693), [#671](https://github.com/pypa/auditwheel/issues/671), [#617](https://github.com/pypa/auditwheel/issues/617), [#459](https://github.com/pypa/auditwheel/issues/459), [#451](https://github.com/pypa/auditwheel/issues/451), [#344](https://github.com/pypa/auditwheel/issues/344))
+- [FEATURE] Add Android support ([#643](https://github.com/pypa/auditwheel/pull/643))
+
 ## 6.6.0
 
 Released January 4, 2026
