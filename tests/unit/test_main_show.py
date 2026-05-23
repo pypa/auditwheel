@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -98,7 +98,7 @@ def _make_winfo(
 
 
 @pytest.fixture
-def patch_wheel_abi(monkeypatch):
+def patch_wheel_abi(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
     """Patch wheeltools helpers so execute() never touches real wheels.
 
     Returns a callable that sets the analyze_wheel_abi return value (or
@@ -115,7 +115,7 @@ def patch_wheel_abi(monkeypatch):
 
     state: dict[str, Any] = {}
 
-    def _set(*, return_value=None, side_effect=None):
+    def _set(*, return_value: Any = None, side_effect: Any = None) -> None:
         state["return_value"] = return_value
         state["side_effect"] = side_effect
 
@@ -144,7 +144,11 @@ def _make_args(
     )
 
 
-def test_basic_json_output(tmp_path, capsys, patch_wheel_abi):
+def test_basic_json_output(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    patch_wheel_abi: Callable[..., None],
+) -> None:
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
     wheel.write_text("")
     patch_wheel_abi(return_value=_make_winfo())
@@ -167,7 +171,11 @@ def test_basic_json_output(tmp_path, capsys, patch_wheel_abi):
     assert output["policy_upgrades"] == {}
 
 
-def test_json_with_versioned_symbols(tmp_path, capsys, patch_wheel_abi):
+def test_json_with_versioned_symbols(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    patch_wheel_abi: Callable[..., None],
+) -> None:
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
     wheel.write_text("")
     patch_wheel_abi(
@@ -186,7 +194,11 @@ def test_json_with_versioned_symbols(tmp_path, capsys, patch_wheel_abi):
     }
 
 
-def test_json_with_external_libs(tmp_path, capsys, patch_wheel_abi):
+def test_json_with_external_libs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    patch_wheel_abi: Callable[..., None],
+) -> None:
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
     wheel.write_text("")
     patch_wheel_abi(
@@ -209,7 +221,11 @@ def test_json_with_external_libs(tmp_path, capsys, patch_wheel_abi):
     }
 
 
-def test_json_with_policy_upgrades(tmp_path, capsys, patch_wheel_abi):
+def test_json_with_policy_upgrades(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    patch_wheel_abi: Callable[..., None],
+) -> None:
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
     wheel.write_text("")
     patch_wheel_abi(
@@ -239,7 +255,13 @@ def test_json_with_policy_upgrades(tmp_path, capsys, patch_wheel_abi):
     ],
     ids=["pyfpe", "ucs2", "unsupported_isa"],
 )
-def test_json_boolean_flags(tmp_path, capsys, patch_wheel_abi, flag_kwarg, output_key):
+def test_json_boolean_flags(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    patch_wheel_abi: Callable[..., None],
+    flag_kwarg: str,
+    output_key: str,
+) -> None:
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
     wheel.write_text("")
     patch_wheel_abi(
@@ -258,7 +280,11 @@ def test_json_boolean_flags(tmp_path, capsys, patch_wheel_abi, flag_kwarg, outpu
     assert output[output_key] is True
 
 
-def test_no_json_flag_uses_text_output(tmp_path, capsys, patch_wheel_abi):
+def test_no_json_flag_uses_text_output(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    patch_wheel_abi: Callable[..., None],
+) -> None:
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
     wheel.write_text("")
     patch_wheel_abi(return_value=_make_winfo())
@@ -273,7 +299,11 @@ def test_no_json_flag_uses_text_output(tmp_path, capsys, patch_wheel_abi):
     assert "platform tag" in out
 
 
-def test_json_with_sym_policy_constraint(tmp_path, capsys, patch_wheel_abi):
+def test_json_with_sym_policy_constraint(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    patch_wheel_abi: Callable[..., None],
+) -> None:
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
     wheel.write_text("")
     winfo = _make_winfo()
@@ -289,7 +319,7 @@ def test_json_with_sym_policy_constraint(tmp_path, capsys, patch_wheel_abi):
     assert output["overall_tag"] == "manylinux_2_17_x86_64"
 
 
-def _setup_pure_wheel(tmp_path, monkeypatch):
+def _setup_pure_wheel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Set up a pure Python wheel that raises NonPlatformWheelError."""
     wheel = tmp_path / "foo-1.0-py3-none-any.whl"
     wheel.write_text("")
@@ -314,7 +344,11 @@ def _setup_pure_wheel(tmp_path, monkeypatch):
     return wheel
 
 
-def test_json_on_non_platform_wheel_error(tmp_path, capsys, monkeypatch):
+def test_json_on_non_platform_wheel_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     wheel = _setup_pure_wheel(tmp_path, monkeypatch)
 
     retval = execute(_make_args(wheel), argparse.ArgumentParser())
@@ -328,7 +362,11 @@ def test_json_on_non_platform_wheel_error(tmp_path, capsys, monkeypatch):
     assert "platform wheel" in output["error"]
 
 
-def test_json_on_pure_wheel_allowed(tmp_path, capsys, monkeypatch):
+def test_json_on_pure_wheel_allowed(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     wheel = _setup_pure_wheel(tmp_path, monkeypatch)
 
     retval = execute(
@@ -345,7 +383,7 @@ def test_json_on_pure_wheel_allowed(tmp_path, capsys, monkeypatch):
     assert "error" not in output
 
 
-def test_nonexistent_wheel_with_json(tmp_path, capsys):
+def test_nonexistent_wheel_with_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     wheel = tmp_path / "nonexistent.whl"
 
     retval = execute(_make_args(wheel), argparse.ArgumentParser())
