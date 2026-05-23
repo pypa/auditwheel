@@ -345,8 +345,15 @@ def test_json_on_pure_wheel_allowed(tmp_path, capsys, monkeypatch):
     assert "error" not in output
 
 
-def test_nonexistent_wheel_with_json(tmp_path):
+def test_nonexistent_wheel_with_json(tmp_path, capsys):
     wheel = tmp_path / "nonexistent.whl"
 
-    with pytest.raises(SystemExit):
-        execute(_make_args(wheel), argparse.ArgumentParser())
+    retval = execute(_make_args(wheel), argparse.ArgumentParser())
+
+    assert retval == 1
+    output = json.loads(capsys.readouterr().out)
+    _validate_json(output)
+    assert output["version"] == 1
+    assert output["wheel"] == wheel.name
+    assert "error" in output
+    assert "No such file" in output["error"]

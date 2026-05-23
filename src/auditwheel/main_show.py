@@ -84,9 +84,12 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     fn = wheel_file.name
 
     if not wheel_file.is_file():
-        parser.error(f"cannot access {wheel_file}. No such file")
+        msg = f"cannot access {wheel_file}. No such file"
+        if args.JSON:
+            print(json.dumps({"version": 1, "wheel": fn, "error": msg}))
+            return 1
+        parser.error(msg)
 
-    fn = wheel_file.name
     is_pure_python = False
     try:
         arch = get_wheel_architecture(fn)
