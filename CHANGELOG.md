@@ -4,7 +4,7 @@
 
 ## 6.7.0
 
-Released May 24, 2026
+Released May 26, 2026
 
 ### User-facing changes
 - [BUGFIX] prevent duplicate Root-Is-Purelib in WHEEL metadata ([#686](https://github.com/pypa/auditwheel/pull/686), [#642](https://github.com/pypa/auditwheel/issues/642))
