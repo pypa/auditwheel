@@ -8,23 +8,20 @@ auditwheel
 .. image:: https://pepy.tech/badge/auditwheel/month
     :target: https://pepy.tech/project/auditwheel/month
 
-Auditing and relabeling of `PEP 600 manylinux_x_y
-<https://www.python.org/dev/peps/pep-0600/>`_, `PEP 513 manylinux1
-<https://www.python.org/dev/peps/pep-0513/>`_, `PEP 571 manylinux2010
-<https://www.python.org/dev/peps/pep-0571/>`_ and `PEP 599 manylinux2014
-<https://www.python.org/dev/peps/pep-0599/>`_ Linux wheels.
+Auditing and relabeling of Linux and Android wheels.
 
 Overview
 --------
 
 ``auditwheel`` is a command line tool to facilitate the creation of Python
-`wheel packages <http://pythonwheels.com/>`_ for Linux (containing pre-compiled
-binary extensions) that are compatible with a wide variety of Linux distributions,
+`wheel packages <http://pythonwheels.com/>`_ (containing pre-compiled
+binary extensions) that are compatible with a wide variety of distributions,
 consistent with the `PEP 600 manylinux_x_y
 <https://www.python.org/dev/peps/pep-0600/>`_, `PEP 513 manylinux1
 <https://www.python.org/dev/peps/pep-0513/>`_, `PEP 571 manylinux2010
-<https://www.python.org/dev/peps/pep-0571/>`_ and `PEP 599 manylinux2014
-<https://www.python.org/dev/peps/pep-0599/>`_ platform tags.
+<https://www.python.org/dev/peps/pep-0571/>`_, `PEP 599 manylinux2014
+<https://www.python.org/dev/peps/pep-0599/>`_ and `PEP 738 android
+<https://www.python.org/dev/peps/pep-0738/>`_ platform tags.
 
 ``auditwheel show``: shows external shared libraries that the wheel depends on
 (beyond the libraries included in the ``manylinux`` policies), and
@@ -39,7 +36,7 @@ advised that bundling, like static linking, may implicate copyright concerns.
 
 Requirements
 ------------
-- OS: Linux
+- OS: Linux (for Android wheels, macOS may also be used)
 - Python: 3.10+
 - `patchelf <https://github.com/NixOS/patchelf>`_: 0.14+
 

@@ -82,3 +82,21 @@ def test_bad_glibc_version(monkeypatch, confstr):
     monkeypatch.setattr(os, "confstr", lambda _: confstr)
     with pytest.raises(InvalidLibcError):
         Libc.GLIBC.get_current_version()
+
+
+# Android is cross-compiled, so autodetection is not possible.
+def test_android_version():
+    with pytest.raises(InvalidLibcError, match=r"can't determine version of libc 'android'"):
+        Libc.ANDROID.get_current_version()
+
+
+@pytest.mark.parametrize(
+    ("libc", "expected"),
+    [
+        (Libc.GLIBC, "manylinux"),
+        (Libc.MUSL, "musllinux"),
+        (Libc.ANDROID, "android"),
+    ],
+)
+def test_tag_prefix(libc, expected):
+    assert libc.tag_prefix == expected
