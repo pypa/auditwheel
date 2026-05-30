@@ -24,8 +24,10 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 from elftools.elf.constants import E_FLAGS
+from elftools.elf.dynamic import DynamicSegment
 from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import NoteSection
+from elftools.elf.segments import InterpSegment
 
 from auditwheel.architecture import Architecture
 from auditwheel.error import InvalidLibcError
@@ -494,7 +496,7 @@ def ldd(
         # If this is the first ELF, extract the interpreter.
         if _first:
             for segment in elf.iter_segments():
-                if segment.header.p_type != "PT_INTERP":
+                if not isinstance(segment, InterpSegment):
                     continue
                 interp = segment.get_interp_name()
                 log.debug("  interp           = %s", interp)
@@ -522,15 +524,15 @@ def ldd(
 
         # Parse the ELF's dynamic tags.
         for segment in elf.iter_segments():
-            if segment.header.p_type != "PT_DYNAMIC":
+            if not isinstance(segment, DynamicSegment):
                 continue
             for t in segment.iter_tags():
                 if t.entry.d_tag == "DT_RPATH":
-                    rpaths = parse_ld_paths(t.rpath, path=str(path), root=root)
+                    rpaths = parse_ld_paths(t.rpath, path=str(path), root=root)  # type: ignore[attr-defined]
                 elif t.entry.d_tag == "DT_RUNPATH":
-                    runpaths = parse_ld_paths(t.runpath, path=str(path), root=root)
+                    runpaths = parse_ld_paths(t.runpath, path=str(path), root=root)  # type: ignore[attr-defined]
                 elif t.entry.d_tag == "DT_NEEDED":
-                    needed.append(t.needed)
+                    needed.append(t.needed)  # type: ignore[attr-defined]
             if runpaths:
                 # If both RPATH and RUNPATH are set, only the latter is used.
                 rpaths = []

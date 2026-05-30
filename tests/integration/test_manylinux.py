@@ -15,16 +15,17 @@ from typing import TYPE_CHECKING, Any
 
 import docker
 import pytest
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
-
-    from docker.models.containers import Container
+from elftools.elf.dynamic import DynamicSection
 from elftools.elf.elffile import ELFFile
 
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
 from auditwheel.policy import WheelPolicies
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from docker.models.containers import Container
 
 logger = logging.getLogger(__name__)
 
@@ -750,6 +751,7 @@ class Anylinux:
             with HERE.joinpath("testrpath", lib, f"lib{lib}.so").open("rb") as f:
                 elf = ELFFile(f)
                 dynamic = elf.get_section_by_name(".dynamic")
+                assert isinstance(dynamic, DynamicSection)
                 tags = {t.entry.d_tag for t in dynamic.iter_tags()}
                 if dtag != "none":
                     assert f"DT_{dtag.upper()}" in tags
@@ -777,6 +779,7 @@ class Anylinux:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
                     dynamic = elf.get_section_by_name(".dynamic")
+                    assert isinstance(dynamic, DynamicSection)
                     # DT_RUNPATH shall be removed
                     runpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"]
                     assert len(runpath_tags) == 0
@@ -785,7 +788,7 @@ class Anylinux:
                         # liba has a dependency on libb
                         # DT_RPATH shall be overridden or written with "$ORIGIN"
                         assert len(rpath_tags) == 1
-                        assert rpath_tags[0].rpath == "$ORIGIN"
+                        assert rpath_tags[0].rpath == "$ORIGIN"  # type: ignore[attr-defined]
                     if ".libs/libb" in name:
                         # libb has no dependency
                         # DT_RPATH shall be removed
@@ -817,6 +820,7 @@ class Anylinux:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
                     dynamic = elf.get_section_by_name(".dynamic")
+                    assert isinstance(dynamic, DynamicSection)
                     runpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"]
                     assert len(runpath_tags) == 0
                     rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RPATH"]

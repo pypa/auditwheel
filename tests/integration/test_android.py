@@ -4,6 +4,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
+from elftools.elf.dynamic import DynamicSection
 from elftools.elf.elffile import ELFFile
 
 from auditwheel.architecture import Architecture
@@ -26,6 +27,7 @@ def elf_read_tag(fn: Path, tag: str) -> str | None:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynamic")
         if section:
+            assert isinstance(section, DynamicSection)
             for t in section.iter_tags():
                 if t.entry.d_tag == f"DT_{tag.upper()}":
                     return str(getattr(t, tag))
