@@ -33,7 +33,7 @@ def elf_read_dt_needed(fn: Path) -> list[str]:
         elf = ELFFile(f)
         section = _get_section_by_type(elf, DynamicSection)
         if section is None:
-            msg = f"Could not find soname in {fn}"
+            msg = f"Could not find .dynamic section in {fn}"
             raise ValueError(msg)
         needed.extend(t.needed for t in section.iter_tags() if t.entry.d_tag == "DT_NEEDED")  # type: ignore[attr-defined]
     return needed
