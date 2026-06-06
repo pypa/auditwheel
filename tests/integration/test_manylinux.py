@@ -1056,24 +1056,23 @@ class TestManylinux(Anylinux):
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
-        if policy in {"manylinux_2_28", "manylinux_2_34", "manylinux_2_39"}:
-            lief_patchelf_file = {
-                "aarch64": "lief-tools-aarch64-unknown-linux-musl.zip",
-                "i686": "lief-tools-i686-unknown-linux-musl.zip",
-                "x86_64": "lief-tools-x86_64-unknown-linux-musl.zip",
-            }.get(PLATFORM)
-            if lief_patchelf_file:
-                lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
-                lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
-                commands.extend(
-                    (
-                        "pipx uninstall patchelf",
-                        f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
-                        "bash -c 'cd /tmp && unzip /tmp/lief-tools.zip'",
-                        "mv -f /tmp/bin/lief-patchelf /usr/local/bin/",
-                        "chmod +x /usr/local/bin/lief-patchelf",
-                    ),
-                )
+        lief_patchelf_file = {
+            "aarch64": "lief-tools-aarch64-unknown-linux-musl.zip",
+            "i686": "lief-tools-i686-unknown-linux-musl.zip",
+            "x86_64": "lief-tools-x86_64-unknown-linux-musl.zip",
+        }.get(PLATFORM)
+        if lief_patchelf_file:
+            lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
+            lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
+            commands.extend(
+                (
+                    "pipx uninstall patchelf",
+                    f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
+                    "bash -c 'cd /tmp && unzip /tmp/lief-tools.zip'",
+                    "mv -f /tmp/bin/lief-patchelf /usr/local/bin/",
+                    "chmod +x /usr/local/bin/lief-patchelf",
+                ),
+            )
 
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
