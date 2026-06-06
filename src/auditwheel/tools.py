@@ -6,7 +6,7 @@ import os
 import subprocess
 import time
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -150,7 +150,7 @@ def dir2zip(
     in_dir = in_dir.resolve(strict=True)
     if date_time is None:
         st = in_dir.stat()
-        date_time = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+        date_time = datetime.fromtimestamp(st.st_mtime, tz=UTC)
     date_time_args = date_time.timetuple()[:6]
     if date_time_args < (1980, 1, 1, 0, 0, 0):
         logger.warning("dir2zip, clipping timestamp to 1980-01-01")
