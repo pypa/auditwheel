@@ -120,8 +120,8 @@ def repair_wheel(
                 if n in soname_map:
                     replacements.append((n, soname_map[n][0]))
             if replacements:
-                patcher.set_rpath(path, "$ORIGIN")
                 patcher.replace_needed(path, *replacements)
+                patcher.set_rpath(path, "$ORIGIN")
             else:
                 patcher.clear_rpath(path)
 

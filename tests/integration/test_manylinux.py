@@ -35,11 +35,11 @@ if "GITHUB_ACTIONS" in os.environ and sys.platform == "darwin":
 PLATFORM = os.environ.get("AUDITWHEEL_ARCH", Architecture.detect().value)
 MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
-MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
-MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:latest"
-MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:latest"
-MANYLINUX_2_35_IMAGE_ID = f"quay.io/pypa/manylinux_2_35_{PLATFORM}:latest"
-MANYLINUX_2_39_IMAGE_ID = f"quay.io/pypa/manylinux_2_39_{PLATFORM}:latest"
+MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:2026.01.03-1"
+MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:2026.01.03-1"
+MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:2026.01.03-1"
+MANYLINUX_2_35_IMAGE_ID = f"quay.io/pypa/manylinux_2_35_{PLATFORM}:2026.01.03-1"
+MANYLINUX_2_39_IMAGE_ID = f"quay.io/pypa/manylinux_2_39_{PLATFORM}:2026.01.03-1"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
         "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
@@ -80,17 +80,17 @@ PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
 PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + ("-rc" if PYTHON_ABI_MAJ_MIN == "314" else "")
 MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-trixie"
 MUSLLINUX_IMAGES = {
-    "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:latest",
+    "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:2026.01.03-1",
 }
 MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
     "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
-    "manylinux_2_28": "gcc-toolset-14",
+    "manylinux_2_28": "gcc-toolset-15",
     "manylinux_2_31": "devtoolset-not-present",
-    "manylinux_2_34": "gcc-toolset-14",
+    "manylinux_2_34": "gcc-toolset-15",
     "manylinux_2_35": "devtoolset-not-present",
-    "manylinux_2_39": "devtoolset-not-present",
+    "manylinux_2_39": "gcc-toolset-15",
     "musllinux_1_2": "devtoolset-not-present",
 }
 PATH_DIRS = [
@@ -782,7 +782,7 @@ class Anylinux:
                     assert isinstance(dynamic, DynamicSection)
                     # DT_RUNPATH shall be removed
                     runpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"]
-                    assert len(runpath_tags) == 0
+                    assert len(runpath_tags) == 0, f"{name}: {runpath_tags}"
                     rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RPATH"]
                     if ".libs/liba" in name:
                         # liba has a dependency on libb
@@ -1056,6 +1056,24 @@ class TestManylinux(Anylinux):
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
+        lief_patchelf_file = {
+            "aarch64": "lief-tools-aarch64-unknown-linux-musl.zip",
+            "i686": "lief-tools-i686-unknown-linux-musl.zip",
+            "x86_64": "lief-tools-x86_64-unknown-linux-musl.zip",
+        }.get(PLATFORM)
+        if lief_patchelf_file:
+            lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
+            lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
+            commands.extend(
+                (
+                    "pipx uninstall patchelf",
+                    f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
+                    "bash -c 'cd /tmp && unzip /tmp/lief-tools.zip'",
+                    "mv -f /tmp/bin/lief-patchelf /usr/local/bin/",
+                    "chmod +x /usr/local/bin/lief-patchelf",
+                ),
+            )
+
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
         with tmp_docker_image(base, commands, env) as img_id:
@@ -1303,5 +1321,22 @@ class TestMusllinux(Anylinux):
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
+        lief_patchelf_file = {
+            "aarch64": "lief-tools-aarch64-unknown-linux-musl.zip",
+            "i686": "lief-tools-i686-unknown-linux-musl.zip",
+            "x86_64": "lief-tools-x86_64-unknown-linux-musl.zip",
+        }.get(PLATFORM)
+        if lief_patchelf_file:
+            lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
+            lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
+            commands.extend(
+                (
+                    "pipx uninstall patchelf",
+                    f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
+                    "bash -c 'cd /tmp && unzip /tmp/lief-tools.zip'",
+                    "mv -f /tmp/bin/lief-patchelf /usr/local/bin/",
+                    "chmod +x /usr/local/bin/lief-patchelf",
+                ),
+            )
         with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id
