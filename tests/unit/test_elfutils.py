@@ -38,7 +38,7 @@ class TestElfReadDt:
         elffile_mock.return_value.get_section_by_name.return_value = None
 
         # THEN
-        with pytest.raises(ValueError, match=r"^Could not find soname.*"):
+        with pytest.raises(ValueError, match=r"^Could not find \.dynamic section.*"):
             # WHEN
             elf_read_dt_needed(fake)
 
