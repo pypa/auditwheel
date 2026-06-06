@@ -37,7 +37,7 @@ advised that bundling, like static linking, may implicate copyright concerns.
 Requirements
 ------------
 - OS: Linux (for Android wheels, macOS may also be used)
-- Python: 3.10+
+- Python: 3.11+
 - `patchelf <https://github.com/NixOS/patchelf>`_: 0.14+
 
 Only systems that use `ELF
@@ -130,9 +130,9 @@ test dependencies.
 Some of the integration tests also require a running and accessible Docker
 daemon. These tests will pull a number of docker images if they are not already
 available on your system, but it won't update existing images.
-To update these images manually, run::
+To update these images manually, run:
 
-    docker pull python:3.10-slim-trixie
+    docker pull python:3.11-slim-trixie
     docker pull quay.io/pypa/manylinux2010_x86_64
     docker pull quay.io/pypa/manylinux2014_x86_64
     docker pull quay.io/pypa/manylinux_2_28_x86_64
