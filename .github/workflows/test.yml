@@ -96,7 +96,7 @@ jobs:
           allow-prereleases: true
       - name: Set up QEMU
         if: matrix.qemu
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
         env:
@@ -126,7 +126,7 @@ jobs:
           pattern: coverage-*
           merge-multiple: true
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
         with:
           use_oidc: true
 
