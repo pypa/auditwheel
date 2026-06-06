@@ -782,7 +782,7 @@ class Anylinux:
                     assert isinstance(dynamic, DynamicSection)
                     # DT_RUNPATH shall be removed
                     runpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"]
-                    assert len(runpath_tags) == 0
+                    assert len(runpath_tags) == 0, f"{name}: {runpath_tags}"
                     rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RPATH"]
                     if ".libs/liba" in name:
                         # liba has a dependency on libb
