@@ -33,7 +33,6 @@ if "GITHUB_ACTIONS" in os.environ and sys.platform == "darwin":
     pytest.skip("Docker is not available on GitHub Actions macOS runners", allow_module_level=True)
 
 PLATFORM = os.environ.get("AUDITWHEEL_ARCH", Architecture.detect().value)
-MANYLINUX2010_IMAGE_ID = f"quay.io/pypa/manylinux2010_{PLATFORM}:latest"
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
 MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
 MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:latest"
@@ -42,7 +41,6 @@ MANYLINUX_2_35_IMAGE_ID = f"quay.io/pypa/manylinux_2_35_{PLATFORM}:latest"
 MANYLINUX_2_39_IMAGE_ID = f"quay.io/pypa/manylinux_2_39_{PLATFORM}:latest"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
-        "manylinux_2_12": MANYLINUX2010_IMAGE_ID,
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
         "manylinux_2_28": MANYLINUX_2_28_IMAGE_ID,
         "manylinux_2_34": MANYLINUX_2_34_IMAGE_ID,
@@ -77,14 +75,13 @@ DOCKER_CONTAINER_NAME = "auditwheel-test-anylinux"
 PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
 PYTHON_ABI_MAJ_MIN = "".join(PYTHON_MAJ_MIN)
 PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
-PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + ("-rc" if PYTHON_ABI_MAJ_MIN == "314" else "")
+PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + ("-rc" if PYTHON_ABI_MAJ_MIN == "315" else "")
 MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-trixie"
 MUSLLINUX_IMAGES = {
     "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:latest",
 }
 MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
-    "manylinux_2_12": "devtoolset-8",
     "manylinux_2_17": "devtoolset-10",
     "manylinux_2_28": "gcc-toolset-14",
     "manylinux_2_31": "devtoolset-not-present",
@@ -107,11 +104,11 @@ PATH = {k: ":".join(PATH_DIRS).format(devtoolset=v) for k, v in DEVTOOLSET.items
 WHEEL_CACHE_FOLDER = Path.home().joinpath(".cache", "auditwheel_tests")
 HERE = Path(__file__).parent.resolve(strict=True)
 NUMPY_VERSION_MAP = {
-    "310": "1.21.4",
     "311": "1.23.4",
     "312": "1.26.4",
     "313": "2.0.1",
     "314": "2.3.2",
+    "315": "2.5.0rc1",
 }
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
@@ -437,7 +434,7 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
             # https://github.com/numpy/numpy/issues/27932
             fix_hwcap = "echo '#define HWCAP_S390_VX 2048' >> /usr/include/bits/hwcap.h"
             container.exec(f'sh -c "{fix_hwcap}"')
-    elif container.policy.startswith(("manylinux_2_12_", "manylinux_2_17_")):
+    elif container.policy.startswith("manylinux_2_17_"):
         if tuple(int(part) for part in NUMPY_VERSION.split(".")[:2]) >= (1, 26):
             pytest.skip("numpy>=1.26 requires openblas")
         container.exec("yum install -y atlas atlas-devel")
@@ -550,8 +547,6 @@ class Anylinux:
         python: PythonContainer,
     ) -> None:
         policy = anylinux.policy
-        if policy.startswith("manylinux_2_12_"):
-            pytest.skip(f"whichprovides doesn't support {policy}")
 
         # Build and repair numpy
         orig_wheel = build_numpy(anylinux, anylinux.io_folder)
@@ -965,7 +960,7 @@ class Anylinux:
     @pytest.mark.parametrize("isa_ext", ["x86-64-v2", "x86-64-v3", "x86-64-v4"])
     def test_isa_variants(self, anylinux: AnyLinuxContainer, isa_ext: str) -> None:
         policy = anylinux.policy
-        if policy.startswith(("manylinux_2_12_", "manylinux_2_17_")):
+        if policy.startswith("manylinux_2_17_"):
             pytest.skip("skip old gcc")
 
         test_path = "/auditwheel_src/tests/integration/testdependencies"
@@ -1043,12 +1038,6 @@ class TestManylinux(Anylinux):
         Plus up-to-date pip, setuptools and coverage
         """
         policy = request.param
-        check_set = {
-            "manylinux_2_12": {"38", "39", "310"},
-        }.get(policy)
-        if check_set and PYTHON_ABI_MAJ_MIN not in check_set:
-            pytest.skip(f"{policy} images do not support cp{PYTHON_ABI_MAJ_MIN}")
-
         base = MANYLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
         commands = [
@@ -1187,7 +1176,7 @@ class TestManylinux(Anylinux):
         # Tests https://github.com/pypa/auditwheel/issues/645
         policy = anylinux.policy
 
-        if policy.startswith(("manylinux_2_12_", "manylinux_2_17_")):
+        if policy.startswith("manylinux_2_17_"):
             pytest.skip(f"libmvec not supported on {policy}")
 
         test_path = "/auditwheel_src/tests/integration/test_mvec"
