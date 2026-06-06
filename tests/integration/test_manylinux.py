@@ -78,7 +78,7 @@ DOCKER_CONTAINER_NAME = "auditwheel-test-anylinux"
 PYTHON_MAJ_MIN = [str(i) for i in sys.version_info[:2]]
 PYTHON_ABI_MAJ_MIN = "".join(PYTHON_MAJ_MIN)
 PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
-PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + ("-rc" if PYTHON_ABI_MAJ_MIN == "314" else "")
+PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + ("-rc" if PYTHON_ABI_MAJ_MIN == "315" else "")
 MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-trixie"
 MUSLLINUX_IMAGES = {
     "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:latest",
@@ -113,6 +113,7 @@ NUMPY_VERSION_MAP = {
     "312": "1.26.4",
     "313": "2.0.1",
     "314": "2.3.2",
+    "315": "2.5.0",
 }
 NUMPY_VERSION = NUMPY_VERSION_MAP[PYTHON_ABI_MAJ_MIN]
 ORIGINAL_NUMPY_WHEEL = f"numpy-{NUMPY_VERSION}-{PYTHON_ABI}-linux_{PLATFORM}.whl"
