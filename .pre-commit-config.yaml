@@ -38,7 +38,7 @@ repos:
     additional_dependencies:
       - nox
       - packaging
-      - pyelftools
+      - pyelftools>=0.33
       - pytest
       - types-docker
       - types-requests
