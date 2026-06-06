@@ -1058,9 +1058,9 @@ class TestManylinux(Anylinux):
         ]
         if policy in {"manylinux_2_28", "manylinux_2_34", "manylinux_2_39"}:
             lief_patchelf_file = {
-                "aarch64": "lief-tools-aarch64-unknown-linux-gnu.zip",
-                "i686": "lief-tools-i686-unknown-linux-gnu.zip",
-                "x86_64": "lief-tools-x86_64-unknown-linux-gnu.zip",
+                "aarch64": "lief-tools-aarch64-unknown-linux-musl.zip",
+                "i686": "lief-tools-i686-unknown-linux-musl.zip",
+                "x86_64": "lief-tools-x86_64-unknown-linux-musl.zip",
             }.get(PLATFORM)
             if lief_patchelf_file:
                 lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
