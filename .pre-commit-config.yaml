@@ -34,7 +34,6 @@ repos:
   hooks:
   - id: mypy
     exclude: tests/integration/.*/.*|tests/integration/quick_check_numpy.py|tests/unit/test_wheel_abi.py|scripts/calculate_symbol_versions.py
-    args: ["--python-version=3.10"]
     additional_dependencies:
       - nox
       - packaging
