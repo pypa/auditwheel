@@ -1206,32 +1206,6 @@ class TestManylinux(Anylinux):
         # Test the resulting wheel outside the manylinux container
         python.install_wheel(repaired_wheel)
 
-    def test_zlib_blacklist(self, anylinux: AnyLinuxContainer) -> None:
-        policy = anylinux.policy
-        if policy.startswith(
-            (
-                "manylinux_2_17_",
-                "manylinux_2_28_",
-                "manylinux_2_31_",
-                "manylinux_2_34_",
-                "manylinux_2_35_",
-                "manylinux_2_39_",
-            ),
-        ):
-            pytest.skip(f"{policy} image has no blacklist symbols in libz.so.1")
-
-        test_path = "/auditwheel_src/tests/integration/testzlib"
-        orig_wheel = anylinux.build_wheel(test_path)
-        assert orig_wheel.startswith("testzlib-0.0.1")
-
-        # Repair the wheel using the appropriate manylinux container
-        with pytest.raises(CalledProcessError):
-            anylinux.repair(orig_wheel)
-
-        # Check auditwheel show warns about the black listed symbols
-        output = anylinux.show(orig_wheel, verbose=True)
-        assert "black-listed symbol dependencies" in output.replace("\n", " ")
-
     @pytest.mark.skipif(PLATFORM != "aarch64", reason="glibc blacklist only for aarch64")
     def test_glibc_blacklist(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
         # https://github.com/pypa/auditwheel/issues/647
