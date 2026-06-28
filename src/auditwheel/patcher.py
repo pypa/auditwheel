@@ -124,7 +124,10 @@ class Patchelf(ElfPatcher):
         return output.removesuffix(" (legacy)")
 
     def apply_updates(self) -> None:
-        for filepath, update_info in self._updates.items():
+        elf_files = list(self._updates.keys())
+        for filepath in elf_files:
+            # prevent re-applying by removing from self._updates
+            update_info = self._updates.pop(filepath)
             args = []
             if update_info.soname is not None:
                 args.extend(["--set-soname", update_info.soname])
@@ -150,3 +153,4 @@ class Patchelf(ElfPatcher):
                 args.extend(set_args)
             if args:
                 check_call([self._patchelf_path, *args, filepath])
+        assert len(self._updates) == 0  # noqa: S101
