@@ -69,7 +69,7 @@ def test_patchelf_version_check_fail(check_output, which, version):
 @patch("auditwheel.patcher.check_output")
 @patch("auditwheel.patcher.check_call")
 class TestPatchElf:
-    """ "Validate that patchelf is invoked with the correct arguments."""
+    """Validate that patchelf is invoked with the correct arguments."""
 
     def test_replace_needed_one(self, check_call, _0, _1, tmp_path):  # noqa: PT019
         patcher = Patchelf()
