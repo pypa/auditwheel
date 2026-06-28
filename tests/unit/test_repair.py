@@ -6,7 +6,7 @@ from auditwheel.patcher import ElfPatcher
 from auditwheel.repair import append_rpath_within_wheel
 
 
-class MockedELfPatcher(ElfPatcher):
+class MockedElfPatcher(ElfPatcher):
     def __init__(self, existing_rpath: str) -> None:
         super().__init__("")
         self._existing_rpath = existing_rpath
@@ -20,7 +20,7 @@ class MockedELfPatcher(ElfPatcher):
 def test_append_rpath(tmp_path: Path) -> None:
     # When a library has an existing RPATH entry within wheel_dir
     existing_rpath = "$ORIGIN/.existinglibdir"
-    patcher = MockedELfPatcher(existing_rpath)
+    patcher = MockedElfPatcher(existing_rpath)
     wheel_dir = tmp_path
     lib_name = tmp_path / "test.so"
     lib_name.touch()
@@ -35,7 +35,7 @@ def test_append_rpath(tmp_path: Path) -> None:
 def test_append_rpath_reject_outside_wheel(tmp_path: Path) -> None:
     # When a library has an existing RPATH entry outside wheel_dir
     existing_rpath = "/outside/wheel/dir"
-    patcher = MockedELfPatcher(existing_rpath)
+    patcher = MockedElfPatcher(existing_rpath)
     wheel_dir = Path("/not/outside")
     lib_name = tmp_path / "test.so"
     lib_name.touch()
@@ -50,7 +50,7 @@ def test_append_rpath_reject_outside_wheel(tmp_path: Path) -> None:
 def test_append_rpath_ignore_duplicates(tmp_path: Path) -> None:
     # When a library has an existing RPATH entry and we try and append it again
     existing_rpath = "$ORIGIN"
-    patcher = MockedELfPatcher(existing_rpath)
+    patcher = MockedElfPatcher(existing_rpath)
     wheel_dir = tmp_path
     lib_name = tmp_path / "test.so"
     lib_name.touch()
@@ -66,7 +66,7 @@ def test_append_rpath_ignore_relative(tmp_path: Path) -> None:
     # When a library has an existing RPATH entry but it cannot be resolved
     # to an absolute path, it is eliminated
     existing_rpath = "not/absolute"
-    patcher = MockedELfPatcher(existing_rpath)
+    patcher = MockedElfPatcher(existing_rpath)
     wheel_dir = tmp_path
     lib_name = tmp_path / "test.so"
     lib_name.touch()
