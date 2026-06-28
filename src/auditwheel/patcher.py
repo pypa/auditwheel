@@ -110,6 +110,7 @@ def _verify_patchelf() -> Path:
     if m and tuple(int(x) for x in m.group(1).split(".")) >= (0, 14):
         return Path(patchelf_path)
     msg = f"{version.strip()} found. auditwheel repair requires patchelf >= 0.14."
+    raise ValueError(msg)
 
 
 class Patchelf(ElfPatcher):
