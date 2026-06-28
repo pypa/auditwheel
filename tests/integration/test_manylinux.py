@@ -1056,6 +1056,8 @@ class TestManylinux(Anylinux):
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
+        if policy == "manylinux_2_17" and PLATFORM == "s390x":
+            commands.append("yum-config-manager --disable sclo")
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
         with tmp_docker_image(base, commands, env) as img_id:
