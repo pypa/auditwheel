@@ -67,11 +67,11 @@ class ElfPatcher:
 
     def get_rpath(self, file_name: Path) -> str:
         key = str(file_name.resolve(strict=True))
-        update_info = self._updates[key]
-        if update_info.rpath is not None:
-            return update_info.rpath
-        if update_info.clear_rpath:
-            return ""
+        if update_info := self._updates.get(key, None):
+            if update_info.rpath is not None:
+                return update_info.rpath
+            if update_info.clear_rpath:
+                return ""
         return self.get_rpath_direct(file_name)
 
     def clear_rpath(self, file_name: Path) -> None:
