@@ -1,117 +1,78 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import call, patch
 
-from auditwheel.patcher import Patchelf
+from auditwheel.patcher import ElfPatcher
 from auditwheel.repair import append_rpath_within_wheel
 
 
-@patch("auditwheel.patcher._verify_patchelf")
-@patch("auditwheel.patcher.check_output")
-@patch("auditwheel.patcher.check_call")
-class TestRepair:
-    def test_append_rpath(self, check_call, check_output, _):  # noqa: PT019
-        patcher = Patchelf()
-        # When a library has an existing RPATH entry within wheel_dir
-        existing_rpath = b"$ORIGIN/.existinglibdir"
-        check_output.return_value = existing_rpath
-        wheel_dir = Path.cwd()
-        lib_name = Path("test.so")
-        full_lib_name = lib_name.absolute()
-        append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
-        check_output_expected_args = [
-            call(["patchelf", "--print-rpath", full_lib_name]),
-        ]
-        # Then that entry is preserved when updating the RPATH
-        check_call_expected_args = [
-            call(["patchelf", "--remove-rpath", full_lib_name]),
-            call(
-                [
-                    "patchelf",
-                    "--force-rpath",
-                    "--set-rpath",
-                    f"{existing_rpath.decode()}:$ORIGIN/.lib",
-                    full_lib_name,
-                ],
-            ),
-        ]
+class MockedELfPatcher(ElfPatcher):
+    def __init__(self, existing_rpath: str) -> None:
+        super().__init__("")
+        self._existing_rpath = existing_rpath
+        self.get_rpath_direct_called: list[Path] = []
 
-        assert check_output.call_args_list == check_output_expected_args
-        assert check_call.call_args_list == check_call_expected_args
+    def get_rpath_direct(self, file_name: Path) -> str:
+        self.get_rpath_direct_called.append(file_name)
+        return self._existing_rpath
 
-    def test_append_rpath_reject_outside_wheel(self, check_call, check_output, _):  # noqa: PT019
-        patcher = Patchelf()
-        # When a library has an existing RPATH entry outside wheel_dir
-        existing_rpath = b"/outside/wheel/dir"
-        check_output.return_value = existing_rpath
-        wheel_dir = Path("/not/outside")
-        lib_name = Path("test.so")
-        full_lib_name = lib_name.absolute()
-        append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
-        check_output_expected_args = [
-            call(["patchelf", "--print-rpath", full_lib_name]),
-        ]
-        # Then that entry is eliminated when updating the RPATH
-        check_call_expected_args = [
-            call(["patchelf", "--remove-rpath", full_lib_name]),
-            call(
-                [
-                    "patchelf",
-                    "--force-rpath",
-                    "--set-rpath",
-                    "$ORIGIN/.lib",
-                    full_lib_name,
-                ],
-            ),
-        ]
 
-        assert check_output.call_args_list == check_output_expected_args
-        assert check_call.call_args_list == check_call_expected_args
+def test_append_rpath(tmp_path: Path) -> None:
+    # When a library has an existing RPATH entry within wheel_dir
+    existing_rpath = "$ORIGIN/.existinglibdir"
+    patcher = MockedELfPatcher(existing_rpath)
+    wheel_dir = tmp_path
+    lib_name = tmp_path / "test.so"
+    lib_name.touch()
+    full_lib_name = lib_name.absolute()
+    lib_name_str = str(lib_name.resolve(strict=True))
+    append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
+    # Then that entry is preserved when updating the RPATH
+    assert patcher.get_rpath_direct_called == [full_lib_name]
+    assert patcher._updates[lib_name_str].rpath == f"{existing_rpath}:$ORIGIN/.lib"
 
-    def test_append_rpath_ignore_duplicates(self, check_call, check_output, _):  # noqa: PT019
-        patcher = Patchelf()
-        # When a library has an existing RPATH entry and we try and append it again
-        existing_rpath = b"$ORIGIN"
-        check_output.return_value = existing_rpath
-        wheel_dir = Path.cwd()
-        lib_name = Path("test.so")
-        full_lib_name = lib_name.absolute()
-        append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
-        check_output_expected_args = [
-            call(["patchelf", "--print-rpath", full_lib_name]),
-        ]
-        # Then that entry is ignored when updating the RPATH
-        check_call_expected_args = [
-            call(["patchelf", "--remove-rpath", full_lib_name]),
-            call(
-                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN", full_lib_name],
-            ),
-        ]
 
-        assert check_output.call_args_list == check_output_expected_args
-        assert check_call.call_args_list == check_call_expected_args
+def test_append_rpath_reject_outside_wheel(tmp_path: Path) -> None:
+    # When a library has an existing RPATH entry outside wheel_dir
+    existing_rpath = "/outside/wheel/dir"
+    patcher = MockedELfPatcher(existing_rpath)
+    wheel_dir = Path("/not/outside")
+    lib_name = tmp_path / "test.so"
+    lib_name.touch()
+    full_lib_name = lib_name.absolute()
+    lib_name_str = str(lib_name.resolve(strict=True))
+    append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
+    # Then that entry is eliminated when updating the RPATH
+    assert patcher.get_rpath_direct_called == [full_lib_name]
+    assert patcher._updates[lib_name_str].rpath == "$ORIGIN/.lib"
 
-    def test_append_rpath_ignore_relative(self, check_call, check_output, _):  # noqa: PT019
-        patcher = Patchelf()
-        # When a library has an existing RPATH entry but it cannot be resolved
-        # to an absolute path, it is eliminated
-        existing_rpath = b"not/absolute"
-        check_output.return_value = existing_rpath
-        wheel_dir = Path.cwd()
-        lib_name = Path("test.so")
-        full_lib_name = lib_name.absolute()
-        append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
-        check_output_expected_args = [
-            call(["patchelf", "--print-rpath", full_lib_name]),
-        ]
-        # Then that entry is ignored when updating the RPATH
-        check_call_expected_args = [
-            call(["patchelf", "--remove-rpath", full_lib_name]),
-            call(
-                ["patchelf", "--force-rpath", "--set-rpath", "$ORIGIN", full_lib_name],
-            ),
-        ]
 
-        assert check_output.call_args_list == check_output_expected_args
-        assert check_call.call_args_list == check_call_expected_args
+def test_append_rpath_ignore_duplicates(tmp_path: Path) -> None:
+    # When a library has an existing RPATH entry and we try and append it again
+    existing_rpath = "$ORIGIN"
+    patcher = MockedELfPatcher(existing_rpath)
+    wheel_dir = tmp_path
+    lib_name = tmp_path / "test.so"
+    lib_name.touch()
+    full_lib_name = lib_name.absolute()
+    lib_name_str = str(lib_name.resolve(strict=True))
+    append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
+    # Then that entry is ignored when updating the RPATH
+    assert patcher.get_rpath_direct_called == [full_lib_name]
+    assert patcher._updates[lib_name_str].rpath == "$ORIGIN"
+
+
+def test_append_rpath_ignore_relative(tmp_path: Path) -> None:
+    # When a library has an existing RPATH entry but it cannot be resolved
+    # to an absolute path, it is eliminated
+    existing_rpath = "not/absolute"
+    patcher = MockedELfPatcher(existing_rpath)
+    wheel_dir = tmp_path
+    lib_name = tmp_path / "test.so"
+    lib_name.touch()
+    full_lib_name = lib_name.absolute()
+    lib_name_str = str(lib_name.resolve(strict=True))
+    append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
+    # Then that entry is ignored when updating the RPATH
+    assert patcher.get_rpath_direct_called == [full_lib_name]
+    assert patcher._updates[lib_name_str].rpath == "$ORIGIN"
