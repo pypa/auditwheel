@@ -1055,6 +1055,7 @@ class TestManylinux(Anylinux):
             'git config --global --add safe.directory "/auditwheel_src"',
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
+            "pipx install -f patchelf==0.19.0.0rc1",
         ]
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
