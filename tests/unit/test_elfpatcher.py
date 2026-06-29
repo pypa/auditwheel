@@ -30,6 +30,22 @@ def test_elfpatcher_remove_needed_overlap(tmp_path):
         patcher.remove_needed(filename, "replaced")
 
 
+def test_elfpatcher_get_rpath_replaced(tmp_path):
+    filename = tmp_path / "test.so"
+    filename.touch()
+    patcher = ElfPatcher("")
+    patcher.set_rpath(filename, "new-rpath")
+    assert patcher.get_rpath(filename) == "new-rpath"
+
+
+def test_elfpatcher_get_rpath_removed(tmp_path):
+    filename = tmp_path / "test.so"
+    filename.touch()
+    patcher = ElfPatcher("")
+    patcher.clear_rpath(filename)
+    assert patcher.get_rpath(filename) == ""
+
+
 @patch("auditwheel.patcher.which")
 def test_patchelf_unavailable(which):
     which.return_value = False
