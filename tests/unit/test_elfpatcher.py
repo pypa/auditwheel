@@ -46,6 +46,30 @@ def test_elfpatcher_get_rpath_removed(tmp_path):
     assert patcher.get_rpath(filename) == ""
 
 
+def test_elfpatcher_update_elf_path(tmp_path):
+    filename1 = tmp_path / "test1.so"
+    filename1.touch()
+    filename2 = tmp_path / "test2.so"
+    filename2.touch()
+    patcher = ElfPatcher("")
+    patcher.clear_rpath(filename1)
+    patcher.update_elf_path(filename1, filename2)
+    assert len(patcher._updates) == 1
+    key, value = patcher._updates.popitem()
+    assert Path(key).samefile(filename2)
+    assert value.clear_rpath is True
+
+
+def test_elfpatcher_update_elf_path_noop(tmp_path):
+    filename1 = tmp_path / "test1.so"
+    filename1.touch()
+    filename2 = tmp_path / "test2.so"
+    filename2.touch()
+    patcher = ElfPatcher("")
+    patcher.update_elf_path(filename1, filename2)
+    assert len(patcher._updates) == 0
+
+
 @patch("auditwheel.patcher.which")
 def test_patchelf_unavailable(which):
     which.return_value = False
