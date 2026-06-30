@@ -25,11 +25,11 @@ def test_append_rpath(tmp_path: Path) -> None:
     lib_name = tmp_path / "test.so"
     lib_name.touch()
     full_lib_name = lib_name.absolute()
-    lib_name_str = str(lib_name.resolve(strict=True))
+    lib_name_key = lib_name.resolve(strict=True)
     append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
     # Then that entry is preserved when updating the RPATH
     assert patcher.get_rpath_direct_called == [full_lib_name]
-    assert patcher._updates[lib_name_str].rpath == f"{existing_rpath}:$ORIGIN/.lib"
+    assert patcher._updates[lib_name_key].rpath == f"{existing_rpath}:$ORIGIN/.lib"
 
 
 def test_append_rpath_reject_outside_wheel(tmp_path: Path) -> None:
@@ -40,11 +40,11 @@ def test_append_rpath_reject_outside_wheel(tmp_path: Path) -> None:
     lib_name = tmp_path / "test.so"
     lib_name.touch()
     full_lib_name = lib_name.absolute()
-    lib_name_str = str(lib_name.resolve(strict=True))
+    lib_name_key = lib_name.resolve(strict=True)
     append_rpath_within_wheel(lib_name, "$ORIGIN/.lib", wheel_dir, patcher)
     # Then that entry is eliminated when updating the RPATH
     assert patcher.get_rpath_direct_called == [full_lib_name]
-    assert patcher._updates[lib_name_str].rpath == "$ORIGIN/.lib"
+    assert patcher._updates[lib_name_key].rpath == "$ORIGIN/.lib"
 
 
 def test_append_rpath_ignore_duplicates(tmp_path: Path) -> None:
@@ -55,11 +55,11 @@ def test_append_rpath_ignore_duplicates(tmp_path: Path) -> None:
     lib_name = tmp_path / "test.so"
     lib_name.touch()
     full_lib_name = lib_name.absolute()
-    lib_name_str = str(lib_name.resolve(strict=True))
+    lib_name_key = lib_name.resolve(strict=True)
     append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
     # Then that entry is ignored when updating the RPATH
     assert patcher.get_rpath_direct_called == [full_lib_name]
-    assert patcher._updates[lib_name_str].rpath == "$ORIGIN"
+    assert patcher._updates[lib_name_key].rpath == "$ORIGIN"
 
 
 def test_append_rpath_ignore_relative(tmp_path: Path) -> None:
@@ -71,8 +71,8 @@ def test_append_rpath_ignore_relative(tmp_path: Path) -> None:
     lib_name = tmp_path / "test.so"
     lib_name.touch()
     full_lib_name = lib_name.absolute()
-    lib_name_str = str(lib_name.resolve(strict=True))
+    lib_name_key = lib_name.resolve(strict=True)
     append_rpath_within_wheel(lib_name, "$ORIGIN", wheel_dir, patcher)
     # Then that entry is ignored when updating the RPATH
     assert patcher.get_rpath_direct_called == [full_lib_name]
-    assert patcher._updates[lib_name_str].rpath == "$ORIGIN"
+    assert patcher._updates[lib_name_key].rpath == "$ORIGIN"

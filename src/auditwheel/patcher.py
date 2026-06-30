@@ -27,46 +27,42 @@ class ElfUpdateInfo:
 class ElfPatcher:
     def __init__(self, platform: str) -> None:
         self.platform = platform
-        self._updates: dict[str, ElfUpdateInfo] = defaultdict(ElfUpdateInfo)
+        self._updates: dict[Path, ElfUpdateInfo] = defaultdict(ElfUpdateInfo)
 
     @staticmethod
     def _needed_overlap(removed: Iterable[str], replaced: Iterable[tuple[str, str]]) -> str | None:
-        for soname in removed:
-            for org_soname, new_soname in replaced:
-                if soname in (org_soname, new_soname):
-                    return soname
-        return None
+        replaced_sonames = set(chain.from_iterable(replaced))
+        return next((name for name in removed if name in replaced_sonames), None)
+
+    def _update_for(self, file_name: Path) -> ElfUpdateInfo:
+        return self._updates[file_name.resolve(strict=True)]
 
     def replace_needed(self, file_name: Path, *old_new_pairs: tuple[str, str]) -> None:
-        key = str(file_name.resolve(strict=True))
-        update_info = self._updates[key]
+        update_info = self._update_for(file_name)
         if overlap_soname := ElfPatcher._needed_overlap(update_info.remove_needed, old_new_pairs):
             msg = f"can't add replace_needed entry, {overlap_soname!r} has been removed"
             raise ValueError(msg)
         update_info.replace_needed.extend(old_new_pairs)
 
     def remove_needed(self, file_name: Path, *sonames: str) -> None:
-        key = str(file_name.resolve(strict=True))
-        update_info = self._updates[key]
+        update_info = self._update_for(file_name)
         if overlap_soname := ElfPatcher._needed_overlap(sonames, update_info.replace_needed):
             msg = f"can't remove {overlap_soname!r} as it's part of the replace_needed entries"
             raise ValueError(msg)
         update_info.remove_needed.extend(sonames)
 
     def set_soname(self, file_name: Path, new_so_name: str) -> None:
-        key = str(file_name.resolve(strict=True))
-        self._updates[key].soname = new_so_name
+        self._update_for(file_name).soname = new_so_name
 
     def set_rpath(self, file_name: Path, rpath: str) -> None:
         # https://android.googlesource.com/platform/bionic/+/refs/heads/main/android-changes-for-ndk-developers.md
         if self.platform.startswith("android") and android_api_level(self.platform) < 24:
             msg = "Grafting libraries with RUNPATH requires API level 24 or higher"
             raise ValueError(msg)
-        key = str(file_name.resolve(strict=True))
-        self._updates[key].rpath = rpath
+        self._update_for(file_name).rpath = rpath
 
     def get_rpath(self, file_name: Path) -> str:
-        key = str(file_name.resolve(strict=True))
+        key = file_name.resolve(strict=True)
         if update_info := self._updates.get(key, None):
             if update_info.rpath is not None:
                 return update_info.rpath
@@ -75,13 +71,12 @@ class ElfPatcher:
         return self.get_rpath_direct(file_name)
 
     def clear_rpath(self, file_name: Path) -> None:
-        key = str(file_name.resolve(strict=True))
-        self._updates[key].clear_rpath = True
+        self._update_for(file_name).clear_rpath = True
 
     def update_elf_path(self, old_file_name: Path, new_file_name: Path) -> None:
-        old_key = str(old_file_name.resolve(strict=True))
-        new_key = str(new_file_name.resolve(strict=True))
+        old_key = old_file_name.resolve(strict=True)
         if old_key in self._updates:
+            new_key = new_file_name.resolve(strict=True)
             self._updates[new_key] = self._updates.pop(old_key)
 
     def get_rpath_direct(self, file_name: Path) -> str:
@@ -119,9 +114,8 @@ class Patchelf(ElfPatcher):
         self._patchelf_path = str(_verify_patchelf())
 
     def get_rpath_direct(self, file_name: Path) -> str:
-        args = ("--print-rpath", file_name)
-        output = check_output([self._patchelf_path, *args]).decode("utf-8").strip()
-        return output.removesuffix(" (legacy)")
+        output = check_output([self._patchelf_path, "--print-rpath", file_name])
+        return output.decode("utf-8").strip().removesuffix(" (legacy)")
 
     def apply_updates(self) -> None:
         elf_files = list(self._updates.keys())

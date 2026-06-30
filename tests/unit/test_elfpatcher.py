@@ -116,13 +116,13 @@ class TestPatchElf:
         patcher._patchelf_path = "patchelf"
         filename = tmp_path / "test.so"
         filename.touch()
-        filename_str = str(filename.resolve(strict=True))
+        filename_key = filename.resolve(strict=True)
         soname_old = "TEST_OLD"
         soname_new = "TEST_NEW"
         patcher.replace_needed(filename, (soname_old, soname_new))
         patcher.apply_updates()
         check_call.assert_called_once_with(
-            ["patchelf", "--replace-needed", soname_old, soname_new, filename_str],
+            ["patchelf", "--replace-needed", soname_old, soname_new, filename_key],
         )
 
     def test_replace_needed_multiple(self, check_call, _0, _1, tmp_path):  # noqa: PT019
@@ -130,7 +130,7 @@ class TestPatchElf:
         patcher._patchelf_path = "patchelf"
         filename = tmp_path / "test.so"
         filename.touch()
-        filename_str = str(filename.resolve(strict=True))
+        filename_key = filename.resolve(strict=True)
         replacements = [
             ("TEST_OLD1", "TEST_NEW1"),
             ("TEST_OLD2", "TEST_NEW2"),
@@ -144,7 +144,7 @@ class TestPatchElf:
                 *replacements[0],
                 "--replace-needed",
                 *replacements[1],
-                filename_str,
+                filename_key,
             ],
         )
 
@@ -153,12 +153,12 @@ class TestPatchElf:
         patcher._patchelf_path = "patchelf"
         filename = tmp_path / "test.so"
         filename.touch()
-        filename_str = str(filename.resolve(strict=True))
+        filename_key = filename.resolve(strict=True)
         soname_new = "TEST_NEW"
         patcher.set_soname(filename, soname_new)
         patcher.apply_updates()
         check_call.assert_called_once_with(
-            ["patchelf", "--set-soname", soname_new, filename_str],
+            ["patchelf", "--set-soname", soname_new, filename_key],
         )
 
     @pytest.mark.parametrize("platform", ["android_24_x86_64", "manylinux_2_26_x86_64"])
@@ -167,13 +167,13 @@ class TestPatchElf:
         patcher._patchelf_path = "patchelf"
         filename = tmp_path / "test.so"
         filename.touch()
-        filename_str = str(filename.resolve(strict=True))
+        filename_key = filename.resolve(strict=True)
         patcher.set_rpath(filename, "$ORIGIN/.lib")
         patcher.apply_updates()
         check_call.assert_called_once_with(
             ["patchelf"]
             + ([] if platform.startswith("android") else ["--force-rpath"])
-            + ["--set-rpath", "$ORIGIN/.lib", filename_str],
+            + ["--set-rpath", "$ORIGIN/.lib", filename_key],
         )
 
     def test_set_rpath_android_old(self, check_call, _0, _1):  # noqa: PT019
@@ -200,7 +200,7 @@ class TestPatchElf:
         patcher._patchelf_path = "patchelf"
         filename = tmp_path / "test.so"
         filename.touch()
-        filename_str = str(filename.resolve(strict=True))
+        filename_key = filename.resolve(strict=True)
         soname_1 = "TEST_REM_1"
         soname_2 = "TEST_REM_2"
         patcher.remove_needed(filename, soname_1, soname_2)
@@ -212,7 +212,7 @@ class TestPatchElf:
                 soname_1,
                 "--remove-needed",
                 soname_2,
-                filename_str,
+                filename_key,
             ],
         )
 
@@ -221,11 +221,11 @@ class TestPatchElf:
         patcher._patchelf_path = "patchelf"
         filename = tmp_path / "test.so"
         filename.touch()
-        filename_str = str(filename.resolve(strict=True))
+        filename_key = filename.resolve(strict=True)
         patcher.clear_rpath(filename)
         patcher.apply_updates()
         check_call_expected_args = [
-            call(["patchelf", "--remove-rpath", filename_str]),
+            call(["patchelf", "--remove-rpath", filename_key]),
         ]
 
         assert check_call.call_args_list == check_call_expected_args
