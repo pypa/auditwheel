@@ -229,3 +229,13 @@ class TestPatchElf:
         ]
 
         assert check_call.call_args_list == check_call_expected_args
+
+    def test_no_update(self, check_call, _0, _1, tmp_path):  # noqa: PT019
+        patcher = Patchelf()
+        patcher._patchelf_path = "patchelf"
+        filename = tmp_path / "test.so"
+        filename.touch()
+        # create update info but do not update anything
+        assert patcher._update_for(filename).clear_rpath is False
+        patcher.apply_updates()
+        assert check_call.call_args_list == []
