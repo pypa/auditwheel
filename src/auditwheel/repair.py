@@ -105,6 +105,7 @@ def repair_wheel(
                 new_fn = fn
                 if _path_is_script(fn):
                     new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
+                    patcher.update_elf_path(fn, new_fn)
                 new_rpath = Path("$ORIGIN") / os.path.relpath(dest_dir, new_fn.parent)
                 append_rpath_within_wheel(new_fn, str(new_rpath), ctx.name, patcher)
 
@@ -124,6 +125,8 @@ def repair_wheel(
                 patcher.replace_needed(path, *replacements)
             else:
                 patcher.clear_rpath(path)
+
+        patcher.apply_updates()
 
         if update_tags:
             output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
