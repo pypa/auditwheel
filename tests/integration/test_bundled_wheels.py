@@ -315,6 +315,6 @@ def test_symbol_blacklist(
     assert " because it depends on black-listed symbols" in captured.err.replace("\n", " ")
 
     monkeypatch.setattr(sys, "argv", ["auditwheel", "-v", "show", str(wheel)])
-    main()
+    assert main() == 0
     captured = capsys.readouterr()
     assert "black-listed symbol dependencies" in captured.out.replace("\n", " ")
