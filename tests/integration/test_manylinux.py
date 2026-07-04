@@ -1277,6 +1277,7 @@ class TestMusllinux(Anylinux):
             'git config --global --add safe.directory "/auditwheel_src"',
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
+            "pipx install -f patchelf==0.19.0.0rc1",
         ]
         with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id
