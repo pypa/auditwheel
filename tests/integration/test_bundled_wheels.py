@@ -277,3 +277,44 @@ def test_weak_symbols_not_blacklisted() -> None:
     assert result.policies.libc == Libc.GLIBC
     assert result.policies.architecture == Architecture.x86_64
     assert result.overall_policy.name == "manylinux_2_17_x86_64"
+
+
+def test_symbol_blacklist(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # wheel built using main@dda40c214e3db607b6ab31cd4cf9e3e5e1347937
+    # AUDITWHEEL_ARCH=x86_64 nox -s tests-3.10 -- \
+    #   'tests/integration/test_manylinux.py::TestManylinux::test_zlib_blacklist[manylinux_2_12]'
+    wheel = HERE / "testzlib-0.0.1-cp310-cp310-linux_x86_64.whl"
+    result = analyze_wheel_abi(
+        None,
+        None,
+        wheel,
+        frozenset(),
+        disable_isa_ext_check=False,
+        allow_graft=False,
+    )
+    assert result.policies.libc == Libc.GLIBC
+    assert result.policies.architecture == Architecture.x86_64
+    assert result.overall_policy.name == "linux_x86_64"
+    assert result.blacklist_policy.name == "linux_x86_64"
+    assert result.sym_policy.name == "manylinux_2_12_x86_64"
+    assert result.graft_policy.name == "manylinux_2_5_x86_64"
+    assert result.machine_policy.name == "manylinux_2_5_x86_64"
+    assert result.pyfpe_policy.name == "manylinux_2_5_x86_64"
+    assert result.ref_policy.name == "manylinux_2_5_x86_64"
+    assert result.ucs_policy.name == "manylinux_2_5_x86_64"
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
+    monkeypatch.setattr(sys, "argv", ["auditwheel", "repair", str(wheel)])
+    with pytest.raises(SystemExit):
+        main()
+    captured = capsys.readouterr()
+    assert " because it depends on black-listed symbols" in captured.err.replace("\n", " ")
+
+    monkeypatch.setattr(sys, "argv", ["auditwheel", "-v", "show", str(wheel)])
+    assert main() == 0
+    captured = capsys.readouterr()
+    assert "black-listed symbol dependencies" in captured.out.replace("\n", " ")
