@@ -7,7 +7,7 @@ exclude: ^src/auditwheel/_vendor/
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v6.0.0
+  rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
   hooks:
   - id: check-builtin-literals
   - id: check-added-large-files
@@ -23,14 +23,14 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.15.9
+  rev: c59bba8fb259db0fec2bbb77ad8ba51ea7341b56  # frozen: v0.15.20
   hooks:
   - id: ruff-check
     args: ["--fix", "--show-fixes"]
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.20.0
+  rev: d2823d321df3af8f878f7ee3414dc94d037145b9  # frozen: v2.1.0
   hooks:
   - id: mypy
     exclude: tests/integration/.*/.*|tests/integration/quick_check_numpy.py|tests/unit/test_wheel_abi.py|scripts/calculate_symbol_versions.py
@@ -38,12 +38,12 @@ repos:
     additional_dependencies:
       - nox
       - packaging
-      - pyelftools
+      - pyelftools>=0.33
       - pytest
       - types-docker
       - types-requests
 
 - repo: https://github.com/zizmorcore/zizmor-pre-commit
-  rev: v1.23.1
+  rev: e3eebf65325ccc992422292cb7a4baee967cf815  # frozen: v1.26.1
   hooks:
   - id: zizmor

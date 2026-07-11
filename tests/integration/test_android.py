@@ -4,6 +4,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
+from elftools.elf.dynamic import DynamicSection
 from elftools.elf.elffile import ELFFile
 
 from auditwheel.architecture import Architecture
@@ -26,6 +27,7 @@ def elf_read_tag(fn: Path, tag: str) -> str | None:
         elf = ELFFile(f)
         section = elf.get_section_by_name(".dynamic")
         if section:
+            assert isinstance(section, DynamicSection)
             for t in section.iter_tags():
                 if t.entry.d_tag == f"DT_{tag.upper()}":
                     return str(getattr(t, tag))
@@ -71,7 +73,7 @@ def test_libcxx(ldpaths_methods, tmp_path):
     libcxx_path = libs_dir / f"libc++_shared-{libcxx_hash}.so"
     assert elf_read_tag(libcxx_path, "soname") == libcxx_path.name
     assert elf_read_tag(libcxx_path, "rpath") is None
-    assert elf_read_tag(libcxx_path, "runpath") == "$ORIGIN"
+    assert elf_read_tag(libcxx_path, "runpath") is None
 
     spam_path = output_dir / libcxx_module
     assert set(elf_read_dt_needed(spam_path)) == {
