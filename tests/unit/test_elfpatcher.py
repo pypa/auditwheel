@@ -73,43 +73,37 @@ def test_elfpatcher_update_elf_path_noop(tmp_path):
 
 @patch("auditwheel.patcher.which")
 @pytest.mark.parametrize(
-    ("allowed_patchers", "match"),
+    ("patcher_name", "match"),
     [
-        ((), "At least one patcher shall be specified"),
-        (("dummy",), "Unknown patcher 'dummy'"),
-        (("patchelf",), "Cannot find required utility 'patchelf'"),
-        (("lief-patchelf",), "Cannot find required utility 'lief-patchelf'"),
+        ("dummy", "Unknown patcher 'dummy'"),
+        ("patchelf", "Cannot find required utility 'patchelf'"),
+        ("lief-patchelf", "Cannot find required utility 'lief-patchelf'"),
     ],
 )
-def test_get_patcher_exceptions(which, allowed_patchers, match):
+def test_get_patcher_exceptions(which, patcher_name, match):
     which.return_value = None
     with pytest.raises(ValueError, match=re.escape(match)):
-        ElfPatcher.get_patcher(allowed_patchers)
+        ElfPatcher.get_patcher(patcher_name)
 
 
 @pytest.mark.parametrize(
-    ("allowed_patchers", "type_", "mapped"),
+    ("patcher_name", "type_"),
     [
-        (("none",), _NonePatcher, ()),
-        (("patchelf",), _Patchelf, ("patchelf",)),
-        (("lief-patchelf",), _Patchelf, ("lief-patchelf",)),
-        (("patchelf", "lief-patchelf"), _Patchelf, ("patchelf", "lief-patchelf")),
-        (("lief-patchelf", "patchelf"), _Patchelf, ("lief-patchelf", "patchelf")),
-        (("patchelf", "lief-patchelf"), _Patchelf, ("lief-patchelf",)),
-        (("lief-patchelf", "patchelf"), _Patchelf, ("patchelf",)),
-        (("patchelf", "lief-patchelf", "none"), _NonePatcher, ()),
+        ("none", _NonePatcher),
+        ("patchelf", _Patchelf),
+        ("lief-patchelf", _Patchelf),
     ],
 )
-def test_get_patcher(allowed_patchers, type_, mapped, monkeypatch):
-    monkeypatch.setattr(auditwheel.patcher, "which", lambda x: x if x in mapped else None)
-    patcher = ElfPatcher.get_patcher(allowed_patchers)
+def test_get_patcher(patcher_name, type_, monkeypatch):
+    monkeypatch.setattr(auditwheel.patcher, "which", lambda x: x)
+    patcher = ElfPatcher.get_patcher(patcher_name)
     assert type(patcher) is type_
     if isinstance(patcher, _Patchelf):
-        assert patcher._patchelf_path == mapped[0]
+        assert patcher._patchelf_path == patcher_name
 
 
 def test_none_patcher(tmp_path):
-    patcher = ElfPatcher.get_patcher(("none",))
+    patcher = ElfPatcher.get_patcher("none")
     filename = tmp_path / "test.so"
     filename.touch()
     with pytest.raises(NotImplementedError):

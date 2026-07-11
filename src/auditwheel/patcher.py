@@ -89,29 +89,15 @@ class ElfPatcher:
         raise NotImplementedError
 
     @staticmethod
-    def get_patcher(allowed_patchers: Iterable[str], platform: str = "") -> ElfPatcher:
-        allowed_patchers_ = list(allowed_patchers)
-        exceptions = []
-        for allowed_patcher in allowed_patchers_:
-            match allowed_patcher:
-                case "patchelf" | "lief-patchelf":
-                    try:
-                        return _Patchelf(variant=allowed_patcher, platform=platform)
-                    except ValueError as e:
-                        exceptions.append(e)
-                case "none":
-                    return _NonePatcher(platform=platform)
-                case _:
-                    msg = f"Unknown patcher {allowed_patcher!r}"
-                    exceptions.append(ValueError(msg))
-        if not exceptions:
-            msg = "At least one patcher shall be specified."
-            exceptions.append(ValueError(msg))
-        msg = f"Could not find a working patcher in {', '.join(allowed_patchers_)!r}"
-        # TODO move to exception group with Python 3.11+
-        exceptions_str = "\n".join(str(e) for e in exceptions)
-        msg = f"{msg}. The following exceptions were found:\n{exceptions_str}"
-        raise ValueError(msg)
+    def get_patcher(patcher: str, platform: str = "") -> ElfPatcher:
+        match patcher:
+            case "patchelf" | "lief-patchelf":
+                return _Patchelf(variant=patcher, platform=platform)
+            case "none":
+                return _NonePatcher(platform=platform)
+            case _:
+                msg = f"Unknown patcher {patcher!r}"
+                raise ValueError(msg)
 
 
 class _NonePatcher(ElfPatcher):

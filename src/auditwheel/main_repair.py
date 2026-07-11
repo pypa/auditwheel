@@ -123,13 +123,14 @@ wheel will abort processing of subsequent wheels.
     options.allow_pure_python_wheel(parser)
     options.ldpaths(parser)
     parser.add_argument(
-        "--allowed-patchers",
+        "--patcher",
         action=EnvironmentDefault,
-        metavar="ALLOWED_PATCHERS",
-        env="AUDITWHEEL_ALLOWED_PATCHERS",
-        dest="ALLOWED_PATCHERS",
-        help="comma-separated list of allowed patchers",
+        metavar="PATCHER",
+        env="AUDITWHEEL_PATCHER",
+        dest="PATCHER",
+        help="ELF patcher to use",
         default="patchelf",
+        choices=["patchelf", "lief-patchelf", "none"],
     )
 
     parser.set_defaults(func=execute)
@@ -142,7 +143,6 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     exclude: frozenset[str] = frozenset(args.EXCLUDE)
     wheel_dir: Path = args.WHEEL_DIR.absolute()
     wheel_files: list[Path] = args.WHEEL_FILE
-    allowed_patchers = [p.strip() for p in args.ALLOWED_PATCHERS.split(",") if p.strip()]
 
     requested_architecture: Architecture | None = None
 
@@ -276,7 +276,7 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 *abis,
             ]
 
-        patcher = ElfPatcher.get_patcher(allowed_patchers, requested_policy.name)
+        patcher = ElfPatcher.get_patcher(args.PATCHER, requested_policy.name)
         out_wheel = repair_wheel(
             wheel_abi,
             wheel_file,

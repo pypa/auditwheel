@@ -200,7 +200,7 @@ class AnyLinuxContainer:
         if excludes:
             args.extend(f"--exclude={exclude}" for exclude in excludes)
         if use_none_patcher:
-            args.append("--allowed-patchers=none")
+            args.append("--patcher=none")
         args.append(f"/io/{wheel}")
         cmd = ["bash", "-c", " ".join(args)]
         return self.exec(cmd, expected_retcode=expected_retcode, coverage=True)
@@ -476,15 +476,15 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
 
 class Anylinux:
     @staticmethod
-    def get_auditwheel_install_commands(allowed_patchers: str) -> list[str]:
+    def get_auditwheel_install_commands(patcher: str) -> list[str]:
         commands = [
             'git config --global --add safe.directory "/auditwheel_src"',
             "pip install -U pip setuptools 'coverage[toml]>=7.13'",
             "pip install -U -e /auditwheel_src",
         ]
-        if allowed_patchers != "patchelf":
+        if patcher != "patchelf":
             commands.append("pipx uninstall patchelf")
-        if allowed_patchers == "lief-patchelf":
+        if patcher == "lief-patchelf":
             lief_patchelf_file = {
                 "aarch64": "lief-tools-aarch64-unknown-linux-musl.zip",
                 "i686": "lief-tools-i686-unknown-linux-musl.zip",
@@ -1077,7 +1077,7 @@ class TestManylinux(Anylinux):
     )
     def any_manylinux_img(self, request):
         """Each manylinux image, with auditwheel installed."""
-        policy, allowed_patchers = request.param
+        policy, patcher = request.param
         check_set = {
             "manylinux_2_12": {"38", "39", "310"},
         }.get(policy)
@@ -1086,9 +1086,9 @@ class TestManylinux(Anylinux):
 
         base = MANYLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
-        if allowed_patchers != "patchelf":
-            env["AUDITWHEEL_ALLOWED_PATCHERS"] = allowed_patchers
-        commands = Anylinux.get_auditwheel_install_commands(allowed_patchers)
+        if patcher != "patchelf":
+            env["AUDITWHEEL_PATCHER"] = patcher
+        commands = Anylinux.get_auditwheel_install_commands(patcher)
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
         with tmp_docker_image(base, commands, env) as img_id:
@@ -1303,11 +1303,11 @@ class TestMusllinux(Anylinux):
     )
     def any_manylinux_img(self, request):
         """Each musllinux image, with auditwheel installed."""
-        policy, allowed_patchers = request.param
+        policy, patcher = request.param
         base = MUSLLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
-        if allowed_patchers != "patchelf":
-            env["AUDITWHEEL_ALLOWED_PATCHERS"] = allowed_patchers
-        commands = Anylinux.get_auditwheel_install_commands(allowed_patchers)
+        if patcher != "patchelf":
+            env["AUDITWHEEL_PATCHER"] = patcher
+        commands = Anylinux.get_auditwheel_install_commands(patcher)
         with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id
