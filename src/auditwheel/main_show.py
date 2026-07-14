@@ -42,7 +42,7 @@ def _output_json(fn: str, winfo: WheelAbIInfo) -> None:
     from auditwheel import json
 
     policies = winfo.policies
-    libs = winfo.external_refs[policies.lowest.name].libs
+    libs = winfo.external_refs[policies.highest.name].libs
 
     policy_upgrades: dict[str, dict[str, Any]] = {}
     for p in policies:

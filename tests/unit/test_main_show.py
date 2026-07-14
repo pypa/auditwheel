@@ -76,11 +76,11 @@ def _make_winfo(
     external_refs = {
         LINUX.name: SimpleNamespace(libs={}, blacklist={}),
         MANYLINUX_2_17.name: SimpleNamespace(
-            libs=external_libs or {},
+            libs={},
             blacklist={},
         ),
         MANYLINUX_2_28.name: SimpleNamespace(
-            libs=policy_upgrades_libs or {},
+            libs={**(external_libs or {}), **(policy_upgrades_libs or {})},
             blacklist=policy_upgrades_blacklist or {},
         ),
     }
