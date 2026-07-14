@@ -67,6 +67,7 @@ def _output_json(fn: str, winfo: WheelAbIInfo) -> None:
         "ucs2": winfo.ucs_policy == policies.linux,
         "unsupported_isa": winfo.machine_policy == policies.linux,
         "versioned_symbols": {k: sorted(v) for k, v in sorted(winfo.versioned_symbols.items())},
+        "lowest_policy": policies.lowest.name,
         "external_libs": {str(k): str(v) if v else None for k, v in sorted(libs.items())},
         "policy_upgrades": policy_upgrades,
     }

@@ -163,6 +163,7 @@ def test_basic_json_output(tmp_path, capsys, patch_wheel_abi):
     assert output["ucs2"] is False
     assert output["unsupported_isa"] is False
     assert output["versioned_symbols"] == {}
+    assert output["lowest_policy"] == "manylinux_2_17_x86_64"
     assert output["external_libs"] == {}
     assert output["policy_upgrades"] == {}
 

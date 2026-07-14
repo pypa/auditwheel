@@ -70,12 +70,16 @@
           },
           "description": "Mapping of shared library names to their referenced symbol versions."
         },
+        "lowest_policy": {
+          "type": "string",
+          "description": "The lowest non-linux policy name. Identifies the policy level that external_libs is relative to."
+        },
         "external_libs": {
           "type": "object",
           "additionalProperties": {
             "type": ["string", "null"]
           },
-          "description": "Mapping of external shared library names to their resolved paths (or null)."
+          "description": "Mapping of external shared library names to their resolved paths (or null), relative to lowest_policy."
         },
         "policy_upgrades": {
           "type": "object",
@@ -109,6 +113,7 @@
         "ucs2",
         "unsupported_isa",
         "versioned_symbols",
+        "lowest_policy",
         "external_libs",
         "policy_upgrades"
       ],
