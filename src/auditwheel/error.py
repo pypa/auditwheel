@@ -34,7 +34,7 @@ class NonPlatformWheelError(AuditwheelError):
             msg = (
                 "Invalid binary wheel: no ELF executable or shared library file "
                 "(including compiled Python C extension) with a "
-                f"{architecture!r} architecure found. The following "
+                f"{architecture!r} architecture found. The following "
                 f"ELF files were found:\n\t{libraries_str}\n"
             )
         super().__init__(msg)
