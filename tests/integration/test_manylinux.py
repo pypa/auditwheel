@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import itertools
 import json
 import logging
 import os
@@ -120,6 +121,9 @@ SHOW_RE = re.compile(
     flags=re.DOTALL,
 )
 TAG_RE = re.compile(r"^manylinux_(?P<major>[0-9]+)_(?P<minor>[0-9]+)_(?P<arch>\S+)$")
+ALLOWED_PATCHERS = ["patchelf"]
+if PLATFORM in {"aarch64", "i686", "x86_64"}:
+    ALLOWED_PATCHERS.append("lief-patchelf")
 
 
 class AnyLinuxContainer:
@@ -179,6 +183,7 @@ class AnyLinuxContainer:
         strip: bool = False,
         library_paths: list[str] | None = None,
         excludes: list[str] | None = None,
+        use_none_patcher: bool = False,
     ) -> str:
         plat = plat or self._policy
         args = []
@@ -194,6 +199,8 @@ class AnyLinuxContainer:
             args.append("--strip")
         if excludes:
             args.extend(f"--exclude={exclude}" for exclude in excludes)
+        if use_none_patcher:
+            args.append("--patcher=none")
         args.append(f"/io/{wheel}")
         cmd = ["bash", "-c", " ".join(args)]
         return self.exec(cmd, expected_retcode=expected_retcode, coverage=True)
@@ -468,6 +475,33 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
 
 
 class Anylinux:
+    @staticmethod
+    def get_auditwheel_install_commands(patcher: str) -> list[str]:
+        commands = [
+            'git config --global --add safe.directory "/auditwheel_src"',
+            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
+            "pip install -U -e /auditwheel_src",
+        ]
+        if patcher != "patchelf":
+            commands.append("pipx uninstall patchelf")
+        if patcher == "lief-patchelf":
+            lief_patchelf_file = {
+                "aarch64": "lief-tools-aarch64-unknown-linux-musl.zip",
+                "i686": "lief-tools-i686-unknown-linux-musl.zip",
+                "x86_64": "lief-tools-x86_64-unknown-linux-musl.zip",
+            }[PLATFORM]
+            lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
+            lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
+            commands.extend(
+                (
+                    f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
+                    "bash -c 'cd /tmp && unzip /tmp/lief-tools.zip'",
+                    "mv -f /tmp/bin/lief-patchelf /usr/local/bin/",
+                    "chmod +x /usr/local/bin/lief-patchelf",
+                ),
+            )
+        return commands
+
     @pytest.fixture
     def io_folder(self, tmp_path):
         d = tmp_path / "io"
@@ -900,7 +934,7 @@ class Anylinux:
         assert orig_wheel.startswith("sample_extension-0.1.0")
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, strip=True)
+        anylinux.repair(orig_wheel, strip=True, use_none_patcher=True)
 
         repaired_wheel = next(anylinux.io_folder.glob(f"*{policy}*.whl")).name
 
@@ -946,7 +980,7 @@ class Anylinux:
         # Repair the wheel using the appropriate manylinux container
         if policy.startswith("manylinux_2_28_"):
             with pytest.raises(CalledProcessError):
-                anylinux.repair(orig_wheel)
+                anylinux.repair(orig_wheel, use_none_patcher=True)
             # TODO if a "permissive" mode is implemented, add the relevant flag to the
             # repair_command here and drop the return statement below
             return
@@ -1020,7 +1054,7 @@ class Anylinux:
         test_path = f"/auditwheel_src/tests/integration/arch-wheels/{source}"
         orig_wheel = f"testsimple-0.0.1-{python_abi}-linux_{arch.value}.whl"
         anylinux.exec(["cp", "-f", f"{test_path}/{orig_wheel}", f"/io/{orig_wheel}"])
-        anylinux.repair(orig_wheel, plat="auto", only_plat=False)
+        anylinux.repair(orig_wheel, plat="auto", only_plat=False, use_none_patcher=True)
         anylinux.check_wheel(
             "testsimple",
             python_abi=python_abi,
@@ -1036,13 +1070,14 @@ class TestManylinux(Anylinux):
         with tmp_docker_image(MANYLINUX_PYTHON_IMAGE_ID, commnds) as img_id:
             yield img_id
 
-    @pytest.fixture(scope="session", params=MANYLINUX_IMAGES.keys())
+    @pytest.fixture(
+        scope="session",
+        params=itertools.product(MANYLINUX_IMAGES.keys(), ALLOWED_PATCHERS),
+        ids=lambda arg: f"{arg[0]}-{arg[1].replace('-', '_')}",
+    )
     def any_manylinux_img(self, request):
-        """Each manylinux image, with auditwheel installed.
-
-        Plus up-to-date pip, setuptools and coverage
-        """
-        policy = request.param
+        """Each manylinux image, with auditwheel installed."""
+        policy, patcher = request.param
         check_set = {
             "manylinux_2_12": {"38", "39", "310"},
         }.get(policy)
@@ -1051,11 +1086,9 @@ class TestManylinux(Anylinux):
 
         base = MANYLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
-        commands = [
-            'git config --global --add safe.directory "/auditwheel_src"',
-            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
-            "pip install -U -e /auditwheel_src",
-        ]
+        if patcher != "patchelf":
+            env["AUDITWHEEL_PATCHER"] = patcher
+        commands = Anylinux.get_auditwheel_install_commands(patcher)
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
         with tmp_docker_image(base, commands, env) as img_id:
@@ -1161,7 +1194,7 @@ class TestManylinux(Anylinux):
                 target_tag = ".".join(sorted([policy_, *aliases_]))
 
         # we shall ba able to repair the wheel for all targets
-        anylinux.repair(orig_wheel, plat=target_policy, only_plat=only_plat)
+        anylinux.repair(orig_wheel, plat=target_policy, only_plat=only_plat, use_none_patcher=True)
         if only_plat or target_tag == expect_tag:
             repaired_tag = target_tag
         else:
@@ -1194,7 +1227,7 @@ class TestManylinux(Anylinux):
         orig_wheel = anylinux.build_wheel(test_path, check_filename=False)
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, only_plat=False)
+        anylinux.repair(orig_wheel, only_plat=False, use_none_patcher=True)
         platform_tag = f"manylinux_2_24_x86_64.{policy}"
         repaired_wheel = anylinux.check_wheel(
             "test_mvec",
@@ -1263,19 +1296,18 @@ class TestMusllinux(Anylinux):
         with tmp_docker_image(MUSLLINUX_PYTHON_IMAGE_ID, commands) as img_id:
             yield img_id
 
-    @pytest.fixture(scope="session", params=MUSLLINUX_IMAGES.keys())
+    @pytest.fixture(
+        scope="session",
+        params=itertools.product(MUSLLINUX_IMAGES.keys(), ALLOWED_PATCHERS),
+        ids=lambda arg: f"{arg[0]}-{arg[1].replace('-', '_')}",
+    )
     def any_manylinux_img(self, request):
-        """Each musllinux image, with auditwheel installed.
-
-        Plus up-to-date pip, setuptools and coverage
-        """
-        policy = request.param
+        """Each musllinux image, with auditwheel installed."""
+        policy, patcher = request.param
         base = MUSLLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
-        commands = [
-            'git config --global --add safe.directory "/auditwheel_src"',
-            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
-            "pip install -U -e /auditwheel_src",
-        ]
+        if patcher != "patchelf":
+            env["AUDITWHEEL_PATCHER"] = patcher
+        commands = Anylinux.get_auditwheel_install_commands(patcher)
         with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id

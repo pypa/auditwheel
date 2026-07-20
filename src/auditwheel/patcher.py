@@ -13,6 +13,9 @@ from auditwheel.wheeltools import android_api_level
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from typing import Literal
+
+    PatchElfVariants = Literal["patchelf", "lief-patchelf"]
 
 
 @dataclasses.dataclass()
@@ -85,16 +88,51 @@ class ElfPatcher:
     def apply_updates(self) -> None:
         raise NotImplementedError
 
+    @staticmethod
+    def get_patcher(patcher: str, platform: str = "") -> ElfPatcher:
+        match patcher:
+            case "patchelf" | "lief-patchelf":
+                return _Patchelf(variant=patcher, platform=platform)
+            case "none":
+                return _NonePatcher(platform=platform)
+            case _:
+                msg = f"Unknown patcher {patcher!r}"
+                raise ValueError(msg)
 
-def _verify_patchelf() -> Path:
+
+class _NonePatcher(ElfPatcher):
+    def apply_updates(self) -> None:
+        elf_files = list(self._updates.keys())
+        errors = []
+        for filepath in elf_files:
+            # prevent re-applying by removing from self._updates
+            update_info = self._updates.pop(filepath)
+            if (
+                update_info.soname is not None
+                or update_info.remove_needed
+                or update_info.replace_needed
+                or update_info.clear_rpath
+                or update_info.rpath is not None
+            ):
+                errors.append(filepath)
+        assert len(self._updates) == 0  # noqa: S101
+        if errors:
+            errors_str = "\n".join(str(e) for e in errors)
+            msg = f"The 'none' patcher can't patch the following files:\n{errors_str}"
+            raise NotImplementedError(msg)
+
+
+def _verify_patchelf(variant: PatchElfVariants) -> Path:
     """This function looks for the ``patchelf`` external binary in the PATH,
     checks for the required version, and throws an exception if a proper
     version can't be found. Otherwise, silence is golden
     """
-    patchelf_path = which("patchelf")
+    patchelf_path = which(variant)
     if not patchelf_path:
-        msg = "Cannot find required utility `patchelf` in PATH"
+        msg = f"Cannot find required utility {variant!r} in PATH"
         raise ValueError(msg)
+    if variant == "lief-patchelf":
+        return Path(patchelf_path)
     try:
         version = check_output([patchelf_path, "--version"]).decode("utf-8")
     except CalledProcessError:
@@ -108,10 +146,10 @@ def _verify_patchelf() -> Path:
     raise ValueError(msg)
 
 
-class Patchelf(ElfPatcher):
-    def __init__(self, platform: str = "") -> None:
+class _Patchelf(ElfPatcher):
+    def __init__(self, variant: PatchElfVariants, platform: str = "") -> None:
         super().__init__(platform)
-        self._patchelf_path = str(_verify_patchelf())
+        self._patchelf_path = str(_verify_patchelf(variant))
 
     def get_rpath_direct(self, file_name: Path) -> str:
         output = check_output([self._patchelf_path, "--print-rpath", file_name])
