@@ -26,7 +26,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
 
   test-dist:
@@ -40,13 +40,13 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-      - name: Install CPython 3.10
+      - name: Install CPython 3.11
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           architecture: x64
       - name: Run tests
-        run: pipx run nox -s test-sdist-3.10 test-wheel-3.10
+        run: pipx run nox -s test-sdist-3.11 test-wheel-3.11
 
   test:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}
@@ -59,7 +59,7 @@ jobs:
       matrix:
         platform:
           - [ 'x86_64', 'ubuntu-24.04' ]
-        python: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        python: [ '3.11', '3.12', '3.13', '3.14', '3.15' ]
         include:
           - platform: [ 'aarch64', 'ubuntu-24.04-arm' ]
             python: '3.12'

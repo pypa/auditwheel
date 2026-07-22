@@ -6,7 +6,7 @@ import os
 import sys
 import zipfile
 from argparse import Namespace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from os.path import isabs
 from pathlib import Path
 from typing import Any
@@ -191,7 +191,7 @@ def test_wheel_source_date_epoch(timestamp, tmp_path, monkeypatch):
     output_wheel, *_ = list(wheel_output_path.glob("*.whl"))
     with zipfile.ZipFile(output_wheel) as wheel_file:
         for file in wheel_file.infolist():
-            file_date_time = datetime(*file.date_time, tzinfo=timezone.utc)
+            file_date_time = datetime(*file.date_time, tzinfo=UTC)
             assert file_date_time.timestamp() == timestamp[1]
 
 
