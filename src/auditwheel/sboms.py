@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 def create_sbom_for_wheel(
     wheel_fname: str,
     sbom_filepaths: list[Path],
-) -> None | dict[str, typing.Any]:
+) -> dict[str, typing.Any] | None:
     # If there aren't any files then we bail.
     if not sbom_filepaths:
         return None
