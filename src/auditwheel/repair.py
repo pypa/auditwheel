@@ -126,15 +126,17 @@ def repair_wheel(
             else:
                 patcher.clear_rpath(path)
 
-        patcher.apply_updates()
-
-        if update_tags:
-            output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
-
+        # strip before applying ELF patches to reduce chances of an invalid ELF being produced
+        # as seen in https://github.com/pypa/auditwheel/issues/716
         if strip:
             libs_to_strip = [path for (_, path) in soname_map.values()]
             extensions = external_refs_by_fn.keys()
             strip_symbols(itertools.chain(libs_to_strip, extensions))
+
+        patcher.apply_updates()
+
+        if update_tags:
+            output_wheel = add_platforms(ctx, abis, get_replace_platforms(abis[0]))
 
         # If we grafted packages with identities we add an SBOM to the wheel.
         # We recalculate the checksum at this point because there can be

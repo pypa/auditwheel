@@ -180,7 +180,7 @@ class AnyLinuxContainer:
         expected_retcode: int = 0,
         plat: str | None = None,
         only_plat: bool = True,
-        strip: bool = False,
+        strip: bool = True,  # default to True to reveal bad interactions between patchelf & strip
         library_paths: list[str] | None = None,
         excludes: list[str] | None = None,
         use_none_patcher: bool = False,
@@ -719,7 +719,7 @@ class Anylinux:
         isa_ext_check = policy != "manylinux_2_34_x86_64"
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, isa_ext_check=isa_ext_check)
+        anylinux.repair(orig_wheel, isa_ext_check=isa_ext_check, strip=False)
         repaired_wheel = anylinux.check_wheel("testpackage", python_abi="py3-none")
         assert_show_output(anylinux, repaired_wheel, policy, False, isa_ext_check)
 
@@ -927,24 +927,6 @@ class Anylinux:
                     for name in w.namelist()
                 )
 
-    def test_strip(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
-        policy = anylinux.policy
-
-        test_path = "/auditwheel_src/tests/integration/sample_extension"
-        orig_wheel = anylinux.build_wheel(test_path)
-        assert orig_wheel.startswith("sample_extension-0.1.0")
-
-        # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, strip=True, use_none_patcher=True)
-
-        repaired_wheel = next(anylinux.io_folder.glob(f"*{policy}*.whl")).name
-
-        python.install_wheel(repaired_wheel)
-        output = python.run(
-            "from sample_extension import test_func; print(test_func(1))",
-        )
-        assert output.strip() == "2"
-
     def test_nonpy_rpath(
         self,
         anylinux: AnyLinuxContainer,
@@ -1055,7 +1037,13 @@ class Anylinux:
         test_path = f"/auditwheel_src/tests/integration/arch-wheels/{source}"
         orig_wheel = f"testsimple-0.0.1-{python_abi}-linux_{arch.value}.whl"
         anylinux.exec(["cp", "-f", f"{test_path}/{orig_wheel}", f"/io/{orig_wheel}"])
-        anylinux.repair(orig_wheel, plat="auto", only_plat=False, use_none_patcher=True)
+        anylinux.repair(
+            orig_wheel,
+            plat="auto",
+            only_plat=False,
+            use_none_patcher=True,
+            strip=False,
+        )
         anylinux.check_wheel(
             "testsimple",
             python_abi=python_abi,
