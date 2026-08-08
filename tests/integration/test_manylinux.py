@@ -719,7 +719,7 @@ class Anylinux:
         isa_ext_check = policy != "manylinux_2_34_x86_64"
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, isa_ext_check=isa_ext_check, strip=False)
+        anylinux.repair(orig_wheel, isa_ext_check=isa_ext_check, strip=True)
         repaired_wheel = anylinux.check_wheel("testpackage", python_abi="py3-none")
         assert_show_output(anylinux, repaired_wheel, policy, False, isa_ext_check)
 
