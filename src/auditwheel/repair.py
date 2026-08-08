@@ -67,6 +67,7 @@ def repair_wheel(
             f"found {len(dist_info_dirs)}: {dist_info_dirs}"
         )
         sbom_filepaths: list[Path] = []
+        script_shims: dict[Path, Path] = {}  # map needed for strip to get the actual ELF file
 
         # here, fn is a path to an ELF file (lib or executable) in
         # the wheel, and v['libs'] contains its required libs
@@ -106,6 +107,7 @@ def repair_wheel(
                 if _path_is_script(fn):
                     new_fn = _replace_elf_script_with_shim(match.group("name"), fn)
                     patcher.update_elf_path(fn, new_fn)
+                    script_shims[fn] = new_fn
                 new_rpath = Path("$ORIGIN") / os.path.relpath(dest_dir, new_fn.parent)
                 append_rpath_within_wheel(new_fn, str(new_rpath), ctx.name, patcher)
 
@@ -130,7 +132,7 @@ def repair_wheel(
         # as seen in https://github.com/pypa/auditwheel/issues/716
         if strip:
             libs_to_strip = [path for (_, path) in soname_map.values()]
-            extensions = external_refs_by_fn.keys()
+            extensions = [script_shims.get(path, path) for path in external_refs_by_fn]
             strip_symbols(itertools.chain(libs_to_strip, extensions))
 
         patcher.apply_updates()
