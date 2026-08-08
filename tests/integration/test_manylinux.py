@@ -1055,7 +1055,13 @@ class Anylinux:
         test_path = f"/auditwheel_src/tests/integration/arch-wheels/{source}"
         orig_wheel = f"testsimple-0.0.1-{python_abi}-linux_{arch.value}.whl"
         anylinux.exec(["cp", "-f", f"{test_path}/{orig_wheel}", f"/io/{orig_wheel}"])
-        anylinux.repair(orig_wheel, plat="auto", only_plat=False, use_none_patcher=True)
+        anylinux.repair(
+            orig_wheel,
+            plat="auto",
+            only_plat=False,
+            use_none_patcher=True,
+            strip=False,
+        )
         anylinux.check_wheel(
             "testsimple",
             python_abi=python_abi,
