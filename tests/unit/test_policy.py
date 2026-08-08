@@ -322,8 +322,10 @@ def test_android_no_filename():
     [
         (
             "foo-1.0-py3-none-android_21_arm64_v8a.android_22_arm64_v8a.whl",
-            "Android wheels must have exactly one platform tag, got "
-            "['android_21_arm64_v8a', 'android_22_arm64_v8a']",
+            (
+                "Android wheels must have exactly one platform tag, got "
+                "['android_21_arm64_v8a', 'android_22_arm64_v8a']"
+            ),
         ),
         (
             "foo-1.0-py3-none-android_20_x86_64.whl",
