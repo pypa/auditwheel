@@ -180,7 +180,7 @@ class AnyLinuxContainer:
         expected_retcode: int = 0,
         plat: str | None = None,
         only_plat: bool = True,
-        strip: bool = False,
+        strip: bool = True,  # default to True to reveal bad interactions between patchelf & strip
         library_paths: list[str] | None = None,
         excludes: list[str] | None = None,
         use_none_patcher: bool = False,
