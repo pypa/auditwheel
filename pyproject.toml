@@ -116,6 +116,7 @@ line-length = 100
 lint.select = ["ALL"]
 lint.ignore = [
   "C901",
+  "CPY001",
   "D",  # TODO add doc
   "FIX002", # TODO
   "PLR",    # Design related pylint codes
