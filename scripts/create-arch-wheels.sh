@@ -37,3 +37,10 @@ apk add gcc binutils musl-dev python3-dev py3-pip
 python3 -m pip wheel --no-deps -w /tests/arch-wheels/musllinux_1_2 /tests/testsimple
 EOF
 done
+
+for ARCH in "amd64"; do
+  docker run --platform linux/${ARCH} -i --rm -v "${INTEGRATION_TEST_DIR}:/tests" python:3.10-alpine /bin/sh << "EOF"
+apk add gcc binutils musl-dev
+python3 -m pip wheel --no-deps -w /tests/arch-wheels/musllinux_1_2 /tests/testsimple
+EOF
+done

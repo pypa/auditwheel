@@ -128,3 +128,27 @@ def test_parse_ld_paths_origin(origin):
 def test_ld_paths_from_arg(arg, env, expected, monkeypatch):
     monkeypatch.setitem(os.environ, "AUDITWHEEL_LD_LIBRARY_PATH", env)
     assert ld_paths_from_arg(arg) == expected
+
+
+def test_libc_no_detect_musl_cp310(tmp_path: Path) -> None:
+    wheel = (
+        HERE
+        / ".."
+        / "integration"
+        / "arch-wheels"
+        / "musllinux_1_2"
+        / "testsimple-0.0.1-cp310-cp310-linux_x86_64.whl"
+    )
+    so = tmp_path / "testsimple.cpython-310-x86_64-linux-gnu.so"
+    zip2dir(wheel, tmp_path)
+    result = ldd(so)
+    assert result.interpreter is None
+    assert result.libc is None  # we can't detect libc for this library
+    assert result.platform.baseline_architecture == Architecture.x86_64
+    assert result.platform.extended_architecture is None
+    assert result.path is not None
+    assert result.realpath.samefile(so)
+    assert result.needed == ()
+    assert result.rpath == ()
+    assert result.runpath == ()
+    assert not result.libraries
