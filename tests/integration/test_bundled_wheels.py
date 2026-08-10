@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import importlib
 import json
 import os
 import sys
 import zipfile
 from argparse import Namespace
 from datetime import datetime, timezone
-from os.path import isabs
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
 
+import auditwheel.wheel_abi
 from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
@@ -24,60 +23,83 @@ HERE = Path(__file__).parent.resolve()
 
 
 @pytest.mark.parametrize(
-    ("file", "external_libs", "exclude"),
+    ("file", "external_libs", "exclude", "env"),
     [
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libffi.so.5", "libpython2.7.so.1.0"},
             frozenset(),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             set(),
             frozenset(["libffi.so.5", "libpython2.7.so.1.0"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libffi.so.5", "libpython2.7.so.1.0"},
             frozenset(["libffi.so.noexist", "libnoexist.so.*"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libpython2.7.so.1.0"},
             frozenset(["libffi.so.[4,5]"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libffi.so.5", "libpython2.7.so.1.0"},
             frozenset(["libffi.so.[6,7]"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libpython2.7.so.1.0"},
             frozenset([f"{HERE}/*"]),
+            "LD_LIBRARY_PATH",
+        ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            {"libpython2.7.so.1.0"},
+            frozenset([f"{HERE}/*"]),
+            "AUDITWHEEL_LD_LIBRARY_PATH",
+        ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            {"libffi.so.5", "libpython2.7.so.1.0"},
+            frozenset([f"{HERE}/*"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libpython2.7.so.1.0"},
             frozenset(["libffi.so.*"]),
+            None,
         ),
-        ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["*"])),
+        ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["*"]), None),
         (
             "python_snappy-0.5.2-pp260-pypy_41-linux_x86_64.whl",
             {"libsnappy.so.1"},
             frozenset(),
+            None,
         ),
     ],
 )
-def test_analyze_wheel_abi(file, external_libs, exclude):
-    # If exclude libs contain path, LD_LIBRARY_PATH need to be modified to find the libs
-    # `lddtree.load_ld_paths` needs to be reloaded for it's `lru_cache`-ed.
-    modify_ld_library_path = any(isabs(e) for e in exclude)
+def test_analyze_wheel_abi(file, external_libs, exclude, env):
+    # If exclude libs contain path, the parametrized environment variable "env" needs to be
+    # modified to find the libs
+
+    lddtree.load_ld_paths.cache_clear()
+    auditwheel.wheel_abi.get_wheel_elfdata.cache_clear()
 
     with pytest.MonkeyPatch.context() as cp:
-        if modify_ld_library_path:
-            cp.setenv("LD_LIBRARY_PATH", f"{HERE}")
-            importlib.reload(lddtree)
+        cp.delenv("AUDITWHEEL_LD_LIBRARY_PATH", raising=False)
+        cp.delenv("LD_LIBRARY_PATH", raising=False)
+        if env:
+            cp.setenv(env, f"{HERE}")
 
         winfo = analyze_wheel_abi(
             Libc.GLIBC,
@@ -91,8 +113,8 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
             f"{HERE}, {exclude}, {os.environ}"
         )
 
-    if modify_ld_library_path:
-        importlib.reload(lddtree)
+    lddtree.load_ld_paths.cache_clear()
+    auditwheel.wheel_abi.get_wheel_elfdata.cache_clear()
 
 
 def test_analyze_wheel_abi_pyfpe():
