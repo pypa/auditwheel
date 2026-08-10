@@ -2,6 +2,18 @@
 
 ## HEAD
 
+## 6.8.0
+
+Released August 10, 2026
+
+### User-facing changes
+- [BUGFIX] `auditwheel repair --strip` can lead to invalid ELF files ([#717](https://github.com/pypa/auditwheel/pull/717), [#716](https://github.com/pypa/auditwheel/issues/716))
+- [BUGFIX] `auditwheel repair --strip` always fails when script shims are introduced ([#720](https://github.com/pypa/auditwheel/pull/720), [#719](https://github.com/pypa/auditwheel/issues/719))
+- [FEATURE] add `--json` output flag to `auditwheel show` ([#685](https://github.com/pypa/auditwheel/pull/685))
+- [FEATURE] add `--patcher` option to `auditwheel repair` ([#711](https://github.com/pypa/auditwheel/pull/711))
+- [FEATURE] reduce calls to patchelf ([#704](https://github.com/pypa/auditwheel/pull/704))
+- [FEATURE] support alternative LD_LIBRARY_PATH called AUDITWHEEL_LD_LIBRARY_PATH ([#597](https://github.com/pypa/auditwheel/pull/597))
+
 ## 6.7.0
 
 Released May 26, 2026
