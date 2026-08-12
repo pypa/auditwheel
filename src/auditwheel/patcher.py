@@ -139,10 +139,10 @@ def _verify_patchelf(variant: PatchElfVariants) -> Path:
         msg = "Could not call `patchelf` binary"
         raise ValueError(msg) from None
 
-    m = re.match(r"patchelf\s+(\d+(.\d+)?)", version)
-    if m and tuple(int(x) for x in m.group(1).split(".")) >= (0, 14):
+    m = re.match(r"patchelf\s+(\d+(.\d+(.\d+)?)?)", version)
+    if m and tuple(int(x) for x in m.group(1).split(".")) >= (0, 14, 5):
         return Path(patchelf_path)
-    msg = f"{version.strip()} found. auditwheel repair requires patchelf >= 0.14."
+    msg = f"{version.strip()} found. auditwheel repair requires patchelf >= 0.14.5."
     raise ValueError(msg)
 
 

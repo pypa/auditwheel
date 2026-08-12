@@ -146,7 +146,7 @@ def test_patchelf_check_output_fail(check_output, which):
 
 @patch("auditwheel.patcher.which")
 @patch("auditwheel.patcher.check_output")
-@pytest.mark.parametrize("version", ["0.14", "0.14.1", "0.15"])
+@pytest.mark.parametrize("version", ["0.14.5", "0.15", "0.19.1", "1"])
 def test_patchelf_version_check(check_output, which, version):
     which.return_value = "patchelf"
     check_output.return_value.decode.return_value = f"patchelf {version}"
@@ -155,7 +155,7 @@ def test_patchelf_version_check(check_output, which, version):
 
 @patch("auditwheel.patcher.which")
 @patch("auditwheel.patcher.check_output")
-@pytest.mark.parametrize("version", ["0.13.99", "0.13", "0.9", "0.1"])
+@pytest.mark.parametrize("version", ["0.13.99", "0.13", "0.9", "0.1", "0.14", "0.14.4"])
 def test_patchelf_version_check_fail(check_output, which, version):
     which.return_value = "patchelf"
     check_output.return_value.decode.return_value = f"patchelf {version}"
