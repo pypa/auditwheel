@@ -502,7 +502,7 @@ class Anylinux:
                 ),
             )
         else:
-            commands.append("pipx install -f patchelf==0.14.3.0")
+            commands.append("pipx install -f patchelf==0.15.0.0")
         return commands
 
     @pytest.fixture
