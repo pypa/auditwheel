@@ -501,6 +501,8 @@ class Anylinux:
                     "chmod +x /usr/local/bin/lief-patchelf",
                 ),
             )
+        else:
+            commands.append("pipx install -f patchelf==0.14.3.0")
         return commands
 
     @pytest.fixture
