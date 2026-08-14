@@ -38,7 +38,7 @@ Requirements
 ------------
 - OS: Linux (for Android wheels, macOS may also be used)
 - Python: 3.10+
-- `patchelf <https://github.com/NixOS/patchelf>`_: 0.14+
+- `patchelf <https://github.com/NixOS/patchelf>`_: 0.14.5+
 
 Only systems that use `ELF
 <https://en.wikipedia.org/wiki/Executable_and_Linkable_Format>`_-based linkage

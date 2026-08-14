@@ -127,11 +127,12 @@ if PLATFORM in {"aarch64", "i686", "x86_64"}:
 
 
 class AnyLinuxContainer:
-    def __init__(self, policy: str, tag: str, container: Container, io_folder: Path):
+    def __init__(self, policy: str, tag: str, container: Container, io_folder: Path, patcher: str):
         self._policy = policy
         self._tag = tag
         self._container = container
         self._io_folder = io_folder
+        self._patcher = patcher
 
     @property
     def policy(self):
@@ -140,6 +141,10 @@ class AnyLinuxContainer:
     @property
     def io_folder(self):
         return self._io_folder
+
+    @property
+    def patcher(self):
+        return self._patcher
 
     def exec(
         self,
@@ -521,10 +526,10 @@ class Anylinux:
     @pytest.fixture
     def anylinux(
         self,
-        any_manylinux_img: tuple[str, str],
+        any_manylinux_img: tuple[str, str, str],
         io_folder: Path,
     ) -> Generator[AnyLinuxContainer, None, None]:
-        policy, manylinux_img = any_manylinux_img
+        policy, manylinux_img, patcher = any_manylinux_img
         env = {"PATH": PATH[policy]}
         with docker_container_ctx(manylinux_img, io_folder, env) as container:
             platform_tag = ".".join(
@@ -537,6 +542,7 @@ class Anylinux:
                 platform_tag,
                 container,
                 io_folder,
+                patcher,
             )
 
     def test_numpy(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
@@ -578,6 +584,32 @@ class Anylinux:
         # Check that the 2 fortran runtimes are well isolated and can be loaded
         # at once in the same Python program:
         python.run("import numpy; import foo")
+
+    @pytest.mark.skipif(PLATFORM == "riscv64", reason="'patchelf==0.14.5.0' not available")
+    def test_numpy_patchelf_min(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
+        # Integration test: repair numpy built from scratch with patchelf==0.14.5.0
+        policy = anylinux.policy
+        if anylinux.patcher != "patchelf":
+            pytest.skip(reason="only when using patchelf")
+
+        # First build numpy from source as a naive linux wheel that is tied
+        # to system libraries (blas, libgfortran...)
+        orig_wheel = build_numpy(anylinux, anylinux.io_folder)
+        assert orig_wheel == ORIGINAL_NUMPY_WHEEL
+        assert "manylinux" not in orig_wheel
+
+        anylinux.exec("pipx install -f patchelf==0.14.5.0")
+
+        # Repair the wheel using the manylinux container
+        anylinux.repair(orig_wheel)
+        repaired_wheel = anylinux.check_wheel("numpy", version=NUMPY_VERSION)
+        assert_show_output(anylinux, repaired_wheel, policy, False)
+
+        # Check that the repaired numpy wheel can be installed and executed
+        # on a modern linux image.
+        python.install_wheel(repaired_wheel)
+        output = python.run("/auditwheel_src/tests/integration/quick_check_numpy.py")
+        assert output.strip() == "ok"
 
     def test_numpy_sbom(
         self,
@@ -1081,7 +1113,7 @@ class TestManylinux(Anylinux):
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
         with tmp_docker_image(base, commands, env) as img_id:
-            yield policy, img_id
+            yield policy, img_id, patcher
 
     @pytest.mark.parametrize("with_dependency", ["0", "1"])
     def test_image_dependencies(
@@ -1299,4 +1331,4 @@ class TestMusllinux(Anylinux):
             env["AUDITWHEEL_PATCHER"] = patcher
         commands = Anylinux.get_auditwheel_install_commands(patcher)
         with tmp_docker_image(base, commands, env) as img_id:
-            yield policy, img_id
+            yield policy, img_id, patcher
