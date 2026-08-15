@@ -128,9 +128,7 @@ def test_android_api_level(tag, expected):
 
 
 def test_inwheel_tmpdir(tmp_path, monkeypatch):
-    wheel_path = (
-        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
-    )
+    wheel_path = HERE / "../bundled-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
     tmp_path = tmp_path.resolve(strict=True)
     tmpdir = tmp_path / "tmpdir"
     tmpdir.mkdir()
@@ -143,9 +141,7 @@ def test_inwheel_tmpdir(tmp_path, monkeypatch):
 
 
 def test_inwheel_no_manager(tmp_path):
-    wheel_path = (
-        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
-    )
+    wheel_path = HERE / "../bundled-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
     context = InWheelCtx(wheel_path, tmp_path / wheel_path.name)
     with pytest.raises(
         ValueError,
@@ -199,9 +195,7 @@ def test_add_platforms_no_duplicate_root_is_purelib(tmp_path):
 
 
 def test_inwheel_no_distinfo():
-    wheel_path = (
-        HERE / "../integration/arch-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
-    )
+    wheel_path = HERE / "../bundled-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
     with InWheelCtx(wheel_path, None) as context:
         dist_info = list(context.path.glob("*.dist-info"))
         assert len(dist_info) == 1

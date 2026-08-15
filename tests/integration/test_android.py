@@ -14,7 +14,8 @@ from auditwheel.policy import ExternalReference
 from auditwheel.wheel_abi import analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
-android_dir = HERE / "android"
+BUNDLED_WHEELS = HERE / ".." / "bundled-wheels"
+android_dir = BUNDLED_WHEELS / "android"
 
 # This wheel was generated from cibuildwheel's test_android.py::test_libcxx. It contains an
 # external reference to libc++_shared.so.

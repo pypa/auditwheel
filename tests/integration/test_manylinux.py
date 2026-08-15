@@ -1066,7 +1066,7 @@ class Anylinux:
             elif arch == Architecture.riscv64:
                 platform_tag = f"manylinux_2_31_{arch.value}"
             python_abi = "cp313-cp313"
-        test_path = f"/auditwheel_src/tests/integration/arch-wheels/{source}"
+        test_path = f"/auditwheel_src/tests/bundled-wheels/{source}"
         orig_wheel = f"testsimple-0.0.1-{python_abi}-linux_{arch.value}.whl"
         anylinux.exec(["cp", "-f", f"{test_path}/{orig_wheel}", f"/io/{orig_wheel}"])
         anylinux.repair(

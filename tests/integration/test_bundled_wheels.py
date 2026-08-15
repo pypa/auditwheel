@@ -20,6 +20,7 @@ from auditwheel.main import main
 from auditwheel.wheel_abi import NonPlatformWheelError, analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
+BUNDLED_WHEELS = HERE / ".." / "bundled-wheels"
 
 
 @pytest.mark.parametrize(
@@ -104,7 +105,7 @@ def test_analyze_wheel_abi(file, external_libs, exclude, env):
         winfo = analyze_wheel_abi(
             Libc.GLIBC,
             Architecture.x86_64,
-            HERE / file,
+            BUNDLED_WHEELS / file,
             exclude,
             disable_isa_ext_check=False,
             allow_graft=True,
@@ -121,7 +122,7 @@ def test_analyze_wheel_abi_pyfpe():
     winfo = analyze_wheel_abi(
         Libc.GLIBC,
         Architecture.x86_64,
-        HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
+        BUNDLED_WHEELS / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
         frozenset(),
         disable_isa_ext_check=False,
         allow_graft=True,
@@ -134,7 +135,7 @@ def test_analyze_wheel_abi_pyfpe():
 
 
 def test_show_wheel_abi_pyfpe(monkeypatch, capsys):
-    wheel = str(HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl")
+    wheel = str(BUNDLED_WHEELS / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl")
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
     monkeypatch.setattr(sys, "argv", ["auditwheel", "show", wheel])
@@ -148,7 +149,7 @@ def test_analyze_wheel_abi_bad_architecture():
         analyze_wheel_abi(
             Libc.GLIBC,
             Architecture.aarch64,
-            HERE / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
+            BUNDLED_WHEELS / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl",
             frozenset(),
             disable_isa_ext_check=False,
             allow_graft=True,
@@ -159,7 +160,7 @@ def test_analyze_wheel_abi_static_exe(caplog):
     result = analyze_wheel_abi(
         None,
         None,
-        HERE
+        BUNDLED_WHEELS
         / "patchelf-0.17.2.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl",  # noqa: E501
         frozenset(),
         disable_isa_ext_check=False,
@@ -187,7 +188,7 @@ def test_analyze_wheel_abi_static_exe(caplog):
     ],
 )
 def test_wheel_source_date_epoch(timestamp, tmp_path, monkeypatch):
-    wheel_path = HERE / "arch-wheels/musllinux_1_2/testsimple-0.0.1-cp312-cp312-linux_x86_64.whl"
+    wheel = BUNDLED_WHEELS / "musllinux_1_2/testsimple-0.0.1-cp312-cp312-linux_x86_64.whl"
     wheel_output_path = tmp_path / "out"
     args = Namespace(
         LIB_SDIR=".libs",
@@ -196,7 +197,7 @@ def test_wheel_source_date_epoch(timestamp, tmp_path, monkeypatch):
         STRIP=False,
         UPDATE_TAGS=True,
         WHEEL_DIR=wheel_output_path,
-        WHEEL_FILE=[wheel_path],
+        WHEEL_FILE=[wheel],
         EXCLUDE=[],
         LDPATHS=None,
         DISABLE_ISA_EXT_CHECK=False,
@@ -218,7 +219,7 @@ def test_wheel_source_date_epoch(timestamp, tmp_path, monkeypatch):
 
 
 def test_libpython(tmp_path, caplog):
-    wheel = HERE / "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.whl"
+    wheel = BUNDLED_WHEELS / "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.whl"
     args = Namespace(
         LIB_SDIR=".libs",
         ONLY_PLAT=False,
@@ -250,7 +251,7 @@ def test_main_lddtree(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     wheel_path = (
-        HERE
+        BUNDLED_WHEELS
         / "patchelf-0.17.2.1-py2.py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.musllinux_1_1_x86_64.whl"  # noqa: E501
     )
     patchelf_path = tmp_path / "patchelf-0.17.2.1.data/scripts/patchelf"
@@ -293,7 +294,8 @@ def test_weak_symbols_not_blacklisted() -> None:
     result = analyze_wheel_abi(
         None,
         None,
-        HERE / "cryptography-46.0.3-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+        BUNDLED_WHEELS
+        / "cryptography-46.0.3-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
         frozenset(),
         disable_isa_ext_check=False,
         allow_graft=False,
@@ -310,7 +312,7 @@ def test_symbol_blacklist(
     # wheel built using main@dda40c214e3db607b6ab31cd4cf9e3e5e1347937
     # AUDITWHEEL_ARCH=x86_64 nox -s tests-3.10 -- \
     #   'tests/integration/test_manylinux.py::TestManylinux::test_zlib_blacklist[manylinux_2_12]'
-    wheel = HERE / "testzlib-0.0.1-cp310-cp310-linux_x86_64.whl"
+    wheel = BUNDLED_WHEELS / "testzlib-0.0.1-cp310-cp310-linux_x86_64.whl"
     result = analyze_wheel_abi(
         None,
         None,

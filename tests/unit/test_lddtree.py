@@ -9,6 +9,7 @@ from auditwheel.libc import Libc
 from auditwheel.tools import zip2dir
 
 HERE = Path(__file__).parent.resolve(strict=True)
+BUNDLED_WHEELS = HERE / ".." / "bundled-wheels"
 
 
 @pytest.mark.parametrize(
@@ -36,9 +37,7 @@ def test_libpython_re_nomatch(soname: str) -> None:
 
 
 def test_libpython(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-    wheel = (
-        HERE / ".." / "integration" / "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.whl"
-    )
+    wheel = BUNDLED_WHEELS / "python_mscl-67.0.1.0-cp313-cp313-manylinux2014_aarch64.whl"
     so = tmp_path / "python_mscl" / "_mscl.so"
     zip2dir(wheel, tmp_path)
     result = ldd(so)
@@ -131,14 +130,7 @@ def test_ld_paths_from_arg(arg, env, expected, monkeypatch):
 
 
 def test_libc_no_detect_musl_cp310(tmp_path: Path) -> None:
-    wheel = (
-        HERE
-        / ".."
-        / "integration"
-        / "arch-wheels"
-        / "musllinux_1_2"
-        / "testsimple-0.0.1-cp310-cp310-linux_x86_64.whl"
-    )
+    wheel = BUNDLED_WHEELS / "musllinux_1_2/testsimple-0.0.1-cp310-cp310-linux_x86_64.whl"
     so = tmp_path / "testsimple.cpython-310-x86_64-linux-gnu.so"
     zip2dir(wheel, tmp_path)
     result = ldd(so)

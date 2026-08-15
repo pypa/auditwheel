@@ -74,7 +74,7 @@ def _download_wheels_for_tests(session: nox.Session) -> None:
             "download",
             "--only-binary=:all:",
             "--no-deps",
-            "--dest=./tests/integration/",
+            "--dest=./tests/bundled-wheels/",
             f"--platform={platform_tag}",
             f"--implementation={python_tag[:2]}",
             f"--python-version={python_tag[2:]}",
