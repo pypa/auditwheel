@@ -2,6 +2,13 @@
 
 ## HEAD
 
+## 6.8.1
+
+Released August 15, 2026
+
+### User-facing changes
+- [BUGFIX] bump minimum patchelf version to 0.14.5 ([#724](https://github.com/pypa/auditwheel/pull/724), [#722](https://github.com/pypa/auditwheel/issues/722))
+
 ## 6.8.0
 
 Released August 10, 2026
