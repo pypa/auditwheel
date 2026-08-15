@@ -1110,8 +1110,12 @@ class TestManylinux(Anylinux):
         if patcher != "patchelf":
             env["AUDITWHEEL_PATCHER"] = patcher
         commands = Anylinux.get_auditwheel_install_commands(patcher)
-        if policy in {"manylinux_2_31", "manylinux_2_35"}:
-            commands.append("apt-get update -yqq")
+        if policy in {"manylinux_2_12", "manylinux_2_17"}:
+            commands.append("yum install -y gsl-devel atlas atlas-devel")
+        elif policy in {"manylinux_2_31", "manylinux_2_35"}:
+            commands.extend(("apt-get update -yqq", "apt-get install -y libopenblas-dev execstack"))
+        else:
+            commands.append("dnf install -y openblas-devel")
         with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id, patcher
 
