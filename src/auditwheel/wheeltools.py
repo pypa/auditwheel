@@ -12,7 +12,7 @@ import os
 import re
 import zlib
 from base64 import urlsafe_b64encode
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import product
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -142,7 +142,7 @@ class InWheel(InTemporaryDirectory):
             date_time = None
             timestamp = os.environ.get("SOURCE_DATE_EPOCH")
             if timestamp:
-                date_time = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
+                date_time = datetime.fromtimestamp(int(timestamp), tz=UTC)
             dir2zip(self.name, self.out_wheel, self.zip_compression_level, date_time)
         return super().__exit__(exc, value, tb)
 
