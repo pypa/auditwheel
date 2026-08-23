@@ -67,7 +67,7 @@ def create_sbom_for_wheel(
         "dependencies": sbom_dependencies,
     }
 
-    for filepath, provided_by in sbom_packages.items():
+    for filepath, provided_by in sorted(sbom_packages.items(), key=lambda kv: (kv[1].purl, kv[0])):
         bom_ref = (
             provided_by.purl + f"#{hashlib.sha256(filepath.encode(errors='ignore')).hexdigest()}"
         )
