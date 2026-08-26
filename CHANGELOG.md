@@ -3,7 +3,7 @@
 ## HEAD
 
 ### User-facing changes
-- [FEATURE] Add `manylinux_2_42` & `manylinux_2_43` policies
+- [FEATURE] Add `manylinux_2_42`, `manylinux_2_43` & `manylinux_2_44` policies
 
 ## 6.8.1
 

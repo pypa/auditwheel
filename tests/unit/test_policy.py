@@ -141,8 +141,11 @@ class TestPolicyAccess:
     def test_get_by_name(self):
         arch = Architecture.detect()
         policies = WheelPolicies(libc=Libc.GLIBC, arch=arch)
+        # loongarch64 has no policy newer than manylinux_2_41,
+        # riscv64 none newer than manylinux_2_43.
+        if arch not in {Architecture.loongarch64, Architecture.riscv64}:
+            assert policies.get_policy_by_name(f"manylinux_2_44_{arch}").priority == 48
         if arch != Architecture.loongarch64:
-            # no loongarch64 support in manylinux_2_42 & later policies yet
             assert policies.get_policy_by_name(f"manylinux_2_43_{arch}").priority == 49
             assert policies.get_policy_by_name(f"manylinux_2_42_{arch}").priority == 50
         assert policies.get_policy_by_name(f"manylinux_2_41_{arch}").priority == 51
