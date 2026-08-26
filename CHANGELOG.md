@@ -2,6 +2,9 @@
 
 ## HEAD
 
+### User-facing changes
+- [FEATURE] Add `manylinux_2_42` & `manylinux_2_43` policies
+
 ## 6.8.1
 
 Released August 15, 2026
