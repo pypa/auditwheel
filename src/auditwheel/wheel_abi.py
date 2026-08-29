@@ -15,6 +15,7 @@ from auditwheel.elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
+    elf_has_executable_stack,
     elf_is_python_extension,
     elf_references_pyfpe_jbuf,
 )
@@ -45,6 +46,7 @@ class WheelAbIInfo:
     pyfpe_policy: Policy
     blacklist_policy: Policy
     machine_policy: Policy
+    executable_stack_policy: Policy
     graft_policy: Policy
 
 
@@ -56,6 +58,7 @@ class WheelElfData:
     versioned_symbols: dict[str, set[str]]
     uses_ucs2_symbols: bool
     uses_pyfpe_jbuf: bool
+    executable_stack: list[Path]
 
 
 def _fixup_elf_trees(
@@ -131,6 +134,7 @@ def get_wheel_elfdata(
     versioned_symbols: dict[str, set[str]] = defaultdict(set)
     uses_ucs2_symbols = False
     uses_pyfpe_jbuf = False
+    executable_stack = []
     policies: WheelPolicies | None = None
 
     # Android is cross-compiled, so ldpaths should never be loaded from the build machine.
@@ -143,6 +147,8 @@ def get_wheel_elfdata(
 
         platform_wheel = False
         for fn, elf in elf_file_filter(ctx.iter_files()):
+            if elf_has_executable_stack(elf):
+                executable_stack.append(fn)
             # Check for invalid binary wheel format: no shared library should
             # be found in purelib
             so_name = fn.name
@@ -276,6 +282,7 @@ def get_wheel_elfdata(
         versioned_symbols,
         uses_ucs2_symbols,
         uses_pyfpe_jbuf,
+        executable_stack,
     )
 
 
@@ -520,6 +527,7 @@ def analyze_wheel_abi(
 
     ucs_policy = policies.linux if data.uses_ucs2_symbols else policies.highest
     pyfpe_policy = policies.linux if data.uses_pyfpe_jbuf else policies.highest
+    executable_stack_policy = policies.linux if data.executable_stack else policies.highest
 
     overall_policy = min(
         symbol_policy,
@@ -527,6 +535,7 @@ def analyze_wheel_abi(
         pyfpe_policy,
         blacklist_policy,
         machine_policy,
+        executable_stack_policy,
     )
 
     if requested_policy_base_name is not None:
@@ -547,6 +556,7 @@ def analyze_wheel_abi(
         pyfpe_policy,
         blacklist_policy,
         machine_policy,
+        executable_stack_policy,
         graft_policy,
     )
 

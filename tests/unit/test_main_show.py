@@ -66,6 +66,7 @@ def _make_winfo(
     pyfpe_linux: bool = False,
     ucs_linux: bool = False,
     machine_linux: bool = False,
+    executable_stack_linux: bool = False,
     versioned_symbols: dict[str, set[str]] | None = None,
     external_libs: dict[str, Path | None] | None = None,
     policy_upgrades_libs: dict[str, Path | None] | None = None,
@@ -91,6 +92,7 @@ def _make_winfo(
         pyfpe_policy=LINUX if pyfpe_linux else MANYLINUX_2_17,
         ucs_policy=LINUX if ucs_linux else MANYLINUX_2_17,
         machine_policy=LINUX if machine_linux else MANYLINUX_2_17,
+        executable_stack_policy=LINUX if executable_stack_linux else MANYLINUX_2_17,
         sym_policy=overall_policy,
         versioned_symbols=versioned_symbols or {},
         external_refs=external_refs,
@@ -162,6 +164,7 @@ def test_basic_json_output(tmp_path, capsys, patch_wheel_abi):
     assert output["pyfpe"] is False
     assert output["ucs2"] is False
     assert output["unsupported_isa"] is False
+    assert output["executable_stack"] is False
     assert output["versioned_symbols"] == {}
     assert output["external_libs"] == {}
     assert output["policy_upgrades"] == {}
@@ -236,8 +239,9 @@ def test_json_with_policy_upgrades(tmp_path, capsys, patch_wheel_abi):
         ("pyfpe_linux", "pyfpe"),
         ("ucs_linux", "ucs2"),
         ("machine_linux", "unsupported_isa"),
+        ("executable_stack_linux", "executable_stack"),
     ],
-    ids=["pyfpe", "ucs2", "unsupported_isa"],
+    ids=["pyfpe", "ucs2", "unsupported_isa", "executable_stack"],
 )
 def test_json_boolean_flags(tmp_path, capsys, patch_wheel_abi, flag_kwarg, output_key):
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
@@ -247,6 +251,7 @@ def test_json_boolean_flags(tmp_path, capsys, patch_wheel_abi, flag_kwarg, outpu
             pyfpe_linux=flag_kwarg == "pyfpe_linux",
             ucs_linux=flag_kwarg == "ucs_linux",
             machine_linux=flag_kwarg == "machine_linux",
+            executable_stack_linux=flag_kwarg == "executable_stack_linux",
         ),
     )
 

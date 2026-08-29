@@ -10,10 +10,26 @@ from auditwheel.elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
+    elf_has_executable_stack,
     elf_read_dt_needed,
     elf_references_pyfpe_jbuf,
     get_undefined_symbols,
 )
+
+
+@pytest.mark.parametrize(
+    ("segments", "expected"),
+    [
+        ([], False),
+        ([{"p_type": "PT_LOAD", "p_flags": 7}], False),
+        ([{"p_type": "PT_GNU_STACK", "p_flags": 6}], False),
+        ([{"p_type": "PT_GNU_STACK", "p_flags": 7}], True),
+    ],
+)
+def test_elf_has_executable_stack(segments, expected):
+    elf = Mock()
+    elf.iter_segments.return_value = [Mock(header=Mock(**segment)) for segment in segments]
+    assert elf_has_executable_stack(elf) is expected
 
 
 class MockSymbol(dict[str, Any]):
