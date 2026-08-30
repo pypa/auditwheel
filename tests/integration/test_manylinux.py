@@ -598,7 +598,8 @@ class Anylinux:
         assert orig_wheel == ORIGINAL_NUMPY_WHEEL
         assert "manylinux" not in orig_wheel
 
-        anylinux.exec("pipx install -f patchelf==0.14.5.0")
+        anylinux.exec("pipx uninstall patchelf")
+        anylinux.exec("pipx install patchelf==0.14.5.0")
 
         # Repair the wheel using the manylinux container
         anylinux.repair(orig_wheel)
