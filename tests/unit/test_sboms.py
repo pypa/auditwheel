@@ -71,3 +71,44 @@ def test_create_sbom(whichprovides):
             },
         ],
     }
+
+
+@patch("auditwheel.sboms.whichprovides")
+def test_create_sbom_component_order_is_deterministic(whichprovides):
+    # Two .so files from the same RPM package (identical purl), reproducing
+    # the CUDA build case (libcublas.so.13 and libcublas.so.13.1.1.3 both
+    # come from libcublas-13-0).
+    libcublas = ProvidedBy(
+        package_type="rpm",
+        package_name="libcublas",
+        package_version="13.1.1.3-1",
+        distro="almalinux",
+    )
+    wheel_fname = "testpackage-0.0.1-py3-none-any.whl"
+
+    whichprovides.return_value = {
+        "/lib/libcublas.so.13": libcublas,
+        "/lib/libcublas.so.13.1.1.3": libcublas,
+    }
+    sbom_a = create_sbom_for_wheel(
+        wheel_fname,
+        [Path("/lib/libcublas.so.13"), Path("/lib/libcublas.so.13.1.1.3")],
+    )
+
+    # Different insertion order (e.g. different PYTHONHASHSEED). Since purl
+    # is identical for both files, only the filepath tie-break keeps this
+    # deterministic.
+    whichprovides.return_value = {
+        "/lib/libcublas.so.13.1.1.3": libcublas,
+        "/lib/libcublas.so.13": libcublas,
+    }
+    sbom_b = create_sbom_for_wheel(
+        wheel_fname,
+        [Path("/lib/libcublas.so.13.1.1.3"), Path("/lib/libcublas.so.13")],
+    )
+
+    assert sbom_a is not None
+    assert sbom_a == sbom_b
+
+    bom_refs = [c["bom-ref"] for c in sbom_a["components"][1:]]
+    assert bom_refs == sorted(bom_refs)
