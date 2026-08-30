@@ -456,11 +456,6 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
         container.exec("yum install -y atlas atlas-devel")
     elif container.policy.startswith(("manylinux_2_31_", "manylinux_2_35_")):
         container.exec("apt-get install -y libopenblas-dev execstack")
-        # TODO auditwheel shall check for executable stack:
-        # https://github.com/pypa/auditwheel/issues/634
-        container.exec(
-            ["bash", "-c", "execstack -c $(find /usr/lib* -name 'libopenblas*.so')"],
-        )
     else:
         container.exec("dnf install -y openblas-devel")
 
@@ -478,6 +473,13 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
         cached_wheel.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(orig_wheel, cached_wheel)
     return orig_wheel.name
+
+
+def clear_openblas_executable_stack(container: AnyLinuxContainer) -> None:
+    if container.policy.startswith(("manylinux_2_31_", "manylinux_2_35_")):
+        container.exec(
+            ["bash", "-c", "execstack -c $(find /usr/lib* -name 'libopenblas*.so')"],
+        )
 
 
 class Anylinux:
@@ -555,6 +557,12 @@ class Anylinux:
         assert orig_wheel == ORIGINAL_NUMPY_WHEEL
         assert "manylinux" not in orig_wheel
 
+        if policy.startswith(("manylinux_2_31_", "manylinux_2_35_")):
+            with pytest.raises(CalledProcessError):
+                anylinux.repair(orig_wheel)
+
+        clear_openblas_executable_stack(anylinux)
+
         # Repair the wheel using the manylinux container
         anylinux.repair(orig_wheel)
         repaired_wheel = anylinux.check_wheel("numpy", version=NUMPY_VERSION)
@@ -601,6 +609,8 @@ class Anylinux:
         anylinux.exec("pipx uninstall patchelf")
         anylinux.exec("pipx install patchelf==0.14.5.0")
 
+        clear_openblas_executable_stack(anylinux)
+
         # Repair the wheel using the manylinux container
         anylinux.repair(orig_wheel)
         repaired_wheel = anylinux.check_wheel("numpy", version=NUMPY_VERSION)
@@ -625,6 +635,8 @@ class Anylinux:
         orig_wheel = build_numpy(anylinux, anylinux.io_folder)
         assert orig_wheel == ORIGINAL_NUMPY_WHEEL
         assert "manylinux" not in orig_wheel
+
+        clear_openblas_executable_stack(anylinux)
 
         # Repair the wheel using the manylinux container
         anylinux.repair(orig_wheel)

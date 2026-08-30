@@ -156,7 +156,7 @@ def test_basic_json_output(tmp_path, capsys, patch_wheel_abi):
     assert retval == 0
     output = json.loads(capsys.readouterr().out)
     _validate_json(output)
-    assert output["version"] == 1
+    assert output["version"] == 2
     assert output["wheel"] == wheel.name
     assert output["pure"] is False
     assert output["overall_tag"] == "manylinux_2_17_x86_64"
@@ -327,7 +327,7 @@ def test_json_on_non_platform_wheel_error(tmp_path, capsys, monkeypatch):
     assert retval == 1
     output = json.loads(capsys.readouterr().out)
     _validate_json(output)
-    assert output["version"] == 1
+    assert output["version"] == 2
     assert output["wheel"] == wheel.name
     assert "error" in output
     assert "platform wheel" in output["error"]
@@ -344,7 +344,7 @@ def test_json_on_pure_wheel_allowed(tmp_path, capsys, monkeypatch):
     assert retval == 0
     output = json.loads(capsys.readouterr().out)
     _validate_json(output)
-    assert output["version"] == 1
+    assert output["version"] == 2
     assert output["wheel"] == wheel.name
     assert output["pure"] is True
     assert "error" not in output

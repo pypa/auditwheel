@@ -58,7 +58,7 @@ def _output_json(fn: str, winfo: WheelAbIInfo) -> None:
                 policy_upgrades[p.name] = entry
 
     result: dict[str, Any] = {
-        "version": 1,
+        "version": 2,
         "wheel": fn,
         "pure": False,
         "overall_tag": winfo.overall_policy.name,
@@ -116,10 +116,10 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         logger.info("%s", e.message)
         if is_pure_python and args.ALLOW_PURE_PY_WHEEL:
             if args.JSON:
-                print(json.dumps({"version": 1, "wheel": fn, "pure": True}))
+                print(json.dumps({"version": 2, "wheel": fn, "pure": True}))
             return 0
         if args.JSON:
-            print(json.dumps({"version": 1, "wheel": fn, "error": e.message}))
+            print(json.dumps({"version": 2, "wheel": fn, "error": e.message}))
         return 1
 
     if args.JSON:

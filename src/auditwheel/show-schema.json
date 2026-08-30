@@ -12,7 +12,7 @@
       "type": "object",
       "properties": {
         "version": {
-          "const": 1,
+          "const": 2,
           "description": "Schema version."
         },
         "wheel": {
@@ -31,7 +31,7 @@
       "type": "object",
       "properties": {
         "version": {
-          "const": 1,
+          "const": 2,
           "description": "Schema version."
         },
         "wheel": {
@@ -123,7 +123,7 @@
       "type": "object",
       "properties": {
         "version": {
-          "const": 1,
+          "const": 2,
           "description": "Schema version."
         },
         "wheel": {
