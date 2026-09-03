@@ -61,6 +61,7 @@ class TestGetWheelElfdata:
             "elf_file_filter",
             lambda fns: [(fn, pretend.stub()) for fn in fns],
         )
+        monkeypatch.setattr(wheel_abi, "elf_has_executable_stack", lambda _elf: False)
 
         with pytest.raises(RuntimeError) as exec_info:
             wheel_abi.get_wheel_elfdata(
