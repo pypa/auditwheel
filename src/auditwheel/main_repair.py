@@ -107,7 +107,7 @@ wheel will abort processing of subsequent wheels.
         help="Exclude SONAME from grafting into the resulting wheel "
         "Please make sure wheel metadata reflects your dependencies. "
         "See https://github.com/pypa/auditwheel/pull/411#issuecomment-1500826281 "
-        "(can be specified multiple times) "
+        "(can be specified multiple times, or as a comma-separated list) "
         "(can contain wildcards, for example libfoo.so.*)",
         action="append",
         default=[],
@@ -140,7 +140,9 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     from auditwheel.repair import repair_wheel
     from auditwheel.wheel_abi import analyze_wheel_abi
 
-    exclude: frozenset[str] = frozenset(args.EXCLUDE)
+    exclude: frozenset[str] = frozenset(
+        item.strip() for group in args.EXCLUDE for item in group.split(",")
+    )
     wheel_dir: Path = args.WHEEL_DIR.absolute()
     wheel_files: list[Path] = args.WHEEL_FILE
 
