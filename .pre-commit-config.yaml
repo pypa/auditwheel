@@ -23,14 +23,14 @@ repos:
   - id: trailing-whitespace
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: 39d9ac5938dadb73df0564a45f163e25ff9fa6e2  # frozen: v0.16.1
+  rev: 321478e58f4938179c6b86e4ddfa923d1547a49b  # frozen: v0.16.6
   hooks:
   - id: ruff-check
     args: ["--fix", "--show-fixes"]
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: 41e691678310dfd3833f7ab4e180ddb014310356  # frozen: v2.3.0
+  rev: 7ff8d35ae36a7d2b968f2f90b4c723e292e594ee  # frozen: v2.3.1
   hooks:
   - id: mypy
     exclude: tests/integration/.*/.*|tests/integration/quick_check_numpy.py|tests/unit/test_wheel_abi.py|scripts/calculate_symbol_versions.py
@@ -45,6 +45,6 @@ repos:
       - types-jsonschema
 
 - repo: https://github.com/zizmorcore/zizmor-pre-commit
-  rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa  # frozen: v1.29.0
+  rev: cef8b8350da46d8114c7e6b7272aebdccdf193ce  # frozen: v1.30.0
   hooks:
   - id: zizmor
