@@ -334,24 +334,24 @@ def load_ld_paths(
     dict containing library paths to search
 
     """
-    ldpaths: dict[str, list[str]] = {"conf": [], "env": [], "interp": []}
+    ldpaths: dict[str, list[str]] = {
+        "conf": [],
+        "auditwheel": [],
+        "env": [],
+        "interp": [],
+    }
+
+    auditwheel_ld_library_path = os.environ.get("AUDITWHEEL_LD_LIBRARY_PATH")
+    if auditwheel_ld_library_path:
+        ldpaths["auditwheel"] = parse_ld_paths(auditwheel_ld_library_path, path="")
 
     ld_library_path = os.environ.get("LD_LIBRARY_PATH")
     if root != "/" and ld_library_path is not None:
         log.warning("ignoring LD_LIBRARY_PATH due to ROOT usage")
         ld_library_path = None
 
-    # Load up $AUDITWHEEL_LD_LIBRARY_PATH and $LD_LIBRARY_PATH
-    env_ldpath = ":".join(
-        filter(None, (os.environ.get("AUDITWHEEL_LD_LIBRARY_PATH"), ld_library_path)),
-    )
-
-    if env_ldpath:
-        # TODO: If this contains $ORIGIN, we probably have to parse this
-        # on a per-ELF basis so it can get turned into the right thing.
-        # don't pass root: in case root != "/", only AUDITWHEEL_LD_LIBRARY_PATH is checked
-        # it shall already contain fully resolved paths
-        ldpaths["env"] = parse_ld_paths(env_ldpath, path="")
+    if ld_library_path:
+        ldpaths["env"] = parse_ld_paths(ld_library_path, path="")
 
     if libc == Libc.MUSL:
         # from https://git.musl-libc.org/cgit/musl/tree/ldso
@@ -389,7 +389,8 @@ def ld_paths_from_arg(args_ldpaths: str | None) -> dict[str, list[str]] | None:
 
     return {
         "conf": parse_ld_paths(args_ldpaths),
-        "env": parse_ld_paths(os.environ.get("AUDITWHEEL_LD_LIBRARY_PATH", "")),
+        "auditwheel": parse_ld_paths(os.environ.get("AUDITWHEEL_LD_LIBRARY_PATH", "")),
+        "env": [],
         "interp": [],
     }
 
@@ -590,6 +591,7 @@ def ldd(
     all_ldpaths = (
         ldpaths["rpath"]
         + rpaths
+        + ldpaths.get("auditwheel", [])
         + runpaths
         + ldpaths["env"]
         + ldpaths["runpath"]
