@@ -3,12 +3,15 @@ from __future__ import annotations
 import subprocess
 import sys
 from importlib import metadata
+from types import SimpleNamespace
 
 import pytest
 
+import auditwheel.wheel_abi
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc, LibcVersion
 from auditwheel.main import main
+from auditwheel.policy import WheelPolicies
 
 
 def test_help(monkeypatch, capsys):
@@ -89,6 +92,42 @@ def test_repair_wheel_mismatch(
 
     captured = capsys.readouterr()
     assert message in captured.err
+
+
+def test_repair_reports_too_recent_symbols(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
+    monkeypatch.setattr(Libc, "detect", lambda: Libc.GLIBC)
+
+    policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+    wheel_abi = SimpleNamespace(
+        policies=policies,
+        sym_policy=policies.get_policy_by_name("manylinux_2_17_x86_64"),
+        versioned_symbols={
+            "libc.so.6": {"GLIBC_2.5", "GLIBC_2.14"},
+            "libssl.so.3": {"OPENSSL_3.0.0"},
+        },
+    )
+    monkeypatch.setattr(
+        auditwheel.wheel_abi,
+        "analyze_wheel_abi",
+        lambda *_args, **_kwargs: wheel_abi,
+    )
+
+    wheel = tmp_path / "foo-1.0-cp310-cp310-manylinux_2_17_x86_64.whl"
+    wheel.write_text("")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["auditwheel", "repair", "--plat", "manylinux_2_5_x86_64", str(wheel)],
+    )
+
+    with pytest.raises(SystemExit):
+        main()
+
+    captured = capsys.readouterr()
+    assert "libc.so.6: GLIBC_2.14" in captured.err
+    assert "OPENSSL_3.0.0" not in captured.err
 
 
 def test_main_module() -> None:
