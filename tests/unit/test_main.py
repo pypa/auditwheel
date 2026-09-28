@@ -40,6 +40,23 @@ def test_unexisting_wheel(monkeypatch, capsys, tmp_path, function):
     assert "No such file" in captured.err
 
 
+@pytest.mark.parametrize("function", ["show", "repair"])
+def test_invalid_wheel_filename(monkeypatch, capsys, tmp_path, function):
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
+    wheel = tmp_path / "pyapriltags_eth-dev-cp312-cp312-linux_x86_64.whl"
+    wheel.write_text("")
+    monkeypatch.setattr(sys, "argv", ["auditwheel", function, str(wheel)])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert "Invalid wheel filename" in captured.err
+    assert wheel.name in captured.err
+
+
 @pytest.mark.parametrize(
     ("libc", "filename", "plat", "message"),
     [
