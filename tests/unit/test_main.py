@@ -54,7 +54,7 @@ def test_invalid_wheel_filename(monkeypatch, capsys, tmp_path, function):
     assert exc_info.value.code == 2
     captured = capsys.readouterr()
     assert "Invalid wheel filename" in captured.err
-    assert wheel.name in captured.err
+    assert wheel.stem in captured.err
 
 
 @pytest.mark.parametrize(
