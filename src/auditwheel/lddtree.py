@@ -588,13 +588,20 @@ def ldd(
 
     assert ldpaths is not None  # noqa: S101
 
+    # On recursive calls, ldpaths["rpath"] and ldpaths["runpath"] are the
+    # top-level ELF's paths propagated for dependency resolution, while rpaths
+    # and runpaths belong to the current ELF. On the first call they are the
+    # same lists, so omit the inherited copies to avoid searching duplicates.
+    inherited_rpaths = [] if _first else ldpaths["rpath"]
+    inherited_runpaths = [] if _first else ldpaths["runpath"]
+
     all_ldpaths = (
-        ldpaths["rpath"]
+        inherited_rpaths
         + rpaths
         + ldpaths.get("auditwheel", [])
         + runpaths
         + ldpaths["env"]
-        + ldpaths["runpath"]
+        + inherited_runpaths
         + ldpaths["conf"]
         + ldpaths["interp"]
     )
