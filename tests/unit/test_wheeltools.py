@@ -204,7 +204,8 @@ def test_add_platforms_no_duplicate_root_is_purelib(tmp_path):
     ids=["compressed", "invalid", "missing"],
 )
 def test_add_platforms_normalizes_wheel_tags(
-    tmp_path: Path, wheel_tag_headers: str
+    tmp_path: Path,
+    wheel_tag_headers: str,
 ) -> None:
     wheel_name = "testpkg-0.0.1-py2.py3-none-linux_x86_64.whl"
     wheel_path = tmp_path / wheel_name
@@ -213,10 +214,7 @@ def test_add_platforms_normalizes_wheel_tags(
     with zipfile.ZipFile(wheel_path, "w") as zf:
         zf.writestr(
             f"{dist_info}/WHEEL",
-            "Wheel-Version: 1.0\n"
-            "Generator: test\n"
-            "Root-Is-Purelib: false\n"
-            f"{wheel_tag_headers}",
+            f"Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: false\n{wheel_tag_headers}",
         )
         zf.writestr(
             f"{dist_info}/METADATA",
