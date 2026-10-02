@@ -13,7 +13,6 @@ import re
 import zlib
 from base64 import urlsafe_b64encode
 from datetime import datetime, timezone
-from itertools import product
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -258,18 +257,17 @@ def add_platforms(
 
     in_info_tags = [tag for name, tag in info.items() if name == "Tag"]
     logger.info("Previous WHEEL info tags: %s", ", ".join(in_info_tags))
-    # Python version, C-API version combinations
-    pyc_apis = ["-".join(tag.split("-")[:2]) for tag in in_info_tags]
-    # unique Python version, C-API version combinations
-    pyc_apis = unique_by_index(pyc_apis)
-    # Add new platform tags for each Python version, C-API combination
-    wanted_tags = ["-".join(tup) for tup in product(pyc_apis, platforms)]
-    new_tags = [tag for tag in wanted_tags if tag not in in_info_tags]
-    unwanted_tags = ["-".join(tup) for tup in product(pyc_apis, to_remove)]
-    updated_tags = [tag for tag in in_info_tags if tag not in unwanted_tags]
-    updated_tags += new_tags
+
+    # The wheel filename is the source of truth for compatibility tags. WHEEL
+    # requires one Tag header per expanded compatibility tag, so rebuilding
+    # the set from the output filename also repairs missing, malformed, or
+    # compressed Tag headers in the input metadata.
+    _, _, _, filename_tags = parse_wheel_filename(out_wheel_fname)
+    updated_tags = sorted(str(tag) for tag in filename_tags)
+
     if updated_tags != in_info_tags:
-        del info["Tag"]
+        if "Tag" in info:
+            del info["Tag"]
         for tag in updated_tags:
             info.add_header("Tag", tag)
 
