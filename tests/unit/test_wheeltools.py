@@ -194,6 +194,49 @@ def test_add_platforms_no_duplicate_root_is_purelib(tmp_path):
     )
 
 
+@pytest.mark.parametrize(
+    "wheel_tag_headers",
+    [
+        "Tag: py2.py3-none-linux_x86_64\n",
+        "Tag: definitely-not-a-valid-wheel-tag\n",
+        "",
+    ],
+    ids=["compressed", "invalid", "missing"],
+)
+def test_add_platforms_normalizes_wheel_tags(
+    tmp_path: Path,
+    wheel_tag_headers: str,
+) -> None:
+    wheel_name = "testpkg-0.0.1-py2.py3-none-linux_x86_64.whl"
+    wheel_path = tmp_path / wheel_name
+    dist_info = "testpkg-0.0.1.dist-info"
+
+    with zipfile.ZipFile(wheel_path, "w") as zf:
+        zf.writestr(
+            f"{dist_info}/WHEEL",
+            f"Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: false\n{wheel_tag_headers}",
+        )
+        zf.writestr(
+            f"{dist_info}/METADATA",
+            "Metadata-Version: 2.1\nName: testpkg\nVersion: 0.0.1\n",
+        )
+        zf.writestr(f"{dist_info}/RECORD", "")
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    with InWheelCtx(wheel_path, out_dir / wheel_name) as ctx:
+        add_platforms(ctx, [], [])
+
+    with zipfile.ZipFile(out_dir / wheel_name) as zf:
+        wheel_info = next(name for name in zf.namelist() if name.endswith("/WHEEL"))
+        info = read_pkg_info(zf.extract(wheel_info, tmp_path / "extracted"))
+
+    assert info.get_all("Tag") == [
+        "py2-none-linux_x86_64",
+        "py3-none-linux_x86_64",
+    ]
+
+
 def test_inwheel_no_distinfo():
     wheel_path = HERE / "../bundled-wheels/glibc/testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
     with InWheelCtx(wheel_path, None) as context:
