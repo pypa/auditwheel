@@ -12,11 +12,32 @@ from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheelError, WheelToolsError
 from auditwheel.libc import Libc
 from auditwheel.patcher import ElfPatcher
-from auditwheel.policy import WheelPolicies
+from auditwheel.policy import Policy, WheelPolicies
 from auditwheel.tools import EnvironmentDefault
 from auditwheel.wheeltools import get_wheel_architecture, get_wheel_libc
 
 logger = logging.getLogger(__name__)
+
+
+def _get_incompatible_versioned_symbols(
+    versioned_symbols: dict[str, set[str]],
+    policy: Policy,
+) -> dict[str, set[str]]:
+    allowed_symbol_versions: dict[str, set[str]] = {
+        name: {f"{name}_{version}" for version in versions}
+        for name, versions in policy.symbol_versions.items()
+    }
+    incompatible: dict[str, set[str]] = {}
+    for library, symbols in versioned_symbols.items():
+        for symbol in symbols:
+            name, separator, _ = symbol.partition("_")
+            if (
+                separator
+                and name in allowed_symbol_versions
+                and symbol not in allowed_symbol_versions[name]
+            ):
+                incompatible.setdefault(library, set()).add(symbol)
+    return incompatible
 
 
 def configure_parser(sub_parsers: Any) -> None:  # noqa: ANN401
@@ -230,11 +251,21 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         requested_policy = policies.get_policy_by_name(plat)
 
         if requested_policy > wheel_abi.sym_policy:
+            incompatible_symbols = _get_incompatible_versioned_symbols(
+                wheel_abi.versioned_symbols,
+                requested_policy,
+            )
+            details = "; ".join(
+                f"{library}: {', '.join(sorted(symbols))}"
+                for library, symbols in sorted(incompatible_symbols.items())
+            )
             msg = (
                 f'cannot repair "{wheel_file}" to "{plat}" ABI because of the '
-                "presence of too-recent versioned symbols. You'll need to compile "
-                "the wheel on an older toolchain."
+                "presence of too-recent versioned symbols."
             )
+            if details:
+                msg += f" Symbols causing the incompatibility: {details}."
+            msg += " You'll need to compile the wheel on an older toolchain."
             parser.error(msg)
 
         if requested_policy > wheel_abi.ucs_policy:
