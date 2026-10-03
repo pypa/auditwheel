@@ -7,6 +7,8 @@ import zlib
 from pathlib import Path
 from typing import Any
 
+from packaging.utils import InvalidWheelFilename
+
 from auditwheel import options
 from auditwheel.architecture import Architecture
 from auditwheel.error import NonPlatformWheelError, WheelToolsError
@@ -169,6 +171,8 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                     f"wheel targeting {requested_architecture.value}"
                 )
                 parser.error(msg)
+        except InvalidWheelFilename as e:
+            parser.error(str(e))
         except (WheelToolsError, NonPlatformWheelError) as e:
             logger.warning(
                 "The architecture could not be deduced from the wheel filename",

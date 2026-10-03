@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from packaging.utils import InvalidWheelFilename
+
 from auditwheel import options
 
 if TYPE_CHECKING:
@@ -90,6 +92,8 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     is_pure_python = False
     try:
         arch = get_wheel_architecture(fn)
+    except InvalidWheelFilename as e:
+        parser.error(str(e))
     except (WheelToolsError, NonPlatformWheelError) as e:
         logger.warning("The architecture could not be deduced from the wheel filename")
         is_pure_python = isinstance(e, NonPlatformWheelError)
