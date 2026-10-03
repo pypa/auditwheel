@@ -58,7 +58,7 @@ def _output_json(fn: str, winfo: WheelAbIInfo) -> None:
                 policy_upgrades[p.name] = entry
 
     result: dict[str, Any] = {
-        "version": 1,
+        "version": 2,
         "wheel": fn,
         "pure": False,
         "overall_tag": winfo.overall_policy.name,
@@ -66,6 +66,7 @@ def _output_json(fn: str, winfo: WheelAbIInfo) -> None:
         "pyfpe": winfo.pyfpe_policy == policies.linux,
         "ucs2": winfo.ucs_policy == policies.linux,
         "unsupported_isa": winfo.machine_policy == policies.linux,
+        "executable_stack": winfo.executable_stack_policy == policies.linux,
         "versioned_symbols": {k: sorted(v) for k, v in sorted(winfo.versioned_symbols.items())},
         "external_libs": {str(k): str(v) if v else None for k, v in sorted(libs.items())},
         "policy_upgrades": policy_upgrades,
@@ -115,10 +116,10 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         logger.info("%s", e.message)
         if is_pure_python and args.ALLOW_PURE_PY_WHEEL:
             if args.JSON:
-                print(json.dumps({"version": 1, "wheel": fn, "pure": True}))
+                print(json.dumps({"version": 2, "wheel": fn, "pure": True}))
             return 0
         if args.JSON:
-            print(json.dumps({"version": 1, "wheel": fn, "error": e.message}))
+            print(json.dumps({"version": 2, "wheel": fn, "error": e.message}))
         return 1
 
     if args.JSON:
@@ -153,6 +154,11 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
     if winfo.machine_policy == policies.linux:
         printp("This wheel depends on unsupported ISA extensions.")
+        if args.verbose < 1:
+            return 0
+
+    if winfo.executable_stack_policy == policies.linux:
+        printp("This wheel contains ELF files that require an executable stack.")
         if args.verbose < 1:
             return 0
 

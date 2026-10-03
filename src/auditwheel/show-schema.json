@@ -12,7 +12,7 @@
       "type": "object",
       "properties": {
         "version": {
-          "const": 1,
+          "const": 2,
           "description": "Schema version."
         },
         "wheel": {
@@ -31,7 +31,7 @@
       "type": "object",
       "properties": {
         "version": {
-          "const": 1,
+          "const": 2,
           "description": "Schema version."
         },
         "wheel": {
@@ -61,6 +61,10 @@
         "unsupported_isa": {
           "type": "boolean",
           "description": "Whether the wheel depends on unsupported ISA extensions."
+        },
+        "executable_stack": {
+          "type": "boolean",
+          "description": "Whether the wheel contains ELF files that require an executable stack."
         },
         "versioned_symbols": {
           "type": "object",
@@ -108,6 +112,7 @@
         "pyfpe",
         "ucs2",
         "unsupported_isa",
+        "executable_stack",
         "versioned_symbols",
         "external_libs",
         "policy_upgrades"
@@ -118,7 +123,7 @@
       "type": "object",
       "properties": {
         "version": {
-          "const": 1,
+          "const": 2,
           "description": "Schema version."
         },
         "wheel": {

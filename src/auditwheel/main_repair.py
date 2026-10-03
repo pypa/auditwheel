@@ -259,6 +259,13 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             )
             parser.error(msg)
 
+        if requested_policy > wheel_abi.executable_stack_policy:
+            msg = (
+                f'cannot repair "{wheel_file}" to "{plat}" ABI because it '
+                "contains ELF files that require an executable stack."
+            )
+            parser.error(msg)
+
         abis = [requested_policy.name, *requested_policy.aliases]
         if (not args.ONLY_PLAT) and requested_policy < wheel_abi.overall_policy:
             logger.info(

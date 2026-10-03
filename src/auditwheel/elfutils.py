@@ -56,6 +56,14 @@ def elf_file_filter(paths: Iterable[Path]) -> Iterator[tuple[Path, ELFFile]]:
                 continue
 
 
+def elf_has_executable_stack(elf: ELFFile) -> bool:
+    """Return whether an ELF explicitly requests an executable stack."""
+    for segment in elf.iter_segments():
+        if segment.header.p_type == "PT_GNU_STACK":
+            return bool(segment.header.p_flags & 0x1)
+    return False
+
+
 def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[tuple[str, str]]:
     if section := _get_section_by_type(elf, GNUVerNeedSection):
         for verneed, verneed_iter in section.iter_versions():
