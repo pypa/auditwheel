@@ -432,6 +432,23 @@ def find_lib(
     return None, None
 
 
+def _get_search_paths(
+    ldpaths: dict[str, list[str]],
+    rpaths: list[str],
+    runpaths: list[str],
+) -> list[str]:
+    """Return library search paths in dynamic linker precedence order."""
+    return (
+        ldpaths["rpath"]
+        + rpaths
+        + ldpaths["env"]
+        + runpaths
+        + ldpaths["runpath"]
+        + ldpaths["conf"]
+        + ldpaths["interp"]
+    )
+
+
 def ldd(
     path: Path,
     root: str = "/",
@@ -587,15 +604,7 @@ def ldd(
 
     assert ldpaths is not None  # noqa: S101
 
-    all_ldpaths = (
-        ldpaths["rpath"]
-        + rpaths
-        + runpaths
-        + ldpaths["env"]
-        + ldpaths["runpath"]
-        + ldpaths["conf"]
-        + ldpaths["interp"]
-    )
+    all_ldpaths = _get_search_paths(ldpaths, rpaths, runpaths)
     _excluded_libs: set[str] = set()
     for soname in needed:
         if soname in _all_libs:

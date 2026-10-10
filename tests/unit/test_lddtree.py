@@ -4,7 +4,13 @@ from pathlib import Path
 import pytest
 
 from auditwheel.architecture import Architecture
-from auditwheel.lddtree import LIBPYTHON_RE, ld_paths_from_arg, ldd, parse_ld_paths
+from auditwheel.lddtree import (
+    LIBPYTHON_RE,
+    _get_search_paths,
+    ld_paths_from_arg,
+    ldd,
+    parse_ld_paths,
+)
 from auditwheel.libc import Libc
 from auditwheel.tools import zip2dir
 
@@ -127,6 +133,26 @@ def test_parse_ld_paths_origin(origin):
 def test_ld_paths_from_arg(arg, env, expected, monkeypatch):
     monkeypatch.setitem(os.environ, "AUDITWHEEL_LD_LIBRARY_PATH", env)
     assert ld_paths_from_arg(arg) == expected
+
+
+def test_library_search_path_precedence() -> None:
+    ldpaths = {
+        "rpath": ["inherited-rpath"],
+        "env": ["environment"],
+        "runpath": ["inherited-runpath"],
+        "conf": ["configured"],
+        "interp": ["interpreter"],
+    }
+
+    assert _get_search_paths(ldpaths, ["rpath"], ["runpath"]) == [
+        "inherited-rpath",
+        "rpath",
+        "environment",
+        "runpath",
+        "inherited-runpath",
+        "configured",
+        "interpreter",
+    ]
 
 
 def test_libc_no_detect_musl_cp310(tmp_path: Path) -> None:
