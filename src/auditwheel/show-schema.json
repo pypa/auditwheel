@@ -64,7 +64,7 @@
         },
         "executable_stack": {
           "type": ["boolean", "null"],
-          "description": "Whether any ELF file in the wheel explicitly requests an executable stack. Null means no explicit request was found but at least one ELF file lacks PT_GNU_STACK, so its stack requirement is unknown."
+          "description": "Whether an ELF file in the wheel violates the target non-executable stack policy, through an explicit executable request or a missing PT_GNU_STACK which the target policy rejects. Null means missing headers were found but the target libc and architecture policy permits them; this is not an explicit non-executable stack declaration."
         },
         "versioned_symbols": {
           "type": "object",

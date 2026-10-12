@@ -56,18 +56,6 @@ def elf_file_filter(paths: Iterable[Path]) -> Iterator[tuple[Path, ELFFile]]:
                 continue
 
 
-def elf_has_executable_stack(elf: ELFFile) -> bool | None:
-    """Return the explicit stack requirement, or None if PT_GNU_STACK is absent.
-
-    Without the header, stack permissions depend on the architecture ABI and
-    target loader, so absence is not an explicit non-executable stack request.
-    """
-    for segment in elf.iter_segments():
-        if segment.header.p_type == "PT_GNU_STACK":
-            return bool(segment.header.p_flags & 0x1)
-    return None
-
-
 def elf_find_versioned_symbols(elf: ELFFile) -> Iterator[tuple[str, str]]:
     if section := _get_section_by_type(elf, GNUVerNeedSection):
         for verneed, verneed_iter in section.iter_versions():

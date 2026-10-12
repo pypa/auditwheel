@@ -14,11 +14,11 @@ from auditwheel.elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
     elf_find_versioned_symbols,
-    elf_has_executable_stack,
     elf_read_dt_needed,
     elf_references_pyfpe_jbuf,
     get_undefined_symbols,
 )
+from auditwheel.lddtree import elf_has_executable_stack
 
 
 @pytest.mark.parametrize(

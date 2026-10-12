@@ -147,7 +147,8 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     if winfo.unknown_executable_stack:
         printp(
             "This wheel contains ELF files without PT_GNU_STACK. Stack executability is "
-            "unknown and depends on the target loader and architecture.",
+            "unknown from these headers alone; target libc and architecture stack "
+            "policy determines compatibility.",
         )
 
     if winfo.pyfpe_policy == policies.linux:
@@ -174,7 +175,10 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             return 0
 
     if winfo.executable_stack_policy == policies.linux:
-        printp("This wheel contains ELF files that require an executable stack.")
+        printp(
+            "This wheel contains ELF files that require an executable stack or lack a "
+            "required non-executable stack declaration.",
+        )
         if args.verbose < 1:
             return 0
 
