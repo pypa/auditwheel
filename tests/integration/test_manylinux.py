@@ -711,14 +711,22 @@ class Anylinux:
 
         assert len(sbom_dependencies) == len(component_purls) + 1
 
-    def test_exclude(self, anylinux: AnyLinuxContainer) -> None:
+    @pytest.mark.parametrize(
+        "excludes",
+        [
+            pytest.param(["liba.so"], id="single-flag"),
+            pytest.param(["liba.so", "libb.so"], id="multiple-flags"),
+            pytest.param(["liba.so,libb.so"], id="comma-separated"),
+        ],
+    )
+    def test_exclude(self, anylinux: AnyLinuxContainer, excludes: list[str]) -> None:
         """Test the --exclude argument to avoid grafting certain libraries."""
         test_path = "/auditwheel_src/tests/integration/testrpath"
         orig_wheel = anylinux.build_wheel(test_path)
 
         output = anylinux.repair(
             orig_wheel,
-            excludes=["liba.so"],
+            excludes=excludes,
             library_paths=[f"{test_path}/a"],
         )
         assert "Excluding liba.so" in output
