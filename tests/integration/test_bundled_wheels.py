@@ -286,7 +286,8 @@ def test_repair_rejects_executable_stack(monkeypatch, tmp_path):
 
     parser.error.assert_called_once_with(
         f'cannot repair "{wheel}" to "{policies.lowest.name}" ABI because it '
-        "contains ELF files that require an executable stack.",
+        "contains ELF files that require an executable stack or lack a required "
+        "non-executable stack declaration.",
     )
 
 
@@ -301,7 +302,7 @@ def test_main_lddtree(
     )
     patchelf_path = tmp_path / "patchelf-0.17.2.1.data/scripts/patchelf"
     with zipfile.ZipFile(wheel_path) as f:
-        f.extract(str(patchelf_path.relative_to(tmp_path)), tmp_path)
+        f.extract(patchelf_path.relative_to(tmp_path).as_posix(), tmp_path)
     patchelf_path = patchelf_path.resolve(strict=True)
 
     monkeypatch.setattr(sys, "platform", "linux")
@@ -328,6 +329,7 @@ def test_main_lddtree(
         "rpath": [],
         "runpath": [],
         "libraries": {},
+        "executable_stack": False,
     }
     assert expected_json == actual_json
 
