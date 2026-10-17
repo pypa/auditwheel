@@ -12,6 +12,7 @@ from unittest.mock import Mock
 
 import pytest
 
+import auditwheel.policy
 import auditwheel.wheel_abi
 from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
@@ -245,6 +246,51 @@ def test_libpython(tmp_path, caplog):
     )
 
 
+def test_repair_rejects_executable_stack(monkeypatch, tmp_path):
+    wheel = tmp_path / "demo-0.1-cp312-cp312-linux_armv7l.whl"
+    wheel.touch()
+    policies = auditwheel.policy.WheelPolicies(libc=Libc.GLIBC, arch=Architecture.armv7l)
+    winfo = Mock(
+        policies=policies,
+        overall_policy=policies.linux,
+        sym_policy=policies.highest,
+        ucs_policy=policies.highest,
+        blacklist_policy=policies.highest,
+        machine_policy=policies.highest,
+        executable_stack_policy=policies.linux,
+    )
+    monkeypatch.setattr(auditwheel.wheel_abi, "analyze_wheel_abi", lambda *_args, **_kwargs: winfo)
+    args = Namespace(
+        LIB_SDIR=".libs",
+        ONLY_PLAT=False,
+        PLAT=policies.lowest.name,
+        STRIP=False,
+        UPDATE_TAGS=True,
+        WHEEL_DIR=tmp_path / "out",
+        WHEEL_FILE=[wheel],
+        EXCLUDE=[],
+        LDPATHS=None,
+        DISABLE_ISA_EXT_CHECK=False,
+        ZIP_COMPRESSION_LEVEL=6,
+        PATCHER="none",
+        cmd="repair",
+        func=Mock(),
+        prog="auditwheel",
+        verbose=0,
+    )
+    parser = Mock()
+    parser.error.side_effect = RuntimeError
+
+    with pytest.raises(RuntimeError):
+        main_repair.execute(args, parser)
+
+    parser.error.assert_called_once_with(
+        f'cannot repair "{wheel}" to "{policies.lowest.name}" ABI because it '
+        "contains ELF files that require an executable stack or lack a required "
+        "non-executable stack declaration.",
+    )
+
+
 def test_main_lddtree(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -256,7 +302,7 @@ def test_main_lddtree(
     )
     patchelf_path = tmp_path / "patchelf-0.17.2.1.data/scripts/patchelf"
     with zipfile.ZipFile(wheel_path) as f:
-        f.extract(str(patchelf_path.relative_to(tmp_path)), tmp_path)
+        f.extract(patchelf_path.relative_to(tmp_path).as_posix(), tmp_path)
     patchelf_path = patchelf_path.resolve(strict=True)
 
     monkeypatch.setattr(sys, "platform", "linux")
@@ -283,6 +329,7 @@ def test_main_lddtree(
         "rpath": [],
         "runpath": [],
         "libraries": {},
+        "executable_stack": False,
     }
     assert expected_json == actual_json
 

@@ -105,6 +105,157 @@ def test_get_symbol_policies() -> None:
     assert max_policy.name == "manylinux_2_17_x86_64"
 
 
+@pytest.mark.parametrize("libc", list(Libc))
+@pytest.mark.parametrize("architecture", list(Architecture))
+@pytest.mark.parametrize("stack_requirement", [False, None, True])
+def test_stack_requirement_defaults(libc, architecture, stack_requirement):
+    policies = pretend.stub(libc=libc, architecture=architecture)
+    executable_default = architecture.baseline in {
+        Architecture.armv7l,
+        Architecture.i686,
+        Architecture.s390x,
+        Architecture.x86_64,
+    }
+    expected = (
+        stack_requirement
+        if stack_requirement is not None
+        else (libc == Libc.ANDROID or (libc == Libc.GLIBC and executable_default))
+    )
+    assert (
+        wheel_abi._stack_requires_rejection(policies, stack_requirement=stack_requirement)
+        is expected
+    )
+
+
+def test_get_executable_stack_policy_for_grafted_libraries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+    safe_policy = policies.get_policy_by_name("manylinux_2_17_x86_64")
+    executable_stack_lib = Path("/lib/libunsafe.so")
+    external_refs = {
+        policy.name: ExternalReference(
+            {"libunsafe.so": executable_stack_lib} if policy > safe_policy else {},
+            {},
+            policy,
+        )
+        for policy in policies
+    }
+    library = DynamicLibrary(
+        "libunsafe.so",
+        str(executable_stack_lib),
+        executable_stack_lib,
+        executable_stack=True,
+    )
+    trees = {Path("extension.so"): pretend.stub(libraries={library.soname: library})}
+    monkeypatch.setattr(wheel_abi, "elf_file_filter", lambda _: pytest.fail("ELF reopened"))
+
+    assert (
+        wheel_abi._get_executable_stack_policy(
+            policies,
+            external_refs,
+            trees,
+            wheel_has_executable_stack=False,
+            allow_graft=True,
+        )
+        == safe_policy
+    )
+    assert (
+        wheel_abi._get_executable_stack_policy(
+            policies,
+            external_refs,
+            trees,
+            wheel_has_executable_stack=False,
+            allow_graft=False,
+        )
+        == policies.highest
+    )
+
+    trees[Path("extension.so")] = pretend.stub(
+        libraries={
+            library.soname: DynamicLibrary(
+                library.soname,
+                library.path,
+                library.realpath,
+                executable_stack=False,
+            ),
+        },
+    )
+    assert (
+        wheel_abi._get_executable_stack_policy(
+            policies,
+            external_refs,
+            trees,
+            wheel_has_executable_stack=False,
+            allow_graft=True,
+        )
+        == policies.highest
+    )
+
+
+@pytest.mark.parametrize("allow_graft", [False, True])
+@pytest.mark.parametrize("stack_requirement", [False, None, True])
+def test_grafted_library_stack_requirement(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    allow_graft: bool,
+    stack_requirement: bool | None,
+) -> None:
+    policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+    safe_policy = policies.get_policy_by_name("manylinux_2_17_x86_64")
+    library = Path("/lib/libexample.so")
+    external_refs = {
+        policy.name: ExternalReference(
+            {"libexample.so": library} if policy > safe_policy else {},
+            {},
+            policy,
+        )
+        for policy in policies
+    }
+    trees = {
+        Path("extension.so"): pretend.stub(
+            libraries={
+                "libexample.so": DynamicLibrary(
+                    "libexample.so",
+                    str(library),
+                    library,
+                    executable_stack=stack_requirement,
+                ),
+            },
+        ),
+    }
+    monkeypatch.setattr(wheel_abi, "elf_file_filter", lambda _: pytest.fail("ELF reopened"))
+
+    policy = wheel_abi._get_executable_stack_policy(
+        policies,
+        external_refs,
+        trees,
+        wheel_has_executable_stack=False,
+        allow_graft=allow_graft,
+    )
+    assert policy == (
+        safe_policy if allow_graft and stack_requirement is not False else policies.highest
+    )
+    warnings = [record for record in caplog.records if "no PT_GNU_STACK" in record.message]
+    assert not warnings  # Missing-header diagnostics belong to parsing, not policy evaluation.
+
+
+@pytest.mark.parametrize("allow_graft", [False, True])
+def test_get_executable_stack_policy_for_wheel_files(allow_graft: bool) -> None:
+    policies = WheelPolicies(libc=Libc.GLIBC, arch=Architecture.x86_64)
+
+    assert (
+        wheel_abi._get_executable_stack_policy(
+            policies,
+            {},
+            {},
+            wheel_has_executable_stack=True,
+            allow_graft=allow_graft,
+        )
+        == policies.linux
+    )
+
+
 @pytest.mark.parametrize("kind", ["resolved", "unresolved", "warning"])
 def test_nonpy_elf_resolution(kind: str, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.WARNING)
