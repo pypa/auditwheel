@@ -66,6 +66,8 @@ def _make_winfo(
     pyfpe_linux: bool = False,
     ucs_linux: bool = False,
     machine_linux: bool = False,
+    executable_stack_linux: bool = False,
+    unknown_executable_stack: bool = False,
     versioned_symbols: dict[str, set[str]] | None = None,
     external_libs: dict[str, Path | None] | None = None,
     policy_upgrades_libs: dict[str, Path | None] | None = None,
@@ -91,6 +93,8 @@ def _make_winfo(
         pyfpe_policy=LINUX if pyfpe_linux else MANYLINUX_2_17,
         ucs_policy=LINUX if ucs_linux else MANYLINUX_2_17,
         machine_policy=LINUX if machine_linux else MANYLINUX_2_17,
+        executable_stack_policy=LINUX if executable_stack_linux else MANYLINUX_2_17,
+        unknown_executable_stack=[Path("unknown.so")] if unknown_executable_stack else [],
         sym_policy=overall_policy,
         versioned_symbols=versioned_symbols or {},
         external_refs=external_refs,
@@ -154,7 +158,7 @@ def test_basic_json_output(tmp_path, capsys, patch_wheel_abi):
     assert retval == 0
     output = json.loads(capsys.readouterr().out)
     _validate_json(output)
-    assert output["version"] == 1
+    assert output["version"] == 2
     assert output["wheel"] == wheel.name
     assert output["pure"] is False
     assert output["overall_tag"] == "manylinux_2_17_x86_64"
@@ -162,6 +166,7 @@ def test_basic_json_output(tmp_path, capsys, patch_wheel_abi):
     assert output["pyfpe"] is False
     assert output["ucs2"] is False
     assert output["unsupported_isa"] is False
+    assert output["executable_stack"] is False
     assert output["versioned_symbols"] == {}
     assert output["external_libs"] == {}
     assert output["policy_upgrades"] == {}
@@ -236,8 +241,9 @@ def test_json_with_policy_upgrades(tmp_path, capsys, patch_wheel_abi):
         ("pyfpe_linux", "pyfpe"),
         ("ucs_linux", "ucs2"),
         ("machine_linux", "unsupported_isa"),
+        ("executable_stack_linux", "executable_stack"),
     ],
-    ids=["pyfpe", "ucs2", "unsupported_isa"],
+    ids=["pyfpe", "ucs2", "unsupported_isa", "executable_stack"],
 )
 def test_json_boolean_flags(tmp_path, capsys, patch_wheel_abi, flag_kwarg, output_key):
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
@@ -247,6 +253,7 @@ def test_json_boolean_flags(tmp_path, capsys, patch_wheel_abi, flag_kwarg, outpu
             pyfpe_linux=flag_kwarg == "pyfpe_linux",
             ucs_linux=flag_kwarg == "ucs_linux",
             machine_linux=flag_kwarg == "machine_linux",
+            executable_stack_linux=flag_kwarg == "executable_stack_linux",
         ),
     )
 
@@ -271,6 +278,43 @@ def test_no_json_flag_uses_text_output(tmp_path, capsys, patch_wheel_abi):
         json.loads(out)
     assert "consistent with the following" in out
     assert "platform tag" in out
+
+
+def test_text_output_warns_about_executable_stack(tmp_path, capsys, patch_wheel_abi):
+    wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
+    wheel.write_text("")
+    patch_wheel_abi(return_value=_make_winfo(executable_stack_linux=True))
+
+    retval = execute(_make_args(wheel, use_json=False), argparse.ArgumentParser())
+
+    assert retval == 0
+    assert "contains ELF files that require an executable stack" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("explicit_request", [False, True])
+def test_json_executable_stack_unknown(tmp_path, capsys, patch_wheel_abi, explicit_request):
+    wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
+    wheel.touch()
+    patch_wheel_abi(
+        return_value=_make_winfo(
+            executable_stack_linux=explicit_request,
+            unknown_executable_stack=True,
+        ),
+    )
+
+    assert execute(_make_args(wheel, use_json=True), argparse.ArgumentParser()) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["executable_stack"] is (True if explicit_request else None)
+    _validate_json(output)
+
+
+def test_text_output_warns_about_unknown_stack(tmp_path, capsys, patch_wheel_abi):
+    wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
+    wheel.touch()
+    patch_wheel_abi(return_value=_make_winfo(unknown_executable_stack=True))
+
+    assert execute(_make_args(wheel, use_json=False), argparse.ArgumentParser()) == 0
+    assert "Stack executability is unknown" in " ".join(capsys.readouterr().out.split())
 
 
 def test_json_with_sym_policy_constraint(tmp_path, capsys, patch_wheel_abi):
@@ -322,7 +366,7 @@ def test_json_on_non_platform_wheel_error(tmp_path, capsys, monkeypatch):
     assert retval == 1
     output = json.loads(capsys.readouterr().out)
     _validate_json(output)
-    assert output["version"] == 1
+    assert output["version"] == 2
     assert output["wheel"] == wheel.name
     assert "error" in output
     assert "platform wheel" in output["error"]
@@ -339,7 +383,7 @@ def test_json_on_pure_wheel_allowed(tmp_path, capsys, monkeypatch):
     assert retval == 0
     output = json.loads(capsys.readouterr().out)
     _validate_json(output)
-    assert output["version"] == 1
+    assert output["version"] == 2
     assert output["wheel"] == wheel.name
     assert output["pure"] is True
     assert "error" not in output

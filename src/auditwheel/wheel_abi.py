@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
 from auditwheel import json
+from auditwheel.architecture import Architecture
 from auditwheel.elfutils import (
     elf_file_filter,
     elf_find_ucs2_symbols,
@@ -26,8 +27,6 @@ from auditwheel.policy import ExternalReference, Policy, WheelPolicies
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-
-    from auditwheel.architecture import Architecture
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +44,9 @@ class WheelAbIInfo:
     pyfpe_policy: Policy
     blacklist_policy: Policy
     machine_policy: Policy
+    executable_stack_policy: Policy
     graft_policy: Policy
+    unknown_executable_stack: list[Path]
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,8 @@ class WheelElfData:
     versioned_symbols: dict[str, set[str]]
     uses_ucs2_symbols: bool
     uses_pyfpe_jbuf: bool
+    executable_stack: list[Path]
+    unknown_executable_stack: list[Path]
 
 
 def _fixup_elf_trees(
@@ -131,6 +134,8 @@ def get_wheel_elfdata(
     versioned_symbols: dict[str, set[str]] = defaultdict(set)
     uses_ucs2_symbols = False
     uses_pyfpe_jbuf = False
+    executable_stack = []
+    unknown_executable_stack = []
     policies: WheelPolicies | None = None
 
     # Android is cross-compiled, so ldpaths should never be loaded from the build machine.
@@ -157,6 +162,16 @@ def get_wheel_elfdata(
             if not shared_libraries_in_purelib:
                 log.debug("processing: %s", fn)
                 elftree = ldd(fn, exclude=exclude, ldpaths=ld_paths_from_arg(args_ldpaths))
+
+                if elftree.executable_stack is None:
+                    unknown_executable_stack.append(fn)
+                    log.warning(
+                        "ELF file %r has no PT_GNU_STACK; using target libc and "
+                        "architecture stack policy",
+                        fn,
+                    )
+                elif elftree.executable_stack:
+                    executable_stack.append(fn)
 
                 try:
                     elf_arch = elftree.platform.baseline_architecture
@@ -276,6 +291,8 @@ def get_wheel_elfdata(
         versioned_symbols,
         uses_ucs2_symbols,
         uses_pyfpe_jbuf,
+        executable_stack,
+        unknown_executable_stack,
     )
 
 
@@ -296,6 +313,65 @@ def get_external_libs(external_refs: dict[str, ExternalReference]) -> dict[Path,
             if realpath and realpath not in result:
                 result[Path(realpath)] = libname
     return result
+
+
+def _stack_requires_rejection(policies: WheelPolicies, *, stack_requirement: bool | None) -> bool:
+    if stack_requirement is not None:
+        return stack_requirement
+    if policies.libc == Libc.ANDROID:
+        # Require an explicit non-executable stack declaration, regardless of
+        # the Android loader's runtime defaults.
+        return True
+    if policies.libc == Libc.MUSL:
+        # musl uses PT_GNU_STACK only for the requested stack size.
+        return False
+    # These glibc ABIs default to PROT_EXEC without PT_GNU_STACK.
+    return policies.architecture.baseline in {
+        Architecture.armv7l,
+        Architecture.i686,
+        Architecture.s390x,
+        Architecture.x86_64,
+    }
+
+
+def _get_executable_stack_policy(
+    policies: WheelPolicies,
+    external_refs: dict[str, ExternalReference],
+    elftree_by_fn: dict[Path, DynamicExecutable],
+    *,
+    wheel_has_executable_stack: bool,
+    allow_graft: bool,
+) -> Policy:
+    if wheel_has_executable_stack:
+        return policies.linux
+    if not allow_graft:
+        return policies.highest
+
+    executable_stack_by_path = {
+        library.realpath: library.executable_stack
+        for elftree in elftree_by_fn.values()
+        for library in elftree.libraries.values()
+        if library.realpath is not None
+    }
+
+    # External references vary by policy. Only reject a policy when one of the
+    # libraries that would actually be grafted for that policy needs an
+    # executable stack.
+    return max(
+        (
+            external_ref.policy
+            for external_ref in external_refs.values()
+            if all(
+                not _stack_requires_rejection(
+                    policies,
+                    stack_requirement=executable_stack_by_path[path],
+                )
+                for path in external_ref.libs.values()
+                if path is not None
+            )
+        ),
+        default=policies.linux,
+    )
 
 
 def get_versioned_symbols(libs: dict[Path, str]) -> dict[str, dict[str, set[str]]]:
@@ -520,6 +596,17 @@ def analyze_wheel_abi(
 
     ucs_policy = policies.linux if data.uses_ucs2_symbols else policies.highest
     pyfpe_policy = policies.linux if data.uses_pyfpe_jbuf else policies.highest
+    executable_stack_policy = _get_executable_stack_policy(
+        policies,
+        external_refs,
+        elftree_by_fn,
+        wheel_has_executable_stack=bool(data.executable_stack)
+        or (
+            bool(data.unknown_executable_stack)
+            and _stack_requires_rejection(policies, stack_requirement=None)
+        ),
+        allow_graft=allow_graft,
+    )
 
     overall_policy = min(
         symbol_policy,
@@ -527,6 +614,7 @@ def analyze_wheel_abi(
         pyfpe_policy,
         blacklist_policy,
         machine_policy,
+        executable_stack_policy,
     )
 
     if requested_policy_base_name is not None:
@@ -547,7 +635,9 @@ def analyze_wheel_abi(
         pyfpe_policy,
         blacklist_policy,
         machine_policy,
+        executable_stack_policy,
         graft_policy,
+        data.unknown_executable_stack,
     )
 
 
