@@ -35,11 +35,11 @@ if "GITHUB_ACTIONS" in os.environ and sys.platform == "darwin":
 
 PLATFORM = os.environ.get("AUDITWHEEL_ARCH", Architecture.detect().value)
 MANYLINUX2014_IMAGE_ID = f"quay.io/pypa/manylinux2014_{PLATFORM}:latest"
-MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:latest"
-MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:latest"
-MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:latest"
-MANYLINUX_2_35_IMAGE_ID = f"quay.io/pypa/manylinux_2_35_{PLATFORM}:latest"
-MANYLINUX_2_39_IMAGE_ID = f"quay.io/pypa/manylinux_2_39_{PLATFORM}:latest"
+MANYLINUX_2_28_IMAGE_ID = f"quay.io/pypa/manylinux_2_28_{PLATFORM}:2026.01.03-1"
+MANYLINUX_2_31_IMAGE_ID = f"quay.io/pypa/manylinux_2_31_{PLATFORM}:2026.01.03-1"
+MANYLINUX_2_34_IMAGE_ID = f"quay.io/pypa/manylinux_2_34_{PLATFORM}:2026.01.03-1"
+MANYLINUX_2_35_IMAGE_ID = f"quay.io/pypa/manylinux_2_35_{PLATFORM}:2026.01.03-1"
+MANYLINUX_2_39_IMAGE_ID = f"quay.io/pypa/manylinux_2_39_{PLATFORM}:2026.01.03-1"
 if PLATFORM in {"i686", "x86_64"}:
     MANYLINUX_IMAGES = {
         "manylinux_2_17": MANYLINUX2014_IMAGE_ID,
@@ -79,16 +79,16 @@ PYTHON_ABI = f"cp{PYTHON_ABI_MAJ_MIN}-cp{PYTHON_ABI_MAJ_MIN}"
 PYTHON_IMAGE_TAG = ".".join(PYTHON_MAJ_MIN) + ("-rc" if PYTHON_ABI_MAJ_MIN == "316" else "")
 MANYLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-slim-trixie"
 MUSLLINUX_IMAGES = {
-    "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:latest",
+    "musllinux_1_2": f"quay.io/pypa/musllinux_1_2_{PLATFORM}:2026.01.03-1",
 }
 MUSLLINUX_PYTHON_IMAGE_ID = f"python:{PYTHON_IMAGE_TAG}-alpine"
 DEVTOOLSET = {
     "manylinux_2_17": "devtoolset-10",
-    "manylinux_2_28": "gcc-toolset-14",
+    "manylinux_2_28": "gcc-toolset-15",
     "manylinux_2_31": "devtoolset-not-present",
-    "manylinux_2_34": "gcc-toolset-14",
+    "manylinux_2_34": "gcc-toolset-15",
     "manylinux_2_35": "devtoolset-not-present",
-    "manylinux_2_39": "devtoolset-not-present",
+    "manylinux_2_39": "gcc-toolset-15",
     "musllinux_1_2": "devtoolset-not-present",
 }
 PATH_DIRS = [
@@ -503,6 +503,9 @@ class Anylinux:
                     "chmod +x /usr/local/bin/lief-patchelf",
                 ),
             )
+        else:
+            commands.append("pipx uninstall patchelf")
+            commands.append("pipx install -f patchelf==0.19.3.0")
         return commands
 
     @pytest.fixture
