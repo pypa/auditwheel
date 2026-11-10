@@ -42,22 +42,20 @@ def create_sbom_for_wheel(
     if not sbom_packages:
         return None
 
-    sbom_components: list[dict[str, typing.Any]] = [
-        {
-            "type": "library",
-            "bom-ref": wheel_purl,
-            "name": wheel_name,
-            "version": wheel_version,
-            "purl": wheel_purl,
-        },
-    ]
+    sbom_components: list[dict[str, typing.Any]] = []
     sbom_dependencies = [{"ref": wheel_purl, "dependsOn": []}]
     sbom_data = {
         "bomFormat": "CycloneDX",
         "specVersion": "1.4",
         "version": 1,
         "metadata": {
-            "component": sbom_components[0],
+            "component": {
+                "type": "library",
+                "bom-ref": wheel_purl,
+                "name": wheel_name,
+                "version": wheel_version,
+                "purl": wheel_purl,
+            },
             "tools": [
                 {"name": "auditwheel", "version": metadata.version("auditwheel")},
             ],

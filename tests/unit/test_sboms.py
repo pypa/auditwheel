@@ -1,3 +1,4 @@
+import hashlib
 from importlib import metadata
 from pathlib import Path
 from unittest.mock import call, patch
@@ -44,13 +45,6 @@ def test_create_sbom(whichprovides):
             "tools": [{"name": "auditwheel", "version": auditwheel_version}],
         },
         "components": [
-            {
-                "type": "library",
-                "bom-ref": f"pkg:pypi/testpackage@0.0.1?file_name={wheel_fname}",
-                "name": "testpackage",
-                "version": "0.0.1",
-                "purl": f"pkg:pypi/testpackage@0.0.1?file_name={wheel_fname}",
-            },
             {
                 "type": "library",
                 "bom-ref": "pkg:deb/ubuntu/python3@3.10.6#a0af9f865bf637e6736817f4ce552e4cdf7b8c36ea75bc254c1d1f0af744b5bf",  # noqa: E501
@@ -110,5 +104,16 @@ def test_create_sbom_component_order_is_deterministic(whichprovides):
     assert sbom_a is not None
     assert sbom_a == sbom_b
 
-    bom_refs = [c["bom-ref"] for c in sbom_a["components"][1:]]
-    assert bom_refs == sorted(bom_refs)
+    bom_refs = [c["bom-ref"] for c in sbom_a["components"]]
+    expected_bom_refs = [
+        f"{libcublas.purl}#{hashlib.sha256(filepath.encode()).hexdigest()}"
+        for filepath in ("/lib/libcublas.so.13", "/lib/libcublas.so.13.1.1.3")
+    ]
+    assert bom_refs == expected_bom_refs
+    wheel_bom_ref = sbom_a["metadata"]["component"]["bom-ref"]
+    assert wheel_bom_ref not in bom_refs
+    assert sbom_a["dependencies"][0] == {
+        "ref": wheel_bom_ref,
+        "dependsOn": expected_bom_refs,
+    }
+    assert sbom_a["dependencies"][1:] == [{"ref": bom_ref} for bom_ref in expected_bom_refs]
