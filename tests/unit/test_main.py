@@ -119,7 +119,6 @@ def test_main_module() -> None:
     assert result.stdout.startswith(f"auditwheel {version}")
 
 
-
 @pytest.mark.parametrize("function", ["show", "repair"])
 def test_corrupt_wheel_file(monkeypatch, capsys, tmp_path, function):
     monkeypatch.setattr(sys, "platform", "linux")
