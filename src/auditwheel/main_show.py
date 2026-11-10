@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -115,6 +116,8 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             allow_graft=False,
             args_ldpaths=args.LDPATHS,
         )
+    except zipfile.BadZipFile:
+        parser.error(f"{wheel_file} is not a valid wheel file")
     except NonPlatformWheelError as e:
         logger.info("%s", e.message)
         if is_pure_python and args.ALLOW_PURE_PY_WHEEL:

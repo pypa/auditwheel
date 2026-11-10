@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import shutil
+import zipfile
 import zlib
 from pathlib import Path
 from typing import Any
@@ -212,6 +213,8 @@ def execute(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
                 requested_policy_base_name=plat_base,
                 args_ldpaths=args.LDPATHS,
             )
+        except zipfile.BadZipFile:
+            parser.error(f"{wheel_file} is not a valid wheel file")
         except NonPlatformWheelError as e:
             logger.info(e.message)
             if is_pure_python and args.ALLOW_PURE_PY_WHEEL:
