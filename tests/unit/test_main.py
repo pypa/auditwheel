@@ -117,3 +117,22 @@ def test_main_module() -> None:
         text=True,
     )
     assert result.stdout.startswith(f"auditwheel {version}")
+
+
+
+@pytest.mark.parametrize("function", ["show", "repair"])
+def test_corrupt_wheel_file(monkeypatch, capsys, tmp_path, function):
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
+    monkeypatch.setattr(Libc, "detect", lambda: Libc.GLIBC)
+    monkeypatch.setattr(Libc, "get_current_version", lambda _: LibcVersion(1, 1))
+    wheel = tmp_path / "foo-1.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+    wheel.write_text("this is not a zip file")
+    monkeypatch.setattr(sys, "argv", ["auditwheel", function, str(wheel)])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == 2
+    captured = capsys.readouterr()
+    assert "is not a valid wheel file" in captured.err
