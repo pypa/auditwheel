@@ -291,6 +291,19 @@ def test_text_output_warns_about_executable_stack(tmp_path, capsys, patch_wheel_
     assert "contains ELF files that require an executable stack" in capsys.readouterr().out
 
 
+def test_verbose_text_continues_after_executable_stack_warning(tmp_path, capsys, patch_wheel_abi):
+    wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"
+    wheel.touch()
+    patch_wheel_abi(return_value=_make_winfo(executable_stack_linux=True))
+    args = _make_args(wheel, use_json=False)
+    args.verbose = 1
+
+    assert execute(args, argparse.ArgumentParser()) == 0
+    output = " ".join(capsys.readouterr().out.split())
+    assert "contains ELF files that require an executable stack" in output
+    assert "wheel references no external versioned symbols" in output
+
+
 @pytest.mark.parametrize("explicit_request", [False, True])
 def test_json_executable_stack_unknown(tmp_path, capsys, patch_wheel_abi, explicit_request):
     wheel = tmp_path / "foo-1.0-cp39-cp39-linux_x86_64.whl"

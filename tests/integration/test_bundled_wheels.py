@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import sys
@@ -11,6 +12,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from elftools.elf.elffile import ELFFile
 
 import auditwheel.policy
 import auditwheel.wheel_abi
@@ -22,6 +24,44 @@ from auditwheel.wheel_abi import NonPlatformWheelError, analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
 BUNDLED_WHEELS = HERE / ".." / "bundled-wheels"
+
+
+@pytest.mark.parametrize("remove_stack_header", [False, True])
+def test_analyze_wheel_missing_stack_header(tmp_path, caplog, remove_stack_header):
+    """Distinguish an absent stack declaration from an explicit non-executable one."""
+    source = BUNDLED_WHEELS / "cffi-1.5.0-cp27-none-linux_x86_64.whl"
+    wheel = tmp_path / source.name
+    with zipfile.ZipFile(source) as original, zipfile.ZipFile(wheel, "w") as modified:
+        for member in original.infolist():
+            data = original.read(member.filename)
+            if member.filename == "_cffi_backend.so":
+                elf = ELFFile(io.BytesIO(data))
+                stack_segments = [
+                    i
+                    for i, segment in enumerate(elf.iter_segments())
+                    if segment["p_type"] == "PT_GNU_STACK"
+                ]
+                assert len(stack_segments) == 1
+                assert elf.get_segment(stack_segments[0])["p_flags"] & 1 == 0
+                if remove_stack_header:
+                    offset = elf["e_phoff"] + stack_segments[0] * elf["e_phentsize"]
+                    data = data[:offset] + b"\0\0\0\0" + data[offset + 4 :]
+            modified.writestr(member, data)
+
+    result = analyze_wheel_abi(
+        Libc.GLIBC,
+        Architecture.x86_64,
+        wheel,
+        frozenset(),
+        disable_isa_ext_check=False,
+        allow_graft=True,
+    )
+    assert [path.name for path in result.unknown_executable_stack] == (
+        ["_cffi_backend.so"] if remove_stack_header else []
+    )
+    assert any("has no PT_GNU_STACK" in record.message for record in caplog.records) == (
+        remove_stack_header
+    )
 
 
 @pytest.mark.parametrize(
