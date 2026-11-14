@@ -12,8 +12,12 @@ mkdir -p "${BUNDLED_WHEELS_DIR}/glibc"
 mkdir -p "${BUNDLED_WHEELS_DIR}/musllinux_1_2"
 
 # "mips64le" built with buildpack-deps:bookworm and renamed cp313-cp313
-for ARCH in  "386" "amd64" "arm/v5" "arm/v7" "arm64/v8" "ppc64le" "riscv64" "s390x"; do
-  docker run --platform linux/${ARCH} -i --rm -v "${TESTS_DIR}:/tests" debian:trixie-20250203 << "EOF"
+for ARCH in  "386" "amd64" "arm/v5" "arm/v7" "arm64/v8" "ppc64le" "riscv64" "s390x" "loong64"; do
+  IMAGE="debian:trixie-20250203"
+  if [ "${ARCH}" = "loong64" ]; then
+    IMAGE="ghcr.io/loong64/debian:trixie@sha256:5b8d691dbb2b7bea2f1f117730d38d184a70284796cf3ee4f324c0a93aca729e"
+  fi
+  docker run --platform linux/${ARCH} -i --rm -v "${TESTS_DIR}:/tests" "${IMAGE}" << "EOF"
 # for, "arm/v5" QEMU will report armv7l, running on aarch64 will report aarch64, force armv5l/armv7l
 case "$(dpkg --print-architecture)" in
   armel) export _PYTHON_HOST_PLATFORM="linux-armv5l";;
@@ -26,8 +30,12 @@ python3 -m pip wheel --no-deps -w /tests/bundled-wheels/glibc /tests/integration
 EOF
 done
 
-for ARCH in "386" "amd64" "arm/v6" "arm/v7" "arm64/v8" "ppc64le" "riscv64" "s390x"; do
-  docker run --platform linux/${ARCH} -i --rm -v "${TESTS_DIR}:/tests" alpine:3.21 << "EOF"
+for ARCH in "386" "amd64" "arm/v6" "arm/v7" "arm64/v8" "ppc64le" "riscv64" "s390x" "loong64"; do
+  IMAGE="alpine:3.21"
+  if [ "${ARCH}" = "loong64" ]; then
+    IMAGE="ghcr.io/loong64/alpine:3.21@sha256:e511840ee87f5e3c2aa117cdab5794160d3dc4fd75cae05910c190e454130fd0"
+  fi
+  docker run --platform linux/${ARCH} -i --rm -v "${TESTS_DIR}:/tests" "${IMAGE}" << "EOF"
 # for, "arm/v5" QEMU will report armv7l, running on aarch64 will report aarch64, force armv5l/armv7l
 case "$(cat /etc/apk/arch)" in
   armhf) export _PYTHON_HOST_PLATFORM="linux-armv6l";;

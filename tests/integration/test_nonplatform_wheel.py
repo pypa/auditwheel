@@ -5,8 +5,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from elftools.elf.elffile import ELFFile
 
 from auditwheel.architecture import Architecture
+from auditwheel.wheeltools import InWheel
 
 HERE = Path(__file__).parent.resolve()
 BUNDLED_WHEELS = HERE / ".." / "bundled-wheels"
@@ -107,6 +109,46 @@ def test_non_platform_wheel_unknown_arch(mode, arch, allow_pure_python, tmp_path
     assert "Invalid binary wheel: no ELF executable or" in proc.stderr
     assert "unknown architecture" in proc.stderr
     assert "AttributeError" not in proc.stderr
+
+
+@pytest.mark.parametrize("mode", ["repair", "show"])
+@pytest.mark.parametrize(
+    ("arch", "flags"),
+    [("loongarch64", 0x03), ("loongarch64", 0x41), ("loongarch64", 0x42)],
+)
+@pytest.mark.parametrize("allow_pure_python", [True, False])
+def test_non_platform_wheel_unsupported_arch_flags(
+    mode,
+    arch,
+    flags,
+    allow_pure_python,
+    tmp_path,
+):
+    wheel_name = f"testsimple-0.0.1-cp313-cp313-linux_{arch}.whl"
+    wheel_path = BUNDLED_WHEELS / "glibc" / wheel_name
+    wheel = tmp_path / wheel_path.name
+    with InWheel(wheel_path, wheel) as wheel_dir:
+        for so in wheel_dir.rglob("*.so"):
+            with so.open("r+b") as f:
+                elf = ELFFile(f)
+                f.seek(48 if elf.elfclass == 64 else 36)  # e_flags offset in ELF64/ELF32.
+                f.write(flags.to_bytes(4, "little" if elf.little_endian else "big"))
+    args = ["auditwheel", mode, str(wheel)]
+    if mode == "repair":
+        args.extend(["-w", str(tmp_path / "wheelhouse")])
+    if allow_pure_python:
+        args.append("--allow-pure-python-wheel")
+    proc = subprocess.run(
+        args,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    assert "Invalid binary wheel: no ELF executable or" in proc.stderr
+    assert "unknown architecture" in proc.stderr
+    assert "AttributeError" not in proc.stderr
+    assert not list((tmp_path / "wheelhouse").glob("*.whl"))
 
 
 @pytest.mark.parametrize("mode", ["repair", "show"])
