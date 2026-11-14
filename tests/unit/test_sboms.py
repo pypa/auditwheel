@@ -1,3 +1,4 @@
+import hashlib
 from importlib import metadata
 from pathlib import Path
 from unittest.mock import call, patch
@@ -46,13 +47,6 @@ def test_create_sbom(whichprovides):
         "components": [
             {
                 "type": "library",
-                "bom-ref": f"pkg:pypi/testpackage@0.0.1?file_name={wheel_fname}",
-                "name": "testpackage",
-                "version": "0.0.1",
-                "purl": f"pkg:pypi/testpackage@0.0.1?file_name={wheel_fname}",
-            },
-            {
-                "type": "library",
                 "bom-ref": "pkg:deb/ubuntu/python3@3.10.6#a0af9f865bf637e6736817f4ce552e4cdf7b8c36ea75bc254c1d1f0af744b5bf",  # noqa: E501
                 "name": "python3",
                 "version": "3.10.6",
@@ -71,3 +65,55 @@ def test_create_sbom(whichprovides):
             },
         ],
     }
+
+
+@patch("auditwheel.sboms.whichprovides")
+def test_create_sbom_component_order_is_deterministic(whichprovides):
+    # Two .so files from the same RPM package (identical purl), reproducing
+    # the CUDA build case (libcublas.so.13 and libcublas.so.13.1.1.3 both
+    # come from libcublas-13-0).
+    libcublas = ProvidedBy(
+        package_type="rpm",
+        package_name="libcublas",
+        package_version="13.1.1.3-1",
+        distro="almalinux",
+    )
+    wheel_fname = "testpackage-0.0.1-py3-none-any.whl"
+
+    whichprovides.return_value = {
+        "/lib/libcublas.so.13": libcublas,
+        "/lib/libcublas.so.13.1.1.3": libcublas,
+    }
+    sbom_a = create_sbom_for_wheel(
+        wheel_fname,
+        [Path("/lib/libcublas.so.13"), Path("/lib/libcublas.so.13.1.1.3")],
+    )
+
+    # Different insertion order (e.g. different PYTHONHASHSEED). Since purl
+    # is identical for both files, only the filepath tie-break keeps this
+    # deterministic.
+    whichprovides.return_value = {
+        "/lib/libcublas.so.13.1.1.3": libcublas,
+        "/lib/libcublas.so.13": libcublas,
+    }
+    sbom_b = create_sbom_for_wheel(
+        wheel_fname,
+        [Path("/lib/libcublas.so.13.1.1.3"), Path("/lib/libcublas.so.13")],
+    )
+
+    assert sbom_a is not None
+    assert sbom_a == sbom_b
+
+    bom_refs = [c["bom-ref"] for c in sbom_a["components"]]
+    expected_bom_refs = [
+        f"{libcublas.purl}#{hashlib.sha256(filepath.encode()).hexdigest()}"
+        for filepath in ("/lib/libcublas.so.13", "/lib/libcublas.so.13.1.1.3")
+    ]
+    assert bom_refs == expected_bom_refs
+    wheel_bom_ref = sbom_a["metadata"]["component"]["bom-ref"]
+    assert wheel_bom_ref not in bom_refs
+    assert sbom_a["dependencies"][0] == {
+        "ref": wheel_bom_ref,
+        "dependsOn": expected_bom_refs,
+    }
+    assert sbom_a["dependencies"][1:] == [{"ref": bom_ref} for bom_ref in expected_bom_refs]

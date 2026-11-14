@@ -16,7 +16,7 @@ permissions: {}
 
 jobs:
   pre-commit:
-    name: Pre-commit checks (Black, Flake8, MyPy, ...)
+    name: Pre-commit checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,10 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.10"
-      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+      - uses: j178/prek-action@44924fe9ef4a6f88253c4b6b1bf11c689d3ce53d # v3.1.0
 
   test-dist:
     name: Test SDist & wheel
@@ -40,13 +37,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install CPython 3.10
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Install CPython 3.11
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           architecture: x64
       - name: Run tests
-        run: pipx run nox -s test-sdist-3.10 test-wheel-3.10
+        run: pipx run nox -s test-sdist-3.11 test-wheel-3.11
 
   test:
     name: CPython ${{ matrix.python }} ${{ matrix.platform[0] }} on ${{ matrix.platform[1] }}
@@ -59,7 +56,7 @@ jobs:
       matrix:
         platform:
           - [ 'x86_64', 'ubuntu-24.04' ]
-        python: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
+        python: [ '3.11', '3.12', '3.13', '3.14', '3.15' ]
         include:
           - platform: [ 'aarch64', 'ubuntu-24.04-arm' ]
             python: '3.12'
@@ -90,19 +87,19 @@ jobs:
           key: python${{ matrix.python }}-${{ matrix.platform[0] }}-${{ hashFiles('**/test_manylinux.py') }}
           restore-keys: python${{ matrix.python }}-${{ matrix.platform[0] }}-
       - name: Install CPython ${{ matrix.python }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "${{ matrix.python }}"
           allow-prereleases: true
       - name: Set up QEMU
         if: matrix.qemu
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - name: Run tests
         run: pipx run nox -s tests-${{ matrix.python }}
         env:
           AUDITWHEEL_ARCH: ${{ matrix.platform[0] }}
           AUDITWHEEL_QEMU: ${{ matrix.qemu }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-${{ matrix.python }}-${{ matrix.platform[0] }}-${{ matrix.platform[1] }}
           path: coverage-*.xml
@@ -121,12 +118,12 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: coverage-*
           merge-multiple: true
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           use_oidc: true
 
@@ -137,7 +134,7 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - name: Decide whether the needed jobs succeeded or failed
-        uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
           jobs: ${{ toJSON(needs) }}
           allowed-skips: ${{ (github.repository != 'pypa/auditwheel') && 'coverage_report' || '' }}

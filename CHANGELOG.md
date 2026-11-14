@@ -2,6 +2,16 @@
 
 ## HEAD
 
+### User-facing changes
+- [BUGFIX] avoid duplicating the wheel component in SBOMs ([#750](https://github.com/pypa/auditwheel/issues/750))
+
+## 6.8.2
+
+Released August 30, 2026
+
+### User-facing changes
+- [BUGFIX] sort SBOM components deterministically ([#730](https://github.com/pypa/auditwheel/pull/730), [#729](https://github.com/pypa/auditwheel/issues/729))
+
 ## 6.8.1
 
 Released August 15, 2026

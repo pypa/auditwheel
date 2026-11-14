@@ -42,22 +42,20 @@ def create_sbom_for_wheel(
     if not sbom_packages:
         return None
 
-    sbom_components: list[dict[str, typing.Any]] = [
-        {
-            "type": "library",
-            "bom-ref": wheel_purl,
-            "name": wheel_name,
-            "version": wheel_version,
-            "purl": wheel_purl,
-        },
-    ]
+    sbom_components: list[dict[str, typing.Any]] = []
     sbom_dependencies = [{"ref": wheel_purl, "dependsOn": []}]
     sbom_data = {
         "bomFormat": "CycloneDX",
         "specVersion": "1.4",
         "version": 1,
         "metadata": {
-            "component": sbom_components[0],
+            "component": {
+                "type": "library",
+                "bom-ref": wheel_purl,
+                "name": wheel_name,
+                "version": wheel_version,
+                "purl": wheel_purl,
+            },
             "tools": [
                 {"name": "auditwheel", "version": metadata.version("auditwheel")},
             ],
@@ -67,7 +65,7 @@ def create_sbom_for_wheel(
         "dependencies": sbom_dependencies,
     }
 
-    for filepath, provided_by in sbom_packages.items():
+    for filepath, provided_by in sorted(sbom_packages.items(), key=lambda kv: (kv[1].purl, kv[0])):
         bom_ref = (
             provided_by.purl + f"#{hashlib.sha256(filepath.encode(errors='ignore')).hexdigest()}"
         )
