@@ -134,6 +134,34 @@ def test_analyze_wheel_abi_pyfpe():
     assert winfo.overall_policy.name == "linux_x86_64"
 
 
+@pytest.mark.parametrize(
+    ("alias", "canonical"),
+    [
+        ("manylinux1", "manylinux_2_5"),
+        ("manylinux2010", "manylinux_2_12"),
+        ("manylinux2014", "manylinux_2_17"),
+    ],
+)
+def test_analyze_wheel_abi_graft_policy_alias(alias, canonical):
+    wheel = BUNDLED_WHEELS / "cffi-1.5.0-cp27-none-linux_x86_64.whl"
+    results = [
+        analyze_wheel_abi(
+            Libc.GLIBC,
+            Architecture.x86_64,
+            wheel,
+            frozenset(),
+            disable_isa_ext_check=False,
+            allow_graft=True,
+            requested_policy_base_name=policy,
+        )
+        for policy in (alias, canonical)
+    ]
+    aliased, canonical_result = results
+    assert canonical_result.external_refs[f"{canonical}_x86_64"].libs
+    assert canonical_result.graft_policy > canonical_result.policies.linux
+    assert aliased.graft_policy == canonical_result.graft_policy
+
+
 def test_show_wheel_abi_pyfpe(monkeypatch, capsys):
     wheel = str(BUNDLED_WHEELS / "fpewheel-0.0.0-cp35-cp35m-linux_x86_64.whl")
     monkeypatch.setattr(sys, "platform", "linux")
