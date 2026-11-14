@@ -670,15 +670,15 @@ class Anylinux:
         assert sbom_tools[0]["name"] == "auditwheel"
         assert "version" in sbom_tools[0]
 
-        assert sbom_components[0] == {
-            "bom-ref": expected_numpy_purl,
-            "name": "numpy",
-            "purl": expected_numpy_purl,
-            "type": "library",
-            "version": NUMPY_VERSION,
+        library_bom_refs = [component["bom-ref"] for component in sbom_components]
+        assert expected_numpy_purl not in library_bom_refs
+        assert sbom_dependencies[0] == {
+            "ref": expected_numpy_purl,
+            "dependsOn": library_bom_refs,
         }
+        assert sbom_dependencies[1:] == [{"ref": bom_ref} for bom_ref in library_bom_refs]
 
-        component_purls = {component["purl"].split("@")[0] for component in sbom_components[1:]}
+        component_purls = {component["purl"].split("@")[0] for component in sbom_components}
         # Package URL prefixes must match for a policy.
         if policy.startswith("musllinux"):
             expected_purl_prefix = "pkg:apk/alpine/"
