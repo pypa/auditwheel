@@ -163,16 +163,6 @@ def get_wheel_elfdata(
                 log.debug("processing: %s", fn)
                 elftree = ldd(fn, exclude=exclude, ldpaths=ld_paths_from_arg(args_ldpaths))
 
-                if elftree.executable_stack is None:
-                    unknown_executable_stack.append(fn)
-                    log.warning(
-                        "ELF file %r has no PT_GNU_STACK; using target libc and "
-                        "architecture stack policy",
-                        fn,
-                    )
-                elif elftree.executable_stack:
-                    executable_stack.append(fn)
-
                 try:
                     elf_arch = elftree.platform.baseline_architecture
                 except ValueError:
@@ -194,6 +184,16 @@ def get_wheel_elfdata(
                     elif libc != elftree.libc:
                         log.warning("ignoring: %s with %s libc", so_name, elftree.libc)
                         continue
+
+                if elftree.executable_stack is None:
+                    unknown_executable_stack.append(fn)
+                    log.warning(
+                        "ELF file %r has no PT_GNU_STACK; using target libc and "
+                        "architecture stack policy",
+                        fn,
+                    )
+                elif elftree.executable_stack:
+                    executable_stack.append(fn)
 
                 if policies is None and libc is not None and architecture is not None:
                     policies = WheelPolicies(libc=libc, arch=architecture, wheel_fn=wheel_fn)
