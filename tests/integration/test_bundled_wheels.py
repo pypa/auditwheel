@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import sys
@@ -11,7 +12,9 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from elftools.elf.elffile import ELFFile
 
+import auditwheel.policy
 import auditwheel.wheel_abi
 from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
@@ -21,6 +24,141 @@ from auditwheel.wheel_abi import NonPlatformWheelError, analyze_wheel_abi
 
 HERE = Path(__file__).parent.resolve()
 BUNDLED_WHEELS = HERE / ".." / "bundled-wheels"
+
+
+@pytest.mark.parametrize("allow_graft", [False, True])
+@pytest.mark.parametrize("stack_flags", [None, 6, 7], ids=["absent", "rw", "rwx"])
+@pytest.mark.parametrize(
+    ("libc", "python", "architecture", "unknown_architecture", "compatible"),
+    [
+        ("glibc", "cp313", "aarch64", False, False),
+        ("musllinux_1_2", "cp312", "x86_64", False, False),
+        ("glibc", "cp313", "x86_64", True, False),
+        ("glibc", "cp313", "x86_64", False, True),
+    ],
+    ids=["foreign-architecture", "foreign-libc", "unknown-architecture", "compatible"],
+)
+def test_stack_policy_ignores_incompatible_elf(
+    tmp_path,
+    caplog,
+    allow_graft,
+    stack_flags,
+    libc,
+    python,
+    architecture,
+    unknown_architecture,
+    compatible,
+):
+    source = BUNDLED_WHEELS / "glibc" / "testsimple-0.0.1-cp313-cp313-linux_x86_64.whl"
+    extra_source = (
+        BUNDLED_WHEELS / libc / f"testsimple-0.0.1-{python}-{python}-linux_{architecture}.whl"
+    )
+    with zipfile.ZipFile(extra_source) as archive:
+        name = next(name for name in archive.namelist() if name.endswith(".so"))
+        data = bytearray(archive.read(name))
+    elf = ELFFile(io.BytesIO(data))
+    stack_headers = 0
+    for index, segment in enumerate(elf.iter_segments()):
+        if segment.header.p_type != "PT_GNU_STACK":
+            continue
+        stack_headers += 1
+        header = segment.header
+        if stack_flags is None:
+            header.p_type = "PT_NULL"
+        else:
+            header.p_flags = stack_flags
+        offset = elf.header.e_phoff + index * elf.header.e_phentsize
+        data[offset : offset + elf.header.e_phentsize] = elf.structs.Elf_Phdr.build(header)
+    assert stack_headers == 1
+    if unknown_architecture:
+        header = elf.header
+        header.e_machine = "EM_NONE"
+        data[: elf.header.e_ehsize] = elf.structs.Elf_Ehdr.build(header)
+    assert lddtree.elf_has_executable_stack(ELFFile(io.BytesIO(data))) is (
+        None if stack_flags is None else bool(stack_flags & 1)
+    )
+
+    extra_name = f"extra/{name}"
+    wheel = tmp_path / source.name
+    with zipfile.ZipFile(source) as original, zipfile.ZipFile(wheel, "w") as modified:
+        for member in original.infolist():
+            content = original.read(member.filename)
+            if member.filename.endswith(".dist-info/RECORD"):
+                content += f"{extra_name},,\n".encode()
+            modified.writestr(member, content)
+        modified.writestr(extra_name, data)
+
+    baseline = analyze_wheel_abi(
+        Libc.GLIBC,
+        Architecture.x86_64,
+        source,
+        frozenset(),
+        disable_isa_ext_check=False,
+        allow_graft=allow_graft,
+        args_ldpaths="",
+    )
+    caplog.clear()
+    result = analyze_wheel_abi(
+        Libc.GLIBC,
+        Architecture.x86_64,
+        wheel,
+        frozenset(),
+        disable_isa_ext_check=False,
+        allow_graft=allow_graft,
+        args_ldpaths="",
+    )
+    rejects_stack = compatible and stack_flags != 6
+    assert result.executable_stack_policy == (
+        result.policies.linux if rejects_stack else baseline.executable_stack_policy
+    )
+    assert result.overall_policy == (
+        result.policies.linux if rejects_stack else baseline.overall_policy
+    )
+    expects_unknown = compatible and stack_flags is None
+    assert [path.name for path in result.unknown_executable_stack] == (
+        [Path(extra_name).name] if expects_unknown else []
+    )
+    assert any("has no PT_GNU_STACK" in record.message for record in caplog.records) == (
+        expects_unknown
+    )
+
+
+@pytest.mark.parametrize("remove_stack_header", [False, True])
+def test_analyze_wheel_missing_stack_header(tmp_path, caplog, remove_stack_header):
+    """Distinguish an absent stack declaration from an explicit non-executable one."""
+    source = BUNDLED_WHEELS / "cffi-1.5.0-cp27-none-linux_x86_64.whl"
+    wheel = tmp_path / source.name
+    with zipfile.ZipFile(source) as original, zipfile.ZipFile(wheel, "w") as modified:
+        for member in original.infolist():
+            data = original.read(member.filename)
+            if member.filename == "_cffi_backend.so":
+                elf = ELFFile(io.BytesIO(data))
+                stack_segments = [
+                    i
+                    for i, segment in enumerate(elf.iter_segments())
+                    if segment["p_type"] == "PT_GNU_STACK"
+                ]
+                assert len(stack_segments) == 1
+                assert elf.get_segment(stack_segments[0])["p_flags"] & 1 == 0
+                if remove_stack_header:
+                    offset = elf["e_phoff"] + stack_segments[0] * elf["e_phentsize"]
+                    data = data[:offset] + b"\0\0\0\0" + data[offset + 4 :]
+            modified.writestr(member, data)
+
+    result = analyze_wheel_abi(
+        Libc.GLIBC,
+        Architecture.x86_64,
+        wheel,
+        frozenset(),
+        disable_isa_ext_check=False,
+        allow_graft=True,
+    )
+    assert [path.name for path in result.unknown_executable_stack] == (
+        ["_cffi_backend.so"] if remove_stack_header else []
+    )
+    assert any("has no PT_GNU_STACK" in record.message for record in caplog.records) == (
+        remove_stack_header
+    )
 
 
 @pytest.mark.parametrize(
@@ -245,6 +383,51 @@ def test_libpython(tmp_path, caplog):
     )
 
 
+def test_repair_rejects_executable_stack(monkeypatch, tmp_path):
+    wheel = tmp_path / "demo-0.1-cp312-cp312-linux_armv7l.whl"
+    wheel.touch()
+    policies = auditwheel.policy.WheelPolicies(libc=Libc.GLIBC, arch=Architecture.armv7l)
+    winfo = Mock(
+        policies=policies,
+        overall_policy=policies.linux,
+        sym_policy=policies.highest,
+        ucs_policy=policies.highest,
+        blacklist_policy=policies.highest,
+        machine_policy=policies.highest,
+        executable_stack_policy=policies.linux,
+    )
+    monkeypatch.setattr(auditwheel.wheel_abi, "analyze_wheel_abi", lambda *_args, **_kwargs: winfo)
+    args = Namespace(
+        LIB_SDIR=".libs",
+        ONLY_PLAT=False,
+        PLAT=policies.lowest.name,
+        STRIP=False,
+        UPDATE_TAGS=True,
+        WHEEL_DIR=tmp_path / "out",
+        WHEEL_FILE=[wheel],
+        EXCLUDE=[],
+        LDPATHS=None,
+        DISABLE_ISA_EXT_CHECK=False,
+        ZIP_COMPRESSION_LEVEL=6,
+        PATCHER="none",
+        cmd="repair",
+        func=Mock(),
+        prog="auditwheel",
+        verbose=0,
+    )
+    parser = Mock()
+    parser.error.side_effect = RuntimeError
+
+    with pytest.raises(RuntimeError):
+        main_repair.execute(args, parser)
+
+    parser.error.assert_called_once_with(
+        f'cannot repair "{wheel}" to "{policies.lowest.name}" ABI because it '
+        "contains ELF files that require an executable stack or lack a required "
+        "non-executable stack declaration.",
+    )
+
+
 def test_main_lddtree(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -256,7 +439,7 @@ def test_main_lddtree(
     )
     patchelf_path = tmp_path / "patchelf-0.17.2.1.data/scripts/patchelf"
     with zipfile.ZipFile(wheel_path) as f:
-        f.extract(str(patchelf_path.relative_to(tmp_path)), tmp_path)
+        f.extract(patchelf_path.relative_to(tmp_path).as_posix(), tmp_path)
     patchelf_path = patchelf_path.resolve(strict=True)
 
     monkeypatch.setattr(sys, "platform", "linux")
@@ -283,6 +466,7 @@ def test_main_lddtree(
         "rpath": [],
         "runpath": [],
         "libraries": {},
+        "executable_stack": False,
     }
     assert expected_json == actual_json
 

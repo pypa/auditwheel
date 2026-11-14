@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from io import BytesIO
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
+from zipfile import ZipFile
 
 import pytest
 from elftools.common.exceptions import ELFError
+from elftools.elf.elffile import ELFFile
 
 from auditwheel.elfutils import (
     elf_file_filter,
@@ -14,6 +18,55 @@ from auditwheel.elfutils import (
     elf_references_pyfpe_jbuf,
     get_undefined_symbols,
 )
+from auditwheel.lddtree import elf_has_executable_stack
+
+
+@pytest.mark.parametrize(
+    ("segments", "expected"),
+    [
+        ([], None),
+        ([{"p_type": "PT_LOAD", "p_flags": 7}], None),
+        ([{"p_type": "PT_GNU_STACK", "p_flags": 6}], False),
+        ([{"p_type": "PT_GNU_STACK", "p_flags": 7}], True),
+    ],
+)
+def test_elf_has_executable_stack(segments, expected):
+    elf = Mock()
+    elf.iter_segments.return_value = [Mock(header=Mock(**segment)) for segment in segments]
+    assert elf_has_executable_stack(elf) is expected
+
+
+@pytest.mark.parametrize("architecture", ["x86_64", "i686", "aarch64", "s390x"])
+@pytest.mark.parametrize("stack_flags", [None, 6, 7], ids=["absent", "rw", "rwx"])
+def test_elf_has_executable_stack_real_elf(architecture, stack_flags):
+    wheel = (
+        Path(__file__).parents[1]
+        / "bundled-wheels"
+        / "glibc"
+        / f"testsimple-0.0.1-cp313-cp313-linux_{architecture}.whl"
+    )
+    with ZipFile(wheel) as archive:
+        name = next(name for name in archive.namelist() if name.endswith(".so"))
+        data = bytearray(archive.read(name))
+
+    elf = ELFFile(BytesIO(data))
+    stack_headers = 0
+    for index, segment in enumerate(elf.iter_segments()):
+        if segment.header.p_type != "PT_GNU_STACK":
+            continue
+        stack_headers += 1
+        header = segment.header
+        if stack_flags is None:
+            header.p_type = "PT_NULL"
+        else:
+            header.p_flags = stack_flags
+        offset = elf.header.e_phoff + index * elf.header.e_phentsize
+        data[offset : offset + elf.header.e_phentsize] = elf.structs.Elf_Phdr.build(header)
+    assert stack_headers == 1
+
+    modified_elf = ELFFile(BytesIO(data))
+    expected = None if stack_flags is None else bool(stack_flags & 1)
+    assert elf_has_executable_stack(modified_elf) is expected
 
 
 class MockSymbol(dict[str, Any]):
