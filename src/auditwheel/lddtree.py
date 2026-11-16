@@ -83,6 +83,7 @@ class DynamicLibrary:
     realpath: Path | None
     platform: Platform | None = None
     needed: tuple[str, ...] = ()
+    executable_stack: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,15 @@ class DynamicExecutable:
     rpath: tuple[str, ...]
     runpath: tuple[str, ...]
     libraries: dict[str, DynamicLibrary]
+    executable_stack: bool | None = None
+
+
+def elf_has_executable_stack(elf: ELFFile) -> bool | None:
+    """Return the explicit stack requirement, or None if PT_GNU_STACK is absent."""
+    for segment in elf.iter_segments():
+        if segment.header.p_type == "PT_GNU_STACK":
+            return bool(segment.header.p_flags & 0x1)
+    return None
 
 
 def _get_platform(elf: ELFFile) -> Platform:
@@ -499,6 +509,7 @@ def ldd(
 
         # get the platform
         platform = _get_platform(elf)
+        executable_stack = elf_has_executable_stack(elf)
 
         # If this is the first ELF, extract the interpreter.
         if _first:
@@ -631,6 +642,7 @@ def ldd(
             realpath,
             dependency.platform,
             dependency.needed,
+            dependency.executable_stack,
         )
 
     return DynamicExecutable(
@@ -643,4 +655,5 @@ def ldd(
         tuple(rpaths),
         tuple(runpaths),
         _all_libs,
+        executable_stack,
     )
