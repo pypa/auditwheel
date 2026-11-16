@@ -706,22 +706,45 @@ class Anylinux:
 
         assert len(sbom_dependencies) == len(component_purls) + 1
 
-    def test_exclude(self, anylinux: AnyLinuxContainer) -> None:
+    @pytest.mark.parametrize(
+        ("excludes", "excluded_lib", "grafted_libs"),
+        [
+            pytest.param(["liba.so"], "liba.so", set(), id="single-flag"),
+            pytest.param(["libb.so"], "libb.so", {"liba"}, id="transitive-dependency"),
+            pytest.param(["liba.so", "libb.so"], "liba.so", set(), id="multiple-flags"),
+            pytest.param(["liba.so,libb.so"], "liba.so", set(), id="comma-separated"),
+            pytest.param(
+                ["libnotfound.so,libb.so"],
+                "libb.so",
+                {"liba"},
+                id="comma-separated-second-library",
+            ),
+        ],
+    )
+    def test_exclude(
+        self,
+        anylinux: AnyLinuxContainer,
+        excludes: list[str],
+        excluded_lib: str,
+        grafted_libs: set[str],
+    ) -> None:
         """Test the --exclude argument to avoid grafting certain libraries."""
         test_path = "/auditwheel_src/tests/integration/testrpath"
         orig_wheel = anylinux.build_wheel(test_path)
 
         output = anylinux.repair(
             orig_wheel,
-            excludes=["liba.so"],
+            excludes=excludes,
             library_paths=[f"{test_path}/a"],
         )
-        assert "Excluding liba.so" in output
+        assert f"Excluding {excluded_lib}" in output
         repaired_wheel = anylinux.check_wheel("testrpath")
 
-        # Make sure we don't have liba.so & libb.so in the result
-        contents = zipfile.ZipFile(anylinux.io_folder / repaired_wheel).namelist()
-        assert not any(x for x in contents if "/liba" in x or "/libb" in x)
+        # Excluding liba also prunes libb; excluding only libb must still graft liba.
+        with zipfile.ZipFile(anylinux.io_folder / repaired_wheel) as wheel:
+            contents = wheel.namelist()
+        for lib in ("liba", "libb"):
+            assert any(f"/{lib}" in name for name in contents) == (lib in grafted_libs)
 
     def test_with_binary_executable(
         self,
