@@ -2,6 +2,9 @@
 
 ## HEAD
 
+### User-facing changes
+- [BUGFIX] avoid duplicating the wheel component in SBOMs ([#750](https://github.com/pypa/auditwheel/issues/750))
+
 ## 6.8.2
 
 Released August 30, 2026
