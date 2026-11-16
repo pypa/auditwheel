@@ -500,7 +500,10 @@ def analyze_wheel_abi(
             (
                 len(e.libs)
                 for e in external_refs.values()
-                if e.policy.name.startswith(f"{requested_policy_base_name}_")
+                if any(
+                    name.startswith(f"{requested_policy_base_name}_")
+                    for name in (e.policy.name, *e.policy.aliases)
+                )
             ),
             default=0,
         )
