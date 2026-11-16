@@ -1036,6 +1036,7 @@ class Anylinux:
             Architecture.aarch64,
             Architecture.armv7l,
             Architecture.i686,
+            Architecture.loongarch64,
             Architecture.ppc64le,
             Architecture.riscv64,
             Architecture.s390x,
@@ -1061,6 +1062,8 @@ class Anylinux:
                 platform_tag = f"manylinux1_{arch.value}.manylinux_2_5_{arch.value}"
             elif arch == Architecture.riscv64:
                 platform_tag = f"manylinux_2_31_{arch.value}"
+            elif arch == Architecture.loongarch64:
+                platform_tag = f"manylinux_2_36_{arch.value}"
             python_abi = "cp313-cp313"
         test_path = f"/auditwheel_src/tests/bundled-wheels/{source}"
         orig_wheel = f"testsimple-0.0.1-{python_abi}-linux_{arch.value}.whl"

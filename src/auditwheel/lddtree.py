@@ -148,6 +148,15 @@ def _get_platform(elf: ELFFile) -> Platform:
                     if data != 0:
                         error_msg = "unknown x86_64 ISA"
                 break
+    elif base_arch == Architecture.loongarch64:
+        if (
+            flags & E_FLAGS.EF_LOONGARCH_ABI_MODIFIER_MASK
+        ) != E_FLAGS.EF_LOONGARCH_ABI_DOUBLE_FLOAT:
+            error_msg = "loongarch64 requires the LP64D ABI"
+        elif (flags & E_FLAGS.EF_LOONGARCH_OBJABI_MASK) != E_FLAGS.EF_LOONGARCH_OBJABI_V1:
+            error_msg = "loongarch64 requires object ABI v1"
+        if error_msg is not None:
+            base_arch = None
     elif base_arch == Architecture.armv7l:
         if (flags & E_FLAGS.EF_ARM_EABIMASK) != E_FLAGS.EF_ARM_EABI_VER5:
             error_msg = "Invalid ARM EABI version for armv7l"

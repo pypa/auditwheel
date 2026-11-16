@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
     "packaging>=20.9",
-    "pyelftools>=0.24",
+    "pyelftools>=0.30",
 ]
 
 [project.scripts]
