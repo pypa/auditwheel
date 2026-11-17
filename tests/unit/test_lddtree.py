@@ -3,8 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from auditwheel import lddtree
 from auditwheel.architecture import Architecture
-from auditwheel.lddtree import LIBPYTHON_RE, ld_paths_from_arg, ldd, parse_ld_paths
+from auditwheel.lddtree import LIBPYTHON_RE, ld_paths_from_arg, ldd, load_ld_paths, parse_ld_paths
 from auditwheel.libc import Libc
 from auditwheel.tools import zip2dir
 
@@ -114,13 +115,13 @@ def test_parse_ld_paths_origin(origin):
     [
         (None, "", None),
         (None, str(HERE.parent), None),
-        ("", "", {"conf": [], "env": [], "interp": []}),
-        (str(HERE), "", {"conf": [str(HERE)], "env": [], "interp": []}),
-        ("", str(HERE), {"conf": [], "env": [str(HERE)], "interp": []}),
+        ("", "", {"conf": [], "auditwheel": [], "env": [], "interp": []}),
+        (str(HERE), "", {"conf": [str(HERE)], "auditwheel": [], "env": [], "interp": []}),
+        ("", str(HERE), {"conf": [], "auditwheel": [str(HERE)], "env": [], "interp": []}),
         (
             str(HERE),
             str(HERE.parent),
-            {"conf": [str(HERE)], "env": [str(HERE.parent)], "interp": []},
+            {"conf": [str(HERE)], "auditwheel": [str(HERE.parent)], "env": [], "interp": []},
         ),
     ],
 )
@@ -144,3 +145,101 @@ def test_libc_no_detect_musl_cp310(tmp_path: Path) -> None:
     assert result.rpath == ()
     assert result.runpath == ()
     assert not result.libraries
+
+
+def test_load_ld_paths_root_scenario(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """root != '/' should ignore standard LD_LIBRARY_PATH but retain AUDITWHEEL_LD_LIBRARY_PATH."""
+    auditwheel_dir = tmp_path / "auditwheel"
+    auditwheel_dir.mkdir()
+    ld_dir = tmp_path / "ld_library_path"
+    ld_dir.mkdir()
+
+    monkeypatch.setitem(os.environ, "AUDITWHEEL_LD_LIBRARY_PATH", str(auditwheel_dir))
+    monkeypatch.setitem(os.environ, "LD_LIBRARY_PATH", str(ld_dir))
+
+    # root is non-root
+    fake_root = tmp_path / "fake_root"
+    fake_root.mkdir()
+
+    res = load_ld_paths(Libc.GLIBC, root=str(fake_root))
+    assert res["auditwheel"] == [str(auditwheel_dir)]
+    assert res["env"] == []
+
+
+def test_runpath_vs_auditwheel_and_ld_library_path_precedence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify precedence order: AUDITWHEEL_LD_LIBRARY_PATH > RUNPATH > LD_LIBRARY_PATH."""
+    wheel = BUNDLED_WHEELS / "testzlib-0.0.1-cp310-cp310-linux_x86_64.whl"
+    so = tmp_path / "testzlib.cpython-310-x86_64-linux-gnu.so"
+    zip2dir(wheel, tmp_path)
+
+    # Prepare directories with fake libz.so.1 (use valid ELF bytes from testzlib so)
+    valid_elf_bytes = so.read_bytes()
+
+    dir_auditwheel = tmp_path / "dir_auditwheel"
+    dir_auditwheel.mkdir()
+    (dir_auditwheel / "libz.so.1").write_bytes(valid_elf_bytes)
+
+    dir_runpath = tmp_path / "dir_runpath"
+    dir_runpath.mkdir()
+    (dir_runpath / "libz.so.1").write_bytes(valid_elf_bytes)
+
+    dir_ld_lib = tmp_path / "dir_ld_lib"
+    dir_ld_lib.mkdir()
+    (dir_ld_lib / "libz.so.1").write_bytes(valid_elf_bytes)
+
+    orig_iter_segments = lddtree.ELFFile.iter_segments
+
+    def mocked_iter_segments(self):
+        for seg in orig_iter_segments(self):
+            if seg.header.p_type == "PT_DYNAMIC":
+                orig_iter_tags = getattr(seg, "iter_tags")  # noqa: B009
+
+                def mocked_iter_tags(tags_fn=orig_iter_tags):
+                    yield from tags_fn()
+                    entry = type("Entry", (), {"d_tag": "DT_RUNPATH"})()
+                    yield type(
+                        "MockTag",
+                        (),
+                        {"entry": entry, "runpath": str(dir_runpath)},
+                    )()
+
+                seg.iter_tags = mocked_iter_tags  # type: ignore[attr-defined]
+            yield seg
+
+    monkeypatch.setattr(lddtree.ELFFile, "iter_segments", mocked_iter_segments)
+
+    # 1. RUNPATH vs normal LD_LIBRARY_PATH (PR #4 historical behavior: RUNPATH must win)
+    lddtree.load_ld_paths.cache_clear()
+    monkeypatch.delenv("AUDITWHEEL_LD_LIBRARY_PATH", raising=False)
+    monkeypatch.setitem(os.environ, "LD_LIBRARY_PATH", str(dir_ld_lib))
+    res1 = ldd(so)
+    assert res1.libraries["libz.so.1"].path == str(dir_runpath / "libz.so.1")
+
+    # 2. RUNPATH vs AUDITWHEEL_LD_LIBRARY_PATH (Issue #737: AUDITWHEEL must win)
+    lddtree.load_ld_paths.cache_clear()
+    monkeypatch.setitem(os.environ, "AUDITWHEEL_LD_LIBRARY_PATH", str(dir_auditwheel))
+    monkeypatch.delenv("LD_LIBRARY_PATH", raising=False)
+    res2 = ldd(so)
+    assert res2.libraries["libz.so.1"].path == str(dir_auditwheel / "libz.so.1")
+
+    # 3. Triple precedence: AUDITWHEEL_LD_LIBRARY_PATH > RUNPATH > LD_LIBRARY_PATH
+    lddtree.load_ld_paths.cache_clear()
+    monkeypatch.setitem(os.environ, "AUDITWHEEL_LD_LIBRARY_PATH", str(dir_auditwheel))
+    monkeypatch.setitem(os.environ, "LD_LIBRARY_PATH", str(dir_ld_lib))
+    res3 = ldd(so)
+    assert res3.libraries["libz.so.1"].path == str(dir_auditwheel / "libz.so.1")
+
+    # 4. Backward compatibility: custom ldpaths dict without 'auditwheel' key
+    # Ensure no KeyError is raised and original search behavior is preserved
+    custom_ldpaths = {
+        "rpath": [],
+        "runpath": [],
+        "conf": [str(dir_runpath)],
+        "env": [str(dir_ld_lib)],
+        "interp": [],
+    }
+    res4 = ldd(so, ldpaths=custom_ldpaths)
+    assert res4.libraries["libz.so.1"].path == str(dir_runpath / "libz.so.1")
