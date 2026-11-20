@@ -6,6 +6,7 @@ functionality across many package managers.
 """
 
 import dataclasses
+import os
 import pathlib
 import re
 import shutil
@@ -19,7 +20,7 @@ __version__ = "0.4.0"
 
 _OS_RELEASE_LINES_RE = re.compile(r"^([A-Z_]+)=(?:\"([^\"]*)\"|(.*))$", re.MULTILINE)
 _APK_WHO_OWNS_RE = re.compile(r" is owned by ([^\s\-]+)-([^\s]+)$", re.MULTILINE)
-_DPKG_SEARCH_RE = re.compile(r"^([^:]+):")
+_DPKG_SEARCH_RE = re.compile(r"^([a-z0-9][a-z0-9+.-]+)(?::([a-z0-9_-]+))?:\s+", re.MULTILINE)
 _DPKG_VERSION_RE = re.compile(r"^Version: ([^\s]+)", re.MULTILINE)
 _APT_FILE_SEARCH_RE = re.compile(r"^([^:]+): (.+)$", re.MULTILINE)
 
@@ -222,20 +223,23 @@ class DpkgPackageProvider(_SinglePackageProvider):
             ).decode()
             if match := _DPKG_SEARCH_RE.search(stdout):
                 package_name = match.group(1)
-                # $ dpkg -s bash
-                # ...
-                # Version: 5.1-6ubuntu1.1
-                stdout = subprocess.check_output(
-                    [dpkg_bin, "-s", package_name],
-                    stderr=subprocess.DEVNULL,
-                ).decode()
-                if match := _DPKG_VERSION_RE.search(stdout):
-                    return ProvidedBy(
-                        package_type="deb",
-                        distro=distro,
-                        package_name=package_name,
-                        package_version=match.group(1),
-                    )
+                arch = match.group(2)
+                dpkg_status_pkgs = [f"{package_name}:{arch}", package_name] if arch else [package_name]
+                for dpkg_pkg in dpkg_status_pkgs:
+                    try:
+                        status_stdout = subprocess.check_output(
+                            [dpkg_bin, "-s", dpkg_pkg],
+                            stderr=subprocess.DEVNULL,
+                        ).decode()
+                        if version_match := _DPKG_VERSION_RE.search(status_stdout):
+                            return ProvidedBy(
+                                package_type="deb",
+                                distro=distro,
+                                package_name=package_name,
+                                package_version=version_match.group(1),
+                            )
+                    except subprocess.CalledProcessError:
+                        continue
         except subprocess.CalledProcessError:
             pass
         return None
@@ -305,32 +309,91 @@ def _package_providers() -> list[type[PackageProvider]]:
     return sorted(all_subclasses(PackageProvider), key=lambda p: p._resolve_order)
 
 
+def _candidate_paths_for_filepath(filepath: str) -> list[str]:
+    """
+    Returns ordered candidate paths to query for a given filepath:
+    1. The original filepath as requested.
+    2. The resolved canonical path (if different).
+    3. Usrmerge alternative paths (/lib <-> /usr/lib, etc.) for both original and resolved.
+    """
+    candidates: list[str] = [filepath]
+
+    try:
+        resolved = str(pathlib.Path(filepath).resolve())
+        if os.name != "posix" and filepath.startswith("/") and len(resolved) >= 2 and resolved[1] == ":":
+            resolved = resolved[2:].replace("\\", "/")
+        if resolved not in candidates:
+            candidates.append(resolved)
+    except OSError:
+        pass
+
+    # Usrmerge symlink prefixes (/usr/lib <-> /lib, /usr/bin <-> /bin, etc.)
+    usr_prefixes = (
+        ("/usr/lib64/", "/lib64/"),
+        ("/usr/lib32/", "/lib32/"),
+        ("/usr/lib/", "/lib/"),
+        ("/usr/bin/", "/bin/"),
+        ("/usr/sbin/", "/sbin/"),
+        ("/lib64/", "/usr/lib64/"),
+        ("/lib32/", "/usr/lib32/"),
+        ("/lib/", "/usr/lib/"),
+        ("/bin/", "/usr/bin/"),
+        ("/sbin/", "/usr/sbin/"),
+    )
+    for path in list(candidates):
+        for prefix, alt_prefix in usr_prefixes:
+            if path.startswith(prefix):
+                alt = alt_prefix + path[len(prefix):]
+                if alt not in candidates:
+                    candidates.append(alt)
+                break
+
+    return candidates
+
+
 def whichprovides(filepath: typing.Union[str, list[str]]) -> dict[str, ProvidedBy]:
     """Return a package URL (PURL) for the package that provides a file"""
     if isinstance(filepath, str):
         filepaths = [filepath]
     else:
-        filepaths = filepath
+        filepaths = list(filepath)
 
-    # Link between the original path to the resolved
-    # path and then allocate a structure for results.
-    resolved_filepaths = {
-        str(pathlib.Path(filepath).resolve()): filepath for filepath in filepaths
-    }
-    filepath_provided_by: dict[str, ProvidedBy] = {}
+    unique_filepaths = list(dict.fromkeys(filepaths))
+    results: dict[str, ProvidedBy] = {}
+
+    candidates_by_fp = {fp: _candidate_paths_for_filepath(fp) for fp in unique_filepaths}
+
     for package_provider in _package_providers():
-        remaining = set(resolved_filepaths) - set(filepath_provided_by)
+        remaining = [fp for fp in unique_filepaths if fp not in results]
         if not remaining:
             break
         if not package_provider.is_available():
             continue
-        results = package_provider.whichprovides(remaining)
-        filepath_provided_by.update(results)
 
-    return {
-        resolved_filepaths[filepath]: value
-        for filepath, value in filepath_provided_by.items()
-    }
+        max_candidates = max(len(candidates_by_fp[fp]) for fp in remaining)
+        for candidate_idx in range(max_candidates):
+            cand_to_origs: dict[str, list[str]] = {}
+            for fp in remaining:
+                if fp in results:
+                    continue
+                cands = candidates_by_fp[fp]
+                if candidate_idx < len(cands):
+                    cand_path = cands[candidate_idx]
+                    cand_to_origs.setdefault(cand_path, []).append(fp)
+
+            if not cand_to_origs:
+                continue
+
+            provider_results = package_provider.whichprovides(cand_to_origs.keys())
+            for cand_path, provided_by in provider_results.items():
+                for orig_fp in cand_to_origs.get(cand_path, []):
+                    if orig_fp not in results:
+                        results[orig_fp] = provided_by
+
+            if all(fp in results for fp in remaining):
+                break
+
+    return {fp: results[fp] for fp in filepaths if fp in results}
 
 
 def _main():
