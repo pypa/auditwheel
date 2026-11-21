@@ -116,6 +116,50 @@ def _fixup_elf_trees(
                 libraries_new[soname] = elf_library
         nonpy_elftree[elf_path] = dataclasses.replace(elf_executable, libraries=libraries_new)
 
+    # Second pass, see https://github.com/pypa/auditwheel/issues/574: a
+    # non-Python ELF may need a library that no resolved tree references
+    # through it, e.g. a sibling shared library that is only loaded after
+    # the Python extension already loaded the library it needs. The first
+    # pass above can only fix up a tree when a resolved tree contains the
+    # tree itself, so it leaves such siblings unresolved and repair then
+    # fails with "could not be located", even though the library is right
+    # there in the wheel. Here we resolve any still-unresolved library
+    # whose SONAME is resolved in any fully resolved ELF tree: at runtime
+    # the loader satisfies the sibling's dependency from the already
+    # loaded object of the same SONAME.
+    resolved_by_soname: dict[str, tuple[DynamicExecutable, DynamicLibrary]] = {}
+    for executable in itertools.chain(py_elf_trees.values(), nonpy_elftree.values()):
+        if not all(library.realpath is not None for library in executable.libraries.values()):
+            continue
+        for library in executable.libraries.values():
+            resolved_by_soname.setdefault(library.soname, (executable, library))
+
+    for elf_path, elf_executable in nonpy_elftree.items():
+        unresolved = {
+            soname
+            for soname, elf_library in elf_executable.libraries.items()
+            if elf_library.realpath is None
+        }
+        pending = {soname for soname in unresolved if soname in resolved_by_soname}
+        if not pending:
+            continue
+        libraries_new = dict(elf_executable.libraries)
+        soname_all = set(libraries_new)
+        while pending:
+            pending_copy = pending.copy()
+            soname_all |= pending_copy
+            for soname in pending_copy:
+                source, library = resolved_by_soname[soname]
+                libraries_new[soname] = library
+                # we need to add newly found dependencies as well
+                pending.update(
+                    needed
+                    for needed in library.needed
+                    if needed not in soname_all and needed in source.libraries
+                )
+            pending -= soname_all
+        nonpy_elftree[elf_path] = dataclasses.replace(elf_executable, libraries=libraries_new)
+
 
 @functools.lru_cache
 def get_wheel_elfdata(

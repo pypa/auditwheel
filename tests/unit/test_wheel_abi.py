@@ -294,3 +294,151 @@ def test_nonpy_elf_resolution_transitive_needed(
         assert len(warnings) == 2
     else:
         assert len(warnings) == 0
+
+
+def test_nonpy_elf_resolution_sibling_not_referenced(tmp_path: Path) -> None:
+    # https://github.com/pypa/auditwheel/issues/574: the extension loads
+    # libcore (via $ORIGIN) but does not reference the sibling library,
+    # which also needs libcore and has no search path of its own. The
+    # sibling's libcore must still resolve from the extension's tree.
+    libcore_path = tmp_path / "libcore.so"
+    sibling_path = tmp_path / "libsibling.so"
+    libcore_path.touch()
+    sibling_path.touch()
+    platform = Platform("", 64, True, "EM_X86_64", Architecture.x86_64, None, None)
+    libcore = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="libcore.so",
+        realpath=libcore_path,
+        platform=platform,
+        needed=(),
+        rpath=(),
+        runpath=(),
+        libraries={},
+    )
+    sibling = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="libsibling.so",
+        realpath=sibling_path,
+        platform=platform,
+        needed=("libcore.so",),
+        rpath=(),
+        runpath=(),
+        libraries={
+            "libcore.so": DynamicLibrary("libcore.so", None, None),
+        },
+    )
+    extension = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="extension.so",
+        realpath=Path("extension.so"),
+        platform=platform,
+        needed=("libcore.so",),
+        rpath=(),
+        runpath=(),
+        libraries={
+            "libcore.so": DynamicLibrary(
+                "libcore.so",
+                libcore.path,
+                libcore.realpath,
+                libcore.platform,
+                libcore.needed,
+            ),
+        },
+    )
+    pyelf_trees = {extension.realpath: extension}
+    nonpy_elftrees = {sibling.realpath: sibling, libcore.realpath: libcore}
+    wheel_abi._fixup_elf_trees(pyelf_trees, nonpy_elftrees)
+    assert pyelf_trees == {extension.realpath: extension}
+    assert nonpy_elftrees[sibling.realpath].libraries["libcore.so"].realpath == libcore.realpath
+
+
+def test_nonpy_elf_resolution_sibling_not_referenced_transitive(
+    tmp_path: Path,
+) -> None:
+    # Same as above, but the sibling's dependency itself needs another
+    # library: both must resolve from the extension's tree.
+    liba_path = tmp_path / "liba.so"
+    libb_path = tmp_path / "libb.so"
+    libc_path = tmp_path / "libc.so"
+    liba_path.touch()
+    libb_path.touch()
+    libc_path.touch()
+    platform = Platform("", 64, True, "EM_X86_64", Architecture.x86_64, None, None)
+    libc = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="libc.so",
+        realpath=libc_path,
+        platform=platform,
+        needed=(),
+        rpath=(),
+        runpath=(),
+        libraries={},
+    )
+    libb = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="libb.so",
+        realpath=libb_path,
+        platform=platform,
+        needed=("libc.so",),
+        rpath=(),
+        runpath=(),
+        libraries={
+            "libc.so": DynamicLibrary("libc.so", None, None),
+        },
+    )
+    liba = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="liba.so",
+        realpath=liba_path,
+        platform=platform,
+        needed=("libb.so",),
+        rpath=(),
+        runpath=(),
+        libraries={
+            "libb.so": DynamicLibrary("libb.so", None, None),
+        },
+    )
+    extension = DynamicExecutable(
+        interpreter=None,
+        libc=None,
+        path="extension.so",
+        realpath=Path("extension.so"),
+        platform=platform,
+        needed=("libb.so", "libc.so"),
+        rpath=(),
+        runpath=(),
+        libraries={
+            "libb.so": DynamicLibrary(
+                "libb.so",
+                libb.path,
+                libb.realpath,
+                libb.platform,
+                libb.needed,
+            ),
+            "libc.so": DynamicLibrary(
+                "libc.so",
+                libc.path,
+                libc.realpath,
+                libc.platform,
+                libc.needed,
+            ),
+        },
+    )
+    pyelf_trees = {extension.realpath: extension}
+    nonpy_elftrees = {
+        liba.realpath: liba,
+        libb.realpath: libb,
+        libc.realpath: libc,
+    }
+    wheel_abi._fixup_elf_trees(pyelf_trees, nonpy_elftrees)
+    assert pyelf_trees == {extension.realpath: extension}
+    assert nonpy_elftrees[liba.realpath].libraries["libb.so"].realpath == libb.realpath
+    assert nonpy_elftrees[liba.realpath].libraries["libc.so"].realpath == libc.realpath
+    assert nonpy_elftrees[libb.realpath].libraries["libc.so"].realpath == libc.realpath
